@@ -47,16 +47,18 @@
   }
   h1{
     margin:0 0 10px;
-    display:flex; align-items:center;
+    display:flex; align-items:center; justify-content:center;
   }
   h1 .brand-logo{ height:44px; width:auto; display:block; }
   .month-bar{
-    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap;
   }
   .sync-status{
-    width:30px; height:30px; border-radius:8px; background:var(--bg-panel-2); border:1px solid var(--border);
-    display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0;
+    height:30px; padding:0 10px; border-radius:8px; background:var(--bg-panel-2); border:1px solid var(--border);
+    display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--text-dim);
+    flex-shrink:0; white-space:nowrap; cursor:pointer;
   }
+  .sync-status .icon{ font-size:14px; line-height:1; }
   select, button, input, textarea{
     font-family:inherit; font-size:16px; color:var(--text);
     background:var(--bg-panel-2); border:1px solid var(--border); border-radius:10px;
@@ -218,7 +220,7 @@
     <button class="small" id="btnNewMonth">+ Novo mês</button>
     <button class="small" id="btnExportCsv">CSV</button>
     <button class="small" id="btnExportPdf">PDF</button>
-    <span id="syncStatus" class="sync-status no-print" title="Sincronizando...">🔄</span>
+    <span id="syncStatus" class="sync-status no-print" title="Sincronizando..."><span class="icon" id="syncIcon">🔄</span><span id="syncLabel">Sincronizando</span></span>
   </div>
 </header>
 
@@ -420,10 +422,17 @@
   var syncTimer = null;
   var syncInFlight = false;
   var syncStatusEl = null;
+  var syncIconEl = null;
+  var syncLabelEl = null;
+  var syncStatusMsg = "";
 
   function setSyncStatus(state, title){
+    syncStatusMsg = title || "";
     if(!syncStatusEl) return;
-    syncStatusEl.textContent = state === "ok" ? "🟢" : state === "syncing" ? "🔄" : "🟡";
+    var icon = state === "ok" ? "🟢" : state === "syncing" ? "🔄" : "🟡";
+    var label = state === "ok" ? "Sincronizado" : state === "syncing" ? "Sincronizando" : "Sem conexão";
+    if(syncIconEl) syncIconEl.textContent = icon;
+    if(syncLabelEl) syncLabelEl.textContent = label;
     syncStatusEl.title = title || "";
   }
 
@@ -462,6 +471,13 @@
 
   function initSync(){
     syncStatusEl = document.getElementById("syncStatus");
+    syncIconEl = document.getElementById("syncIcon");
+    syncLabelEl = document.getElementById("syncLabel");
+    if(syncStatusEl){
+      syncStatusEl.addEventListener("click", function(){
+        showToast(syncStatusMsg || "Sincronizando com o servidor...");
+      });
+    }
     setSyncStatus("syncing", "Verificando dados do servidor...");
     fetchRemoteState().then(function(remote){
       var remoteData = remote && remote.data;
