@@ -53,6 +53,61 @@
     --feriado-bg:#fde68a;
     --overlay-bg:rgba(80,60,110,.35);
   }
+
+  /* Temas de cor: cada um recolore a paleta roxa preservando saturação/luminosidade
+     (as cores semânticas --good/--warn/--bad/--holiday/--feriado-bg ficam fixas
+     em qualquer tema, de propósito). data-color ausente ou "roxo" = paleta padrão acima. */
+  :root[data-color="azul"]{
+    --bg:#0f242b; --bg-panel:#163640; --bg-panel-2:#1f4552; --border:#345e6f;
+    --text:#e9f9fe; --text-dim:#9bc1d1; --accent:#559ef7; --accent-2:#b4d7fe;
+    --weekend:#225460; --noschedule:#2f5966; --slot-filled-bg:#072c64;
+  }
+  :root[data-color="azul"][data-theme="light"]{
+    --bg:#f7fcff; --bg-panel:#ffffff; --bg-panel-2:#ecf5fc; --border:#d4e9f7;
+    --text:#163a50; --text-dim:#6a8699; --accent:#3385ea; --accent-2:#3aa6ed;
+    --weekend:#e7f3fc; --noschedule:#eaf3f9; --slot-filled-bg:#e1eefb;
+  }
+  :root[data-color="vermelho"]{
+    --bg:#2b0f1a; --bg-panel:#401627; --bg-panel-2:#521f32; --border:#6f3448;
+    --text:#fee9f2; --text-dim:#d19bad; --accent:#f75562; --accent-2:#feb4bc;
+    --weekend:#60223d; --noschedule:#662f45; --slot-filled-bg:#64070a;
+  }
+  :root[data-color="vermelho"][data-theme="light"]{
+    --bg:#fff7f9; --bg-panel:#ffffff; --bg-panel-2:#fcecef; --border:#f7d4dc;
+    --text:#501624; --text-dim:#996a75; --accent:#ea3342; --accent-2:#ed3a65;
+    --weekend:#fce7ec; --noschedule:#f9eaed; --slot-filled-bg:#fbe1e5;
+  }
+  :root[data-color="verde"]{
+    --bg:#0f2b16; --bg-panel:#16401f; --bg-panel-2:#1f522b; --border:#346f44;
+    --text:#e9feed; --text-dim:#9bd1aa; --accent:#55f7ab; --accent-2:#b4feda;
+    --weekend:#22602d; --noschedule:#2f663b; --slot-filled-bg:#07643d;
+  }
+  :root[data-color="verde"][data-theme="light"]{
+    --bg:#f7fffa; --bg-panel:#ffffff; --bg-panel-2:#ecfcf3; --border:#d4f7e1;
+    --text:#16502c; --text-dim:#6a997c; --accent:#33ea95; --accent-2:#3aed7e;
+    --weekend:#e7fcef; --noschedule:#eaf9f0; --slot-filled-bg:#e1fbed;
+  }
+  :root[data-color="rosa"]{
+    --bg:#2b0f26; --bg-panel:#40163a; --bg-panel-2:#521f49; --border:#6f3463;
+    --text:#fee9fb; --text-dim:#d19bc5; --accent:#f755ab; --accent-2:#feb4dd;
+    --weekend:#602259; --noschedule:#662f5e; --slot-filled-bg:#640734;
+  }
+  :root[data-color="rosa"][data-theme="light"]{
+    --bg:#fff7fc; --bg-panel:#ffffff; --bg-panel-2:#fcecf6; --border:#f7d4ec;
+    --text:#50163e; --text-dim:#996a8a; --accent:#ea3395; --accent-2:#ed3ab5;
+    --weekend:#fce7f5; --noschedule:#f9eaf4; --slot-filled-bg:#fbe1f1;
+  }
+  :root[data-color="amarelo"]{
+    --bg:#2b1b0f; --bg-panel:#402716; --bg-panel-2:#52341f; --border:#6f4f34;
+    --text:#fef1e9; --text-dim:#d1b49b; --accent:#f7c955; --accent-2:#fee7b4;
+    --weekend:#603922; --noschedule:#66452f; --slot-filled-bg:#644e07;
+  }
+  :root[data-color="amarelo"][data-theme="light"]{
+    --bg:#fffcf7; --bg-panel:#ffffff; --bg-panel-2:#fcf6ec; --border:#f7e8d4;
+    --text:#503616; --text-dim:#99856a; --accent:#eab633; --accent-2:#ed9e3a;
+    --weekend:#fcf3e7; --noschedule:#f9f3ea; --slot-filled-bg:#fbf2e1;
+  }
+
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
@@ -164,12 +219,24 @@
   }
   .reminder-toggle input{ width:auto; }
 
+  .color-swatches{ display:flex; gap:10px; flex-wrap:wrap; margin-top:4px; }
+  .color-swatch{
+    width:34px; height:34px; border-radius:50%; border:2px solid transparent;
+    padding:0; cursor:pointer; box-shadow:inset 0 0 0 1px rgba(0,0,0,.15);
+  }
+  .color-swatch.active{ border-color:var(--text); box-shadow:0 0 0 2px var(--bg), 0 0 0 4px var(--text); }
+
   .day-note-label{
     display:block; font-size:11px; color:var(--text-dim); margin:-2px 0 12px;
   }
   #dayNote{ width:100%; min-height:44px; resize:vertical; margin-top:4px; }
-  #timeSlotsInput{ width:100%; resize:vertical; }
   .note-dot{ color:var(--warn); font-size:14px; margin-left:1px; line-height:1; }
+
+  .time-slots-list{ display:flex; flex-direction:column; gap:6px; }
+  .time-slot-row{ display:flex; align-items:center; gap:6px; }
+  .time-slot-row input[type="time"]{ flex:1; min-width:0; }
+  .time-slot-row .ts-sep{ color:var(--text-dim); font-size:12px; }
+  .time-slot-row .ts-remove{ flex:0 0 auto; padding:6px 9px; }
 
   .client-row{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -553,6 +620,19 @@
     </form>
 
     <div class="account-section">
+      <h3>Aparência</h3>
+      <p class="account-section-hint">Cor do tema (funciona junto com o botão de claro/escuro no topo da tela).</p>
+      <div class="color-swatches" id="colorSwatches">
+        <button type="button" class="color-swatch" data-color-choice="roxo" title="Roxo" style="background:#a855f7;"></button>
+        <button type="button" class="color-swatch" data-color-choice="azul" title="Azul" style="background:#3d8ff5;"></button>
+        <button type="button" class="color-swatch" data-color-choice="vermelho" title="Vermelho" style="background:#f5424f;"></button>
+        <button type="button" class="color-swatch" data-color-choice="verde" title="Verde" style="background:#2fd97e;"></button>
+        <button type="button" class="color-swatch" data-color-choice="rosa" title="Rosa" style="background:#f542a8;"></button>
+        <button type="button" class="color-swatch" data-color-choice="amarelo" title="Amarelo" style="background:#f0b93a;"></button>
+      </div>
+    </div>
+
+    <div class="account-section">
       <h3>Valores rápidos</h3>
       <p class="account-section-hint">Os valores que aparecem como atalho ao lançar uma aula (separados por vírgula, use ponto pra decimais).</p>
       <div class="custom-input">
@@ -563,8 +643,11 @@
 
     <div class="account-section">
       <h3>Horários da grade (segunda a sexta)</h3>
-      <p class="account-section-hint">Os horários que aparecem na grade principal de segunda a sexta, um por linha ou separados por vírgula, na ordem que quiser. O total de horários pode ser maior ou menor que 6.</p>
-      <textarea id="timeSlotsInput" rows="4" placeholder="Ex: 07:00–08:00, 08:00–09:00, 09:00–10:00"></textarea>
+      <p class="account-section-hint">Os horários que aparecem na grade principal de segunda a sexta. Escolha início e fim de cada um pelos seletores, sem precisar digitar. Pode adicionar, remover e ter mais ou menos que 6.</p>
+      <div id="timeSlotsList" class="time-slots-list"></div>
+      <div class="row-actions" style="margin-top:4px;">
+        <button class="small ghost" id="btnAddTimeSlot" type="button">+ Adicionar horário</button>
+      </div>
       <div class="row-actions" style="margin-top:8px;">
         <button class="small" id="btnSaveTimeSlots">Salvar horários</button>
         <button class="small ghost" id="btnResetTimeSlots">Restaurar padrão (17h–23h)</button>
@@ -590,6 +673,14 @@
         Sábado/domingo têm turno de sala (5h) em vez da grade da semana
       </label>
       <p class="account-section-hint">Liga isso se sábado e domingo funcionam num turno único de 08:00–13:00 ou 13:00–18:00 (você escolhe qual, dia a dia), em vez dos horários fixos da semana. Não tem alunos VIP no fim de semana.</p>
+    </div>
+
+    <div class="account-section">
+      <h3>Zona de risco</h3>
+      <p class="account-section-hint">Apaga todos os meses, valores e alunos lançados nesta conta e começa do zero. Não afeta outras contas. Isso não pode ser desfeito.</p>
+      <div class="row-actions">
+        <button class="small bad" id="btnResetAllData">Zerar meus dados</button>
+      </div>
     </div>
 
     <div class="row-actions" style="margin-top:16px;">
@@ -689,10 +780,20 @@
   var STORAGE_KEY = null; // definido depois do login, por conta (ver bootApp)
   var THEME_KEY = "pontoOverallTheme_v1";
 
+  // Atualiza a cor da barra do navegador/PWA pra combinar com o --bg atual
+  // (depende tanto do claro/escuro quanto do tema de cor escolhido).
+  function updateThemeColorMeta(){
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if(!meta) return;
+    try{
+      var bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+      if(bg) meta.setAttribute("content", bg);
+    }catch(e){}
+  }
+
   function applyTheme(theme){
     document.documentElement.setAttribute("data-theme", theme);
-    var meta = document.querySelector('meta[name="theme-color"]');
-    if(meta) meta.setAttribute("content", theme === "light" ? "#faf7ff" : "#150f2b");
+    updateThemeColorMeta();
     var btn = document.getElementById("btnTheme");
     if(btn){
       btn.textContent = theme === "light" ? "🌙" : "☀️";
@@ -710,6 +811,42 @@
       btn.addEventListener("click", function(){
         var current = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
         applyTheme(current === "light" ? "dark" : "light");
+      });
+    }
+  }
+
+  // Tema de cor (independente de claro/escuro): roxo é o padrão original;
+  // azul/vermelho/verde/rosa/amarelo são a mesma paleta com o matiz rotacionado,
+  // preservando saturação/luminosidade (ver blocos :root[data-color="..."] no CSS).
+  // É uma preferência do aparelho (como claro/escuro), não fica salva por conta.
+  var COLOR_KEY = "pontoOverallColor_v1";
+  var VALID_COLORS = ["roxo","azul","vermelho","verde","rosa","amarelo"];
+
+  function applyColor(color){
+    if(VALID_COLORS.indexOf(color) < 0) color = "roxo";
+    if(color === "roxo"){
+      document.documentElement.removeAttribute("data-color");
+    } else {
+      document.documentElement.setAttribute("data-color", color);
+    }
+    try{ localStorage.setItem(COLOR_KEY, color); }catch(e){}
+    updateThemeColorMeta();
+    var swatches = document.querySelectorAll("#colorSwatches .color-swatch");
+    for(var i = 0; i < swatches.length; i++){
+      swatches[i].classList.toggle("active", swatches[i].getAttribute("data-color-choice") === color);
+    }
+  }
+
+  function initColor(){
+    var saved = "roxo";
+    try{ saved = localStorage.getItem(COLOR_KEY) || "roxo"; }catch(e){}
+    applyColor(saved);
+    var wrap = document.getElementById("colorSwatches");
+    if(wrap){
+      wrap.addEventListener("click", function(e){
+        var btn = e.target.closest ? e.target.closest(".color-swatch") : null;
+        if(!btn) return;
+        applyColor(btn.getAttribute("data-color-choice"));
       });
     }
   }
@@ -910,16 +1047,6 @@
     return fetch(API_BASE + path, options);
   }
 
-  function migrateLegacyLocalData(userId){
-    var newKey = "pontoOverallData_v1_" + userId;
-    try{
-      if(!localStorage.getItem(newKey)){
-        var legacy = localStorage.getItem("pontoOverallData_v1");
-        if(legacy) localStorage.setItem(newKey, legacy);
-      }
-    }catch(e){}
-  }
-
   function showAuthScreen(){
     var el = document.getElementById("authScreen");
     if(el) el.style.display = "flex";
@@ -998,7 +1125,6 @@
 
   function bootApp(){
     STORAGE_KEY = "pontoOverallData_v1_" + currentUser.id;
-    migrateLegacyLocalData(currentUser.id);
     data = loadData();
     setAccountLabel();
     applyRoleVisibility();
@@ -1145,7 +1271,7 @@
       document.getElementById("pwSuccess").textContent = "";
       document.getElementById("pwForm").reset();
       document.getElementById("quickValuesInput").value = (data.settings.quickValues || [10, 15]).join(", ");
-      document.getElementById("timeSlotsInput").value = getTimeSlots().join(", ");
+      renderTimeSlotsList(getTimeSlots());
       document.getElementById("reminderEnabled").checked = !!data.settings.reminderEnabled;
       document.getElementById("reminderTime").value = data.settings.reminderTime || "21:00";
       document.getElementById("weekendShiftEnabled").checked = !!data.settings.weekendShiftEnabled;
@@ -1161,18 +1287,78 @@
 
     // Autonomia total pra cada conta definir os proprios horarios de segunda a
     // sexta (estagiario, professor e personal podem ter jornadas bem
-    // diferentes). Aceita virgula ou quebra de linha; nao valida o formato do
-    // texto — o horario e so um rotulo, cada um escreve do jeito que faz
-    // sentido pra ele.
-    function parseTimeSlotsInput(raw){
-      return raw.split(/[\n,]/).map(function(s){ return s.trim(); }).filter(function(s){ return s.length > 0; });
+    // diferentes) — editados por seletores de horário (início/fim), sem
+    // precisar digitar texto. O rótulo salvo continua sendo uma string
+    // "HH:MM–HH:MM" (compatível com tudo que já usava getTimeSlots()).
+    function pad2Time(n){ return (n < 10 ? "0" : "") + n; }
+
+    function formatSlotLabel(start, end){ return start + "–" + end; }
+
+    // Tenta separar um rótulo existente em início/fim pelos formatos de traço
+    // que já apareceram no app (en dash "–", hífen "-"); se não conseguir
+    // reconhecer, cai num horário padrão em vez de travar.
+    function parseSlotLabel(label){
+      var parts = String(label || "").split(/[-–—]/).map(function(s){ return s.trim(); });
+      var re = /^([0-1]?\d|2[0-3]):([0-5]\d)$/;
+      if(parts.length >= 2 && re.test(parts[0]) && re.test(parts[1])){
+        return { start: parts[0], end: parts[1] };
+      }
+      return { start: "08:00", end: "09:00" };
     }
 
+    function addOneHour(hhmm){
+      var m = /^(\d{1,2}):(\d{2})$/.exec(hhmm) || ["", "8", "00"];
+      var h = (parseInt(m[1], 10) + 1) % 24;
+      return pad2Time(h) + ":" + m[2];
+    }
+
+    function timeSlotsListRowsData(){
+      var rows = document.querySelectorAll("#timeSlotsList .time-slot-row");
+      var list = [];
+      for(var i = 0; i < rows.length; i++){
+        var start = rows[i].querySelector(".ts-start").value;
+        var end = rows[i].querySelector(".ts-end").value;
+        if(!start || !end) continue;
+        list.push(formatSlotLabel(start, end));
+      }
+      return list;
+    }
+
+    function buildTimeSlotRow(start, end){
+      var row = document.createElement("div");
+      row.className = "time-slot-row";
+      row.innerHTML =
+        '<input type="time" class="ts-start" value="' + start + '" />' +
+        '<span class="ts-sep">–</span>' +
+        '<input type="time" class="ts-end" value="' + end + '" />' +
+        '<button type="button" class="small ghost ts-remove" title="Remover">🗑</button>';
+      row.querySelector(".ts-remove").addEventListener("click", function(){
+        row.remove();
+      });
+      return row;
+    }
+
+    function renderTimeSlotsList(slots){
+      var wrap = document.getElementById("timeSlotsList");
+      wrap.innerHTML = "";
+      slots.forEach(function(label){
+        var parsed = parseSlotLabel(label);
+        wrap.appendChild(buildTimeSlotRow(parsed.start, parsed.end));
+      });
+    }
+
+    document.getElementById("btnAddTimeSlot").addEventListener("click", function(){
+      var wrap = document.getElementById("timeSlotsList");
+      var rows = wrap.querySelectorAll(".time-slot-row");
+      var lastEnd = rows.length ? rows[rows.length - 1].querySelector(".ts-end").value : "";
+      var start = lastEnd || "08:00";
+      wrap.appendChild(buildTimeSlotRow(start, addOneHour(start)));
+    });
+
     document.getElementById("btnSaveTimeSlots").addEventListener("click", function(){
-      var raw = document.getElementById("timeSlotsInput").value;
-      var list = parseTimeSlotsInput(raw);
+      var list = timeSlotsListRowsData();
       if(list.length === 0){
-        showToast("Informe pelo menos um horário");
+        showToast("Escolha pelo menos um horário");
         return;
       }
       if(list.length > 20){
@@ -1183,7 +1369,7 @@
       saveData();
       renderGrid();
       renderVip();
-      document.getElementById("timeSlotsInput").value = getTimeSlots().join(", ");
+      renderTimeSlotsList(getTimeSlots());
       showToast("Horários da grade atualizados");
     });
 
@@ -1192,7 +1378,7 @@
       saveData();
       renderGrid();
       renderVip();
-      document.getElementById("timeSlotsInput").value = getTimeSlots().join(", ");
+      renderTimeSlotsList(getTimeSlots());
       showToast("Horários restaurados pro padrão (17h–23h)");
     });
 
@@ -1277,6 +1463,21 @@
 
     document.getElementById("btnLogout").addEventListener("click", function(){
       logout();
+    });
+
+    // Zera os dados da conta atual (mantido pra corrigir contas que vieram com
+    // dados de outra pessoa por causa do antigo esquema de migracao local, e
+    // como opcao de "recomecar do zero" pra qualquer conta).
+    document.getElementById("btnResetAllData").addEventListener("click", function(){
+      if(!confirm("Isso vai apagar TODOS os dados desta conta (meses, valores, alunos VIP e particulares) e começar do zero. Não pode ser desfeito. Continuar?")) return;
+      data = defaultData();
+      initMonthState();
+      saveData();
+      renderMonthSelect();
+      renderGrid();
+      renderVip();
+      document.getElementById("accountOverlay").classList.remove("open");
+      showToast("Dados apagados. Começando do zero.");
     });
 
     document.getElementById("btnForgotPassword").addEventListener("click", function(){
@@ -2762,6 +2963,7 @@
 
   // ---------- init ----------
   initTheme();
+  initColor();
   initAuthForms();
   pendingResetToken = checkResetLink();
   if(pendingResetToken){
