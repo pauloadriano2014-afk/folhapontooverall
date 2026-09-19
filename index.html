@@ -168,6 +168,7 @@
     display:block; font-size:11px; color:var(--text-dim); margin:-2px 0 12px;
   }
   #dayNote{ width:100%; min-height:44px; resize:vertical; margin-top:4px; }
+  #timeSlotsInput{ width:100%; resize:vertical; }
   .note-dot{ color:var(--warn); font-size:14px; margin-left:1px; line-height:1; }
 
   .client-row{
@@ -491,7 +492,7 @@
     <textarea id="obs" placeholder="Anotações, trocas de horário, combinados..."></textarea>
   </div>
 
-  <div class="card vip-wrap">
+  <div class="card vip-wrap" id="vipCard">
     <h2>Alunos VIP — agenda semanal fixa</h2>
     <div class="table-wrap">
       <table id="vipTable">
@@ -557,6 +558,16 @@
       <div class="custom-input">
         <input type="text" id="quickValuesInput" placeholder="Ex: 10, 15, 20" style="flex:1;" />
         <button class="small" id="btnSaveQuickValues">Salvar</button>
+      </div>
+    </div>
+
+    <div class="account-section">
+      <h3>Horários da grade (segunda a sexta)</h3>
+      <p class="account-section-hint">Os horários que aparecem na grade principal de segunda a sexta, um por linha ou separados por vírgula, na ordem que quiser. O total de horários pode ser maior ou menor que 6.</p>
+      <textarea id="timeSlotsInput" rows="4" placeholder="Ex: 07:00–08:00, 08:00–09:00, 09:00–10:00"></textarea>
+      <div class="row-actions" style="margin-top:8px;">
+        <button class="small" id="btnSaveTimeSlots">Salvar horários</button>
+        <button class="small ghost" id="btnResetTimeSlots">Restaurar padrão (17h–23h)</button>
       </div>
     </div>
 
@@ -702,7 +713,16 @@
       });
     }
   }
-  var TIME_SLOTS = ["17:00–18:00","18:00–19:00","19:00–20:00","20:00–21:00","21:00–22:00","22:00–23:00"];
+  // Horarios da grade de segunda a sexta: cada conta define os seus (estagiario,
+  // professor e personal podem ter horarios de trabalho bem diferentes), em
+  // "Minha conta". Isto e so o padrao usado quando a conta ainda nao configurou
+  // nada — nunca usar DEFAULT_TIME_SLOTS diretamente pra renderizar, sempre via
+  // getTimeSlots().
+  var DEFAULT_TIME_SLOTS = ["17:00–18:00","18:00–19:00","19:00–20:00","20:00–21:00","21:00–22:00","22:00–23:00"];
+  function getTimeSlots(){
+    var s = data && data.settings && data.settings.timeSlots;
+    return (Array.isArray(s) && s.length) ? s : DEFAULT_TIME_SLOTS;
+  }
   var DOW_NAMES = ["DOM","SEG","TER","QUA","QUI","SEX","SÁB"];
   // Horario de fim de semana alternativo (opcional, por conta): em vez da grade
   // fixa de 6 horarios da semana, sabado/domingo viram um unico turno de "sala"
@@ -794,19 +814,22 @@
   // Cada conta comeca do zero (sem horas/alunos pre-preenchidos) — os dados de
   // setembro/2026 da Paulo, que existiam antes de ter login, foram migrados
   // manualmente pra conta dele depois que ele se cadastrou.
-  function blankVipSlots(){
-    return TIME_SLOTS.map(function(){
-      return { seg:"", ter:"", qua:"", qui:"", sex:"" };
-    });
+  function blankVipSlots(count){
+    var arr = [];
+    for(var i = 0; i < count; i++){
+      arr.push({ seg:"", ter:"", qua:"", qui:"", sex:"" });
+    }
+    return arr;
   }
 
   function defaultData(){
+    var defaultSlots = DEFAULT_TIME_SLOTS.slice();
     return {
       version: 1,
       updatedAt: null,
-      settings: { defaultAuxilio: 0, quickValues: [10, 15], reminderEnabled: false, reminderTime: "21:00", weekendShiftEnabled: false },
+      settings: { defaultAuxilio: 0, quickValues: [10, 15], reminderEnabled: false, reminderTime: "21:00", weekendShiftEnabled: false, timeSlots: defaultSlots },
       months: {},
-      vip: { slots: blankVipSlots(), attendance: {} },
+      vip: { slots: blankVipSlots(defaultSlots.length), attendance: {} },
       clients: []
     };
   }
@@ -836,10 +859,13 @@
       if(!parsed || typeof parsed !== "object") return defaultData();
       var d = defaultData();
       d.settings = Object.assign(d.settings, parsed.settings || {});
+      if(!Array.isArray(d.settings.timeSlots) || d.settings.timeSlots.length === 0){
+        d.settings.timeSlots = DEFAULT_TIME_SLOTS.slice();
+      }
       d.months = parsed.months || {};
       Object.keys(d.months).forEach(function(k){ normalizeMonth(d.months[k]); });
       d.updatedAt = parsed.updatedAt || null;
-      if(parsed.vip && Array.isArray(parsed.vip.slots) && parsed.vip.slots.length === TIME_SLOTS.length){
+      if(parsed.vip && Array.isArray(parsed.vip.slots)){
         d.vip = parsed.vip;
         if(!d.vip.attendance) d.vip.attendance = {};
       }
@@ -941,11 +967,41 @@
     reminderTimer = setInterval(checkReminder, 30000); // confere a cada 30s enquanto o app estiver aberto
   }
 
+  // A funcao (Estagiario/Professor/Personal Trainer) e um campo de texto livre
+  // no cadastro (com sugestoes), entao aqui so reconhecemos com confianca as 3
+  // funcoes que o Paulo pediu pra diferenciar — qualquer coisa fora disso (em
+  // branco, digitado diferente) mostra tudo, pra nunca esconder um recurso de
+  // alguem por engano.
+  function roleCategory(){
+    var raw = (currentUser && currentUser.role) ? currentUser.role : "";
+    var norm = raw.toLowerCase()
+      .normalize("NFD").replace(/[̀-ͯ]/g, ""); // remove acentos
+    if(norm.indexOf("personal") >= 0) return "personal";
+    if(norm.indexOf("professor") >= 0) return "professor";
+    if(norm.indexOf("estagi") >= 0) return "estagiario";
+    return null;
+  }
+
+  // Nem todo mundo usa o app do mesmo jeito: estagiario tem grade + VIP mas nao
+  // atende aluno particular; personal trainer nao tem alunos VIP, so a grade e
+  // os alunos que ele mesmo cadastra; professor tem tudo. So escondemos quando
+  // temos certeza da funcao — funcao desconhecida/em branco mostra tudo.
+  function applyRoleVisibility(){
+    var cat = roleCategory();
+    var showVip = cat !== "personal";
+    var showClients = cat !== "estagiario";
+    var vipCard = document.getElementById("vipCard");
+    var clientsCard = document.getElementById("clientsCard");
+    if(vipCard) vipCard.style.display = showVip ? "" : "none";
+    if(clientsCard) clientsCard.style.display = showClients ? "" : "none";
+  }
+
   function bootApp(){
     STORAGE_KEY = "pontoOverallData_v1_" + currentUser.id;
     migrateLegacyLocalData(currentUser.id);
     data = loadData();
     setAccountLabel();
+    applyRoleVisibility();
     hideAuthScreen();
     initMonthState();
     renderMonthSelect();
@@ -1089,6 +1145,7 @@
       document.getElementById("pwSuccess").textContent = "";
       document.getElementById("pwForm").reset();
       document.getElementById("quickValuesInput").value = (data.settings.quickValues || [10, 15]).join(", ");
+      document.getElementById("timeSlotsInput").value = getTimeSlots().join(", ");
       document.getElementById("reminderEnabled").checked = !!data.settings.reminderEnabled;
       document.getElementById("reminderTime").value = data.settings.reminderTime || "21:00";
       document.getElementById("weekendShiftEnabled").checked = !!data.settings.weekendShiftEnabled;
@@ -1100,6 +1157,43 @@
       saveData();
       renderGrid();
       showToast(this.checked ? "Turno de fim de semana ativado" : "Turno de fim de semana desativado");
+    });
+
+    // Autonomia total pra cada conta definir os proprios horarios de segunda a
+    // sexta (estagiario, professor e personal podem ter jornadas bem
+    // diferentes). Aceita virgula ou quebra de linha; nao valida o formato do
+    // texto — o horario e so um rotulo, cada um escreve do jeito que faz
+    // sentido pra ele.
+    function parseTimeSlotsInput(raw){
+      return raw.split(/[\n,]/).map(function(s){ return s.trim(); }).filter(function(s){ return s.length > 0; });
+    }
+
+    document.getElementById("btnSaveTimeSlots").addEventListener("click", function(){
+      var raw = document.getElementById("timeSlotsInput").value;
+      var list = parseTimeSlotsInput(raw);
+      if(list.length === 0){
+        showToast("Informe pelo menos um horário");
+        return;
+      }
+      if(list.length > 20){
+        showToast("No máximo 20 horários");
+        return;
+      }
+      data.settings.timeSlots = list;
+      saveData();
+      renderGrid();
+      renderVip();
+      document.getElementById("timeSlotsInput").value = getTimeSlots().join(", ");
+      showToast("Horários da grade atualizados");
+    });
+
+    document.getElementById("btnResetTimeSlots").addEventListener("click", function(){
+      data.settings.timeSlots = DEFAULT_TIME_SLOTS.slice();
+      saveData();
+      renderGrid();
+      renderVip();
+      document.getElementById("timeSlotsInput").value = getTimeSlots().join(", ");
+      showToast("Horários restaurados pro padrão (17h–23h)");
     });
 
     document.getElementById("btnSaveQuickValues").addEventListener("click", function(){
@@ -1384,15 +1478,14 @@
     var year = parseInt(parts[0], 10);
     var monthIndex = parseInt(parts[1], 10) - 1;
     var nDays = daysInMonth(year, monthIndex);
+    var slotCount = getTimeSlots().length;
     var days = {};
     for(var d = 1; d <= nDays; d++){
       var dateKey = key + "-" + pad2(d);
       var isHoliday = !!holidaysForDateKey(dateKey);
-      days[dateKey] = {
-        note: "",
-        shift: null,
-        slots: isHoliday ? ["FERIADO","FERIADO","FERIADO","FERIADO","FERIADO","FERIADO"] : [null,null,null,null,null,null]
-      };
+      var slots = [];
+      for(var i = 0; i < slotCount; i++) slots.push(isHoliday ? "FERIADO" : null);
+      days[dateKey] = { note: "", shift: null, slots: slots };
     }
     data.months[key] = {
       auxilio: data.settings.defaultAuxilio || 0,
@@ -1505,8 +1598,15 @@
   }
 
   function dayTotal(dayObj){
+    // Soma so ate a quantidade de horarios configurada hoje — se a conta
+    // diminuiu a grade, um valor antigo "sobrando" num horario removido nao
+    // fica contando escondido no total (mas tambem nao e apagado: se a conta
+    // aumentar a grade de novo depois, o valor volta a aparecer).
+    var n = getTimeSlots().length;
     var sum = 0;
-    dayObj.slots.forEach(function(v){ if(typeof v === "number") sum += v; });
+    for(var i = 0; i < n; i++){
+      if(typeof dayObj.slots[i] === "number") sum += dayObj.slots[i];
+    }
     return sum;
   }
 
@@ -1534,7 +1634,7 @@
       var isWeekend = (dow === 0 || dow === 6);
       var dayObj = monthObj.days[dateKey];
       var single = isSingleShiftDay(dateKey);
-      var relevantSlots = single ? [dayObj.slots[0]] : dayObj.slots;
+      var relevantSlots = single ? [dayObj.slots[0]] : dayObj.slots.slice(0, getTimeSlots().length);
       var allFer = relevantSlots.every(function(v){ return v === "FERIADO"; });
       var allSem = relevantSlots.every(function(v){ return v === "SEM_ESCALA"; });
 
@@ -1552,11 +1652,12 @@
       rowDowEl.appendChild(thDow);
     });
 
-    for(var s = 0; s < TIME_SLOTS.length; s++){
+    var gridSlots = getTimeSlots();
+    for(var s = 0; s < gridSlots.length; s++){
       var tr = document.createElement("tr");
       var tdTime = document.createElement("td");
       tdTime.className = "timecol";
-      tdTime.textContent = TIME_SLOTS[s];
+      tdTime.textContent = gridSlots[s];
       tr.appendChild(tdTime);
 
       keys.forEach(function(dateKey){
@@ -1778,7 +1879,7 @@
       var label = dayObj.shift ? SHIFT_LABELS[dayObj.shift] : "Turno não definido";
       slotList.appendChild(buildSlotRow(dateKey, dayObj, label, 0));
     } else {
-      TIME_SLOTS.forEach(function(label, idx){
+      getTimeSlots().forEach(function(label, idx){
         slotList.appendChild(buildSlotRow(dateKey, dayObj, label, idx));
       });
     }
@@ -1900,6 +2001,16 @@
     return rowIndex + "_" + colKey + "_" + dateKey;
   }
 
+  // A grade de horarios agora e customizavel por conta, entao data.vip.slots
+  // pode ficar mais curto ou mais longo do que a lista salva antes — isso
+  // garante a linha existir (sem apagar as outras) antes de ler/gravar nela.
+  function ensureVipRow(rowIndex){
+    if(!data.vip.slots[rowIndex]){
+      data.vip.slots[rowIndex] = { seg:"", ter:"", qua:"", qui:"", sex:"" };
+    }
+    return data.vip.slots[rowIndex];
+  }
+
   function getVipAttendance(rowIndex, colKey, dateKey){
     return (data.vip.attendance || {})[vipAttendanceKey(rowIndex, colKey, dateKey)] || null;
   }
@@ -1941,7 +2052,7 @@
     var listEl = document.getElementById("vipAttendanceList");
     var titleEl = document.getElementById("vipAttendanceTitle");
     var summaryEl = document.getElementById("vipAttendanceSummary");
-    var name = data.vip.slots[rowIndex][colKey];
+    var name = (data.vip.slots[rowIndex] || {})[colKey];
     if(!name || name === "X"){
       section.style.display = "none";
       return;
@@ -1993,7 +2104,7 @@
     });
 
     vipBody.innerHTML = "";
-    TIME_SLOTS.forEach(function(label, idx){
+    getTimeSlots().forEach(function(label, idx){
       var tr = document.createElement("tr");
       var tdTime = document.createElement("td");
       tdTime.className = "timecol";
@@ -2001,7 +2112,7 @@
       tr.appendChild(tdTime);
 
       VIP_COLS.forEach(function(c){
-        var val = data.vip.slots[idx][c.key] || "";
+        var val = (data.vip.slots[idx] || {})[c.key] || "";
         var td = document.createElement("td");
         td.className = "daycell";
         var span = document.createElement("span");
@@ -2035,7 +2146,8 @@
     activeVip = { rowIndex: rowIndex, colKey: colKey };
     vipTitle.textContent = dayLabel + " · " + timeLabel;
     vipSub.textContent = "Nome do aluno, ou marque como sem aula.";
-    vipNameInput.value = data.vip.slots[rowIndex][colKey] === "X" ? "" : (data.vip.slots[rowIndex][colKey] || "");
+    var vipRow = ensureVipRow(rowIndex);
+    vipNameInput.value = vipRow[colKey] === "X" ? "" : (vipRow[colKey] || "");
     renderVipAttendanceSection(rowIndex, colKey);
     vipOverlay.classList.add("open");
     setTimeout(function(){ vipNameInput.focus(); }, 50);
@@ -2043,17 +2155,17 @@
 
   document.getElementById("vipSave").addEventListener("click", function(){
     if(!activeVip) return;
-    data.vip.slots[activeVip.rowIndex][activeVip.colKey] = vipNameInput.value.trim();
+    ensureVipRow(activeVip.rowIndex)[activeVip.colKey] = vipNameInput.value.trim();
     saveData(); renderVip(); closeOverlays();
   });
   document.getElementById("vipMarkX").addEventListener("click", function(){
     if(!activeVip) return;
-    data.vip.slots[activeVip.rowIndex][activeVip.colKey] = "X";
+    ensureVipRow(activeVip.rowIndex)[activeVip.colKey] = "X";
     saveData(); renderVip(); closeOverlays();
   });
   document.getElementById("vipClear").addEventListener("click", function(){
     if(!activeVip) return;
-    data.vip.slots[activeVip.rowIndex][activeVip.colKey] = "";
+    ensureVipRow(activeVip.rowIndex)[activeVip.colKey] = "";
     saveData(); renderVip(); closeOverlays();
   });
 
@@ -2428,7 +2540,7 @@
     });
     r += 2;
 
-    TIME_SLOTS.forEach(function(label, idx){
+    getTimeSlots().forEach(function(label, idx){
       var timeCell = ws.getCell(r, 1);
       timeCell.value = label;
       timeCell.font = { size: 9, color: { argb: "FF666666" } };
@@ -2495,43 +2607,45 @@
     ws.getRow(r).height = 34;
     r += 2;
 
-    // ---- alunos vip ----
-    titleRow("ALUNOS VIP — AGENDA SEMANAL FIXA", FILL_HEADER, "FF3B0764");
-    var vipHeadRow = r;
-    ws.getCell(vipHeadRow, 1).value = "Horário";
-    ws.getCell(vipHeadRow, 1).font = { bold: true, size: 9 };
-    ws.getCell(vipHeadRow, 1).fill = fill(FILL_HEADER);
-    ws.getCell(vipHeadRow, 1).border = THIN_BOX;
-    VIP_COLS.forEach(function(c, idx){
-      var cell = ws.getCell(vipHeadRow, idx + 2);
-      cell.value = c.label;
-      cell.font = { bold: true, size: 9 };
-      cell.fill = fill(FILL_HEADER);
-      cell.alignment = { horizontal: "center" };
-      cell.border = THIN_BOX;
-    });
-    r++;
-    TIME_SLOTS.forEach(function(label, idx){
-      var timeCell = ws.getCell(r, 1);
-      timeCell.value = label;
-      timeCell.font = { size: 9, color: { argb: "FF666666" } };
-      timeCell.border = THIN_BOX;
-      VIP_COLS.forEach(function(c, cIdx){
-        var val = data.vip.slots[idx][c.key] || "";
-        var cell = ws.getCell(r, cIdx + 2);
+    // ---- alunos vip (so pra quem ve essa secao na tela — personal trainer nao) ----
+    if(roleCategory() !== "personal"){
+      titleRow("ALUNOS VIP — AGENDA SEMANAL FIXA", FILL_HEADER, "FF3B0764");
+      var vipHeadRow = r;
+      ws.getCell(vipHeadRow, 1).value = "Horário";
+      ws.getCell(vipHeadRow, 1).font = { bold: true, size: 9 };
+      ws.getCell(vipHeadRow, 1).fill = fill(FILL_HEADER);
+      ws.getCell(vipHeadRow, 1).border = THIN_BOX;
+      VIP_COLS.forEach(function(c, idx){
+        var cell = ws.getCell(vipHeadRow, idx + 2);
+        cell.value = c.label;
+        cell.font = { bold: true, size: 9 };
+        cell.fill = fill(FILL_HEADER);
         cell.alignment = { horizontal: "center" };
         cell.border = THIN_BOX;
-        if(val){
-          cell.value = val;
-          cell.font = { bold: true, size: 9, color: { argb: "FF3B0764" } };
-          cell.fill = fill(FILL_VALUE);
-        } else {
-          cell.value = "–";
-          cell.font = { size: 9, color: { argb: "FFAAAAAA" } };
-        }
       });
       r++;
-    });
+      getTimeSlots().forEach(function(label, idx){
+        var timeCell = ws.getCell(r, 1);
+        timeCell.value = label;
+        timeCell.font = { size: 9, color: { argb: "FF666666" } };
+        timeCell.border = THIN_BOX;
+        VIP_COLS.forEach(function(c, cIdx){
+          var val = (data.vip.slots[idx] || {})[c.key] || "";
+          var cell = ws.getCell(r, cIdx + 2);
+          cell.alignment = { horizontal: "center" };
+          cell.border = THIN_BOX;
+          if(val){
+            cell.value = val;
+            cell.font = { bold: true, size: 9, color: { argb: "FF3B0764" } };
+            cell.fill = fill(FILL_VALUE);
+          } else {
+            cell.value = "–";
+            cell.font = { size: 9, color: { argb: "FFAAAAAA" } };
+          }
+        });
+        r++;
+      });
+    }
 
     return wb;
   }
