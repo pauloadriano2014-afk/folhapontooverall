@@ -46,15 +46,16 @@
     padding:calc(env(safe-area-inset-top, 0px) + 14px) 16px 6px;
   }
   h1{
-    font-size:18px; margin:0 0 10px; font-weight:700; letter-spacing:.2px;
-    display:flex; align-items:center; gap:8px;
+    margin:0 0 10px;
+    display:flex; align-items:center;
   }
-  h1 .logo{
-    width:26px;height:26px;border-radius:8px;background:var(--bg-panel-2);
-    display:flex;align-items:center;justify-content:center;border:1px solid var(--border);
-  }
+  h1 .brand-logo{ height:44px; width:auto; display:block; }
   .month-bar{
     display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  }
+  .sync-status{
+    width:30px; height:30px; border-radius:8px; background:var(--bg-panel-2); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0;
   }
   select, button, input, textarea{
     font-family:inherit; font-size:16px; color:var(--text);
@@ -175,16 +176,49 @@
     font-size:13px; z-index:200; opacity:0; pointer-events:none; transition:opacity .2s;
   }
   #toast.show{ opacity:1; }
+
+  .print-title{ display:none; }
+
+  @media print{
+    body{ background:#fff !important; color:#111 !important; padding-bottom:0; }
+    header{ position:static; background:none; padding:0 0 12px; }
+    header .month-bar, #installBanner, footer, .overlay, #toast, .no-print{ display:none !important; }
+    .print-title{ display:block; font-size:22px; font-weight:800; color:#111; margin-top:4px; }
+    main{ padding:0; max-width:100%; }
+    .card{ background:#fff; border:1px solid #ccc; box-shadow:none; break-inside:avoid; margin-bottom:14px; }
+    .card h2{ color:#444; }
+    .stat{ background:#f6f6f6; border:1px solid #ddd; }
+    .stat label, .stat .value{ color:#111 !important; }
+    .stat input{ color:#111 !important; }
+    textarea{ background:#fff; border:1px solid #ccc; color:#111; }
+    .table-wrap{ border:1px solid #ccc; overflow:visible; }
+    table{ min-width:0; width:100%; }
+    thead th, td.timecol, th.timecol{ background:#f0f0f0 !important; color:#111 !important; }
+    .daycell .slot{ background:#f8f8f8; color:#111; border:1px solid #e2e2e2; }
+    .daycell .slot.filled{ background:#e6e6e6 !important; color:#111 !important; font-weight:800; }
+    .daycell .slot.feriado{ background:#fde68a !important; color:#7c4a03 !important; }
+    .daycell .slot.sem{ color:#aaa !important; background:transparent !important; }
+    th.weekend, td.weekend .slot{ background:#eef0fb !important; }
+    th.col-holiday{ background:#fde68a !important; }
+    th.col-noschedule{ background:#e9e9e9 !important; }
+    tr.totalrow td{ background:#eee !important; color:#111 !important; border-top:2px solid #999; }
+    .vip-wrap .slot.filled{ background:#e6e6e6 !important; color:#111 !important; }
+    .vip-wrap .slot.sem{ color:#aaa !important; }
+    @page{ size:landscape; margin:12mm; }
+  }
 </style>
 </head>
 <body>
 
 <header>
-  <h1><span class="logo">⏱</span> Ponto Overall</h1>
+  <h1><img class="brand-logo" src="icons/overall-logo.png" alt="Ponto Overall - Overall Gym" /></h1>
+  <div class="print-title" id="printTitle"></div>
   <div class="month-bar">
     <select id="monthSelect"></select>
     <button class="small" id="btnNewMonth">+ Novo mês</button>
-    <button class="small" id="btnExportCsv">Exportar CSV</button>
+    <button class="small" id="btnExportCsv">CSV</button>
+    <button class="small" id="btnExportPdf">PDF</button>
+    <span id="syncStatus" class="sync-status no-print" title="Sincronizando...">🔄</span>
   </div>
 </header>
 
@@ -245,7 +279,7 @@
     </div>
   </div>
 
-  <div class="card">
+  <div class="card no-print">
     <h2>Backup dos dados</h2>
     <p style="font-size:12px;color:var(--text-dim);margin:0 0 10px;">
       Os dados ficam salvos só neste aparelho/navegador. Exporte um backup de vez em quando.
@@ -340,6 +374,7 @@
   function defaultData(){
     return {
       version: 1,
+      updatedAt: null,
       settings: { defaultAuxilio: 200 },
       months: {},
       vip: { slots: SEED_VIP.map(function(row){ return Object.assign({}, row); }) }
@@ -357,6 +392,7 @@
       var d = defaultData();
       d.settings = Object.assign(d.settings, parsed.settings || {});
       d.months = parsed.months || {};
+      d.updatedAt = parsed.updatedAt || null;
       if(parsed.vip && Array.isArray(parsed.vip.slots) && parsed.vip.slots.length === TIME_SLOTS.length){
         d.vip = parsed.vip;
       }
@@ -368,12 +404,86 @@
   }
 
   function saveData(){
+    data.updatedAt = new Date().toISOString();
     try{
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }catch(e){
       showToast("Não consegui salvar (armazenamento cheio?)");
       console.error(e);
     }
+    scheduleSync();
+  }
+
+  // ---------- sincronizacao com o servidor (Neon), pra usar o mesmo ponto no celular e no PC ----------
+  var SYNC_API_URL = "https://ponto-overall-api.onrender.com/api/state";
+  var SYNC_API_KEY = "70f735ada953b4c9d96043e6dbbdbc455c22b7b26c895b35";
+  var syncTimer = null;
+  var syncInFlight = false;
+  var syncStatusEl = null;
+
+  function setSyncStatus(state, title){
+    if(!syncStatusEl) return;
+    syncStatusEl.textContent = state === "ok" ? "🟢" : state === "syncing" ? "🔄" : "🟡";
+    syncStatusEl.title = title || "";
+  }
+
+  function scheduleSync(){
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(pushRemoteState, 900);
+  }
+
+  function pushRemoteState(){
+    if(syncInFlight){ scheduleSync(); return; }
+    syncInFlight = true;
+    setSyncStatus("syncing", "Sincronizando...");
+    fetch(SYNC_API_URL, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "x-api-key": SYNC_API_KEY },
+      body: JSON.stringify(data)
+    }).then(function(res){
+      syncInFlight = false;
+      if(!res.ok) throw new Error("HTTP " + res.status);
+      setSyncStatus("ok", "Sincronizado com o servidor");
+    }).catch(function(err){
+      syncInFlight = false;
+      setSyncStatus("offline", "Sem conexão com o servidor — salvando só neste aparelho");
+      console.warn("Falha ao sincronizar:", err);
+    });
+  }
+
+  function fetchRemoteState(){
+    return fetch(SYNC_API_URL, {
+      headers: { "x-api-key": SYNC_API_KEY }
+    }).then(function(res){
+      if(!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    });
+  }
+
+  function initSync(){
+    syncStatusEl = document.getElementById("syncStatus");
+    setSyncStatus("syncing", "Verificando dados do servidor...");
+    fetchRemoteState().then(function(remote){
+      var remoteData = remote && remote.data;
+      if(remoteData && typeof remoteData === "object"){
+        var remoteTime = remoteData.updatedAt ? new Date(remoteData.updatedAt).getTime() : 0;
+        var localTime = data.updatedAt ? new Date(data.updatedAt).getTime() : 0;
+        if(remoteTime > localTime){
+          data = remoteData;
+          try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
+          renderMonthSelect(); renderGrid(); renderVip();
+        } else if(localTime > remoteTime){
+          pushRemoteState();
+        }
+      } else {
+        // nada salvo no servidor ainda: envia o que temos aqui
+        pushRemoteState();
+      }
+      setSyncStatus("ok", "Sincronizado com o servidor");
+    }).catch(function(err){
+      setSyncStatus("offline", "Sem conexão com o servidor — usando dados salvos neste aparelho");
+      console.warn("Falha ao buscar dados do servidor:", err);
+    });
   }
 
   function pad2(n){ return (n < 10 ? "0" : "") + n; }
@@ -434,6 +544,7 @@
   var statTotal = document.getElementById("statTotal");
   var statSalario = document.getElementById("statSalario");
   var obsField = document.getElementById("obs");
+  var printTitle = document.getElementById("printTitle");
 
   function monthLabel(key){
     var parts = key.split("-");
@@ -571,6 +682,7 @@
     var salario = total + (Number(monthObj.auxilio) || 0) - (Number(monthObj.consumo) || 0);
     statTotal.textContent = total;
     statSalario.textContent = fmtMoney(salario);
+    printTitle.textContent = "Folha de Ponto Overall — " + monthLabel(currentMonthKey);
   }
 
   // ---------- day modal ----------
@@ -834,6 +946,11 @@
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   });
 
+  // ---------- PDF export (via browser print) ----------
+  document.getElementById("btnExportPdf").addEventListener("click", function(){
+    window.print();
+  });
+
   // ---------- backup json ----------
   document.getElementById("btnExportJson").addEventListener("click", function(){
     var blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
@@ -916,6 +1033,7 @@
   renderMonthSelect();
   renderGrid();
   renderVip();
+  initSync();
 })();
 </script>
 </body>
