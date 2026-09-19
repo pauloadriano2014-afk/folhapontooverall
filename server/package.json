@@ -2,14 +2,17 @@
   "name": "ponto-overall-server",
   "version": "1.0.0",
   "private": true,
-  "description": "Backend minimo (Neon Postgres) para sincronizar os dados do Ponto Overall entre aparelhos",
+  "description": "Backend (Neon Postgres) com login multiusuario para o Ponto Overall: cada pessoa tem sua propria conta e seus proprios dados sincronizados entre aparelhos",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^10.0.10",
     "pg": "^8.12.0"
   },
   "engines": {

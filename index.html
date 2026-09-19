@@ -93,7 +93,40 @@
   button.primary{ background:var(--accent); color:#1c0a33; border-color:var(--accent); font-weight:700; }
   button.ghost{ background:transparent; }
   button.small{ padding:6px 8px; font-size:12px; border-radius:8px; }
+  button.bad{ background:transparent; color:var(--bad); border-color:var(--bad); }
   button:active{ transform:scale(.97); }
+
+  /* ---------- login / cadastro ---------- */
+  .auth-screen{
+    position:fixed; inset:0; z-index:500; background:var(--bg);
+    display:flex; align-items:center; justify-content:center;
+    padding:24px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+    overflow-y:auto;
+  }
+  .auth-card{
+    width:100%; max-width:380px; background:var(--bg-panel); border:1px solid var(--border);
+    border-radius:var(--radius); padding:22px; text-align:center;
+  }
+  .auth-logo{ height:48px; width:auto; margin:0 auto 18px; display:block; }
+  .auth-tabs{ display:flex; gap:6px; background:var(--bg-panel-2); border-radius:10px; padding:4px; margin-bottom:18px; }
+  .auth-tab{
+    flex:1; background:transparent; border:none; padding:8px; border-radius:8px;
+    color:var(--text-dim); font-weight:700; font-size:13px;
+  }
+  .auth-tab.active{ background:var(--accent); color:#1c0a33; }
+  .auth-form{ display:flex; flex-direction:column; gap:12px; text-align:left; }
+  .auth-form label{ display:flex; flex-direction:column; gap:5px; font-size:12px; color:var(--text-dim); }
+  .auth-form input{ width:100%; }
+  .auth-form button{ margin-top:4px; width:100%; padding:10px; }
+  .auth-error{ color:var(--bad); font-size:12px; min-height:1px; }
+  .auth-success{ color:var(--good); font-size:12px; min-height:1px; }
+  .auth-hint{ margin:16px 0 0; font-size:11px; color:var(--text-dim); }
+  .auth-link{
+    background:transparent; border:none; color:var(--accent); font-size:12px;
+    padding:4px 0; text-align:center; text-decoration:underline; width:100%;
+  }
+  #btnAccount{ display:flex; align-items:center; gap:4px; }
+  #accountLabel{ max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
   main{ padding:10px 16px 0; max-width:1100px; margin:0 auto; }
 
@@ -115,6 +148,58 @@
   .stat .value{ font-size:19px; font-weight:800; }
   .stat.total .value{ color:var(--accent-2); }
   .stat.salario .value{ color:var(--good); font-size:22px; }
+
+  .paid-toggle{
+    display:flex; align-items:center; gap:6px; margin-top:8px; font-size:11px;
+    font-weight:600; color:var(--text-dim); cursor:pointer;
+  }
+  .paid-toggle input{ width:auto; padding:0; accent-color:var(--good); }
+
+  .account-section{ margin-top:16px; border-top:1px solid var(--border); padding-top:14px; text-align:left; }
+  .account-section h3{ font-size:13px; margin:0 0 6px; }
+  .account-section-hint{ font-size:11px; color:var(--text-dim); margin:0 0 8px; }
+  .reminder-toggle{
+    display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-dim);
+    margin-bottom:8px; cursor:pointer;
+  }
+  .reminder-toggle input{ width:auto; }
+
+  .day-note-label{
+    display:block; font-size:11px; color:var(--text-dim); margin:-2px 0 12px;
+  }
+  #dayNote{ width:100%; min-height:44px; resize:vertical; margin-top:4px; }
+  .note-dot{ color:var(--warn); font-size:14px; margin-left:1px; line-height:1; }
+
+  .client-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:10px 0; border-bottom:1px solid var(--border); flex-wrap:wrap;
+  }
+  .client-row:last-child{ border-bottom:none; }
+  .client-info{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .client-info strong{ font-size:14px; }
+  .client-meta{ font-size:11px; color:var(--text-dim); }
+  .client-value{ font-weight:800; color:var(--accent-2); white-space:nowrap; }
+  .client-days-grid{
+    display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:4px;
+  }
+  .client-day-chip{
+    display:flex; align-items:center; justify-content:center; gap:4px;
+    padding:6px 4px; border:1px solid var(--border); border-radius:8px; font-size:11px;
+    cursor:pointer; user-select:none; font-weight:600; color:var(--text-dim);
+  }
+  .client-day-chip input{ width:auto; margin:0; padding:0; }
+  .client-day-chip.checked{ background:var(--slot-filled-bg); border-color:var(--accent); color:var(--accent-2); }
+
+  .attendance-row{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:6px 0; border-bottom:1px solid var(--border); font-size:12px;
+  }
+  .attendance-row:last-child{ border-bottom:none; }
+  .attendance-btns{ display:flex; gap:6px; }
+  .attendance-btn{ padding:5px 8px; font-size:11px; }
+  .attendance-btn.presente.active{ background:var(--good); border-color:var(--good); color:#04281c; font-weight:700; }
+  .attendance-btn.falta.active{ background:var(--bad); border-color:var(--bad); color:#3a0a0a; font-weight:700; }
+  .vip-falta-badge{ color:var(--bad); font-size:9px; font-weight:800; margin-left:2px; vertical-align:super; }
 
   .legend{ display:flex; flex-wrap:wrap; gap:8px 14px; margin:-2px 0 12px; font-size:11px; color:var(--text-dim); }
   .legend-item{ display:flex; align-items:center; gap:6px; }
@@ -153,6 +238,9 @@
   .daycell .slot.filled{ background:var(--slot-filled-bg); color:var(--accent-2); }
   .daycell .slot.feriado{ background:var(--feriado-bg); color:var(--warn); font-size:9px; }
   .daycell .slot.sem{ background:transparent; color:#6b5a99; }
+  .daycell .slot.shift-slot{ width:auto; min-width:44px; padding:0 4px; font-size:10px; }
+  .daycell.cell-na{ cursor:pointer; }
+  .daycell.cell-na::after{ content:""; display:block; height:28px; }
   .dayhead{ padding:4px 4px; cursor:pointer; }
   .dayhead .num{ font-size:13px; font-weight:800; }
   .dayhead .dow{ font-size:9px; color:var(--text-dim); display:block; }
@@ -189,6 +277,9 @@
   .sheet .sub{ color:var(--text-dim); font-size:12px; margin-bottom:12px; }
   .sheet .close{ float:right; }
   .day-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .shift-selector{ align-items:center; }
+  .shift-selector-label{ font-size:12px; color:var(--text-dim); }
+  .shift-selector button.active{ background:var(--accent-2); color:#fff; }
   .slot-row{
     display:flex; align-items:center; justify-content:space-between; gap:8px;
     padding:8px 0; border-bottom:1px solid var(--border);
@@ -221,7 +312,7 @@
   @media print{
     body{ background:#fff !important; color:#111 !important; padding-bottom:0; }
     header{ position:static; background:none; padding:0 0 12px; }
-    header .month-bar, #installBanner, footer, .overlay, #toast, .no-print{ display:none !important; }
+    header .month-bar, #installBanner, footer, .overlay, .auth-screen, #toast, .no-print{ display:none !important; }
     .print-title{ display:block; font-size:22px; font-weight:800; color:#111; margin-top:4px; }
     main{ padding:0; max-width:100%; }
     .card{ background:#fff; border:1px solid #ccc; box-shadow:none; break-inside:avoid; margin-bottom:14px; }
@@ -260,15 +351,83 @@
 </head>
 <body>
 
+<div class="auth-screen" id="authScreen">
+  <div class="auth-card">
+    <img class="brand-logo auth-logo" src="icons/overall-logo.png" alt="Overall Gym" />
+    <div class="auth-tabs" id="authTabs">
+      <button type="button" class="auth-tab active" id="tabLogin">Entrar</button>
+      <button type="button" class="auth-tab" id="tabRegister">Criar conta</button>
+    </div>
+
+    <form id="loginForm" class="auth-form">
+      <label>E-mail
+        <input type="email" id="loginEmail" required autocomplete="username" />
+      </label>
+      <label>Senha
+        <input type="password" id="loginPassword" required autocomplete="current-password" />
+      </label>
+      <div class="auth-error" id="loginError"></div>
+      <button type="submit" class="primary" id="loginSubmit">Entrar</button>
+      <button type="button" class="auth-link" id="btnForgotPassword">Esqueci minha senha</button>
+    </form>
+
+    <form id="registerForm" class="auth-form" style="display:none;">
+      <label>Nome
+        <input type="text" id="regName" required autocomplete="name" />
+      </label>
+      <label>Função
+        <input type="text" id="regRole" list="roleOptions" placeholder="Ex: Estagiário" autocomplete="off" />
+        <datalist id="roleOptions">
+          <option value="Estagiário"></option>
+          <option value="Professor"></option>
+          <option value="Personal Trainer"></option>
+        </datalist>
+      </label>
+      <label>E-mail
+        <input type="email" id="regEmail" required autocomplete="username" />
+      </label>
+      <label>Senha (mínimo 6 caracteres)
+        <input type="password" id="regPassword" required autocomplete="new-password" minlength="6" />
+      </label>
+      <div class="auth-error" id="registerError"></div>
+      <button type="submit" class="primary" id="registerSubmit">Criar conta</button>
+    </form>
+
+    <form id="forgotForm" class="auth-form" style="display:none;">
+      <label>E-mail da sua conta
+        <input type="email" id="forgotEmail" required autocomplete="username" />
+      </label>
+      <div class="auth-error" id="forgotError"></div>
+      <div class="auth-success" id="forgotSuccess"></div>
+      <button type="submit" class="primary" id="forgotSubmit">Enviar link de redefinição</button>
+      <button type="button" class="auth-link" id="btnBackToLoginFromForgot">Voltar para o login</button>
+    </form>
+
+    <form id="resetForm" class="auth-form" style="display:none;">
+      <label>Nova senha (mínimo 6 caracteres)
+        <input type="password" id="resetPassword" required autocomplete="new-password" minlength="6" />
+      </label>
+      <div class="auth-error" id="resetError"></div>
+      <button type="submit" class="primary" id="resetSubmit">Salvar nova senha</button>
+      <button type="button" class="auth-link" id="btnBackToLoginFromReset">Voltar para o login</button>
+    </form>
+
+    <p class="auth-hint" id="authHint">Cada pessoa tem sua própria conta — seus dados não aparecem pra ninguém.</p>
+  </div>
+</div>
+
 <header>
   <h1><img class="brand-logo" src="icons/overall-logo.png" alt="Ponto Overall - Overall Gym" /></h1>
   <div class="print-title" id="printTitle"></div>
   <div class="month-bar">
     <select id="monthSelect"></select>
+    <button class="small" id="btnToday" title="Ir para hoje e lançar o horário">Hoje</button>
     <button class="small" id="btnNewMonth">+ Novo mês</button>
+    <button class="small" id="btnApplyHolidays" title="Marcar automaticamente os feriados nacionais e de Curitiba/PR neste mês">Feriados</button>
     <button class="small" id="btnExportCsv">Excel</button>
     <button class="small" id="btnExportPdf">PDF</button>
     <button class="small no-print" id="btnTheme" title="Alternar tema claro/escuro">🌙</button>
+    <button class="small no-print" id="btnAccount" title="Conta">👤 <span id="accountLabel">Conta</span></button>
     <span id="syncStatus" class="sync-status no-print" title="Sincronizando..."><span class="icon" id="syncIcon">🔄</span><span id="syncLabel">Sincronizando</span></span>
   </div>
 </header>
@@ -298,6 +457,10 @@
       <div class="stat salario">
         <label>Salário mensal</label>
         <div class="value" id="statSalario">0</div>
+        <label class="paid-toggle">
+          <input type="checkbox" id="inputPaid" />
+          Pago
+        </label>
       </div>
     </div>
   </div>
@@ -338,6 +501,21 @@
     </div>
   </div>
 
+  <div class="card no-print" id="clientsCard">
+    <h2>Alunos particulares — personal/avulso, com valor por aluno</h2>
+    <p class="account-section-hint" style="margin:-4px 0 10px;">
+      Cadastre aqui os alunos que você atende de forma particular, com os dias da semana e o valor por sessão. O app calcula sozinho quanto isso deve dar no mês — separado do salário da grade de horas.
+    </p>
+    <div id="clientsList"></div>
+    <div class="row-actions" style="margin-top:10px;">
+      <button class="small primary" id="btnAddClient">+ Novo aluno particular</button>
+    </div>
+    <div class="stat" style="margin-top:14px;max-width:280px;">
+      <label>Total esperado este mês (particular)</label>
+      <div class="value" id="clientsMonthTotal" style="color:var(--good);font-size:20px;">R$ 0,00</div>
+    </div>
+  </div>
+
   <div class="card no-print">
     <h2>Backup dos dados</h2>
     <p style="font-size:12px;color:var(--text-dim);margin:0 0 10px;">
@@ -352,7 +530,62 @@
 
 </main>
 
-<footer>Ponto Overall · PA TEAM ELITE · dados salvos localmente neste dispositivo</footer>
+<footer>Ponto Overall · PA TEAM ELITE · cada conta vê só os próprios dados</footer>
+
+<!-- Account modal -->
+<div class="overlay" id="accountOverlay">
+  <div class="sheet">
+    <button class="close ghost small" data-close>Fechar</button>
+    <h3>Minha conta</h3>
+    <div class="sub" id="accountSub"></div>
+
+    <form id="pwForm" class="auth-form" style="margin-top:10px;">
+      <label>Senha atual
+        <input type="password" id="pwCurrent" required autocomplete="current-password" />
+      </label>
+      <label>Nova senha (mínimo 6 caracteres)
+        <input type="password" id="pwNew" required autocomplete="new-password" minlength="6" />
+      </label>
+      <div class="auth-error" id="pwError"></div>
+      <div class="auth-success" id="pwSuccess"></div>
+      <button type="submit" class="small" id="pwSubmit">Trocar senha</button>
+    </form>
+
+    <div class="account-section">
+      <h3>Valores rápidos</h3>
+      <p class="account-section-hint">Os valores que aparecem como atalho ao lançar uma aula (separados por vírgula, use ponto pra decimais).</p>
+      <div class="custom-input">
+        <input type="text" id="quickValuesInput" placeholder="Ex: 10, 15, 20" style="flex:1;" />
+        <button class="small" id="btnSaveQuickValues">Salvar</button>
+      </div>
+    </div>
+
+    <div class="account-section">
+      <h3>Lembrete diário</h3>
+      <label class="reminder-toggle">
+        <input type="checkbox" id="reminderEnabled" />
+        Lembrar de lançar o ponto todo dia
+      </label>
+      <div class="custom-input">
+        <input type="time" id="reminderTime" style="flex:1;" />
+      </div>
+      <p class="account-section-hint">Funciona enquanto o app estiver aberto no aparelho (o navegador precisa de permissão pra notificação).</p>
+    </div>
+
+    <div class="account-section">
+      <h3>Horário de fim de semana</h3>
+      <label class="reminder-toggle">
+        <input type="checkbox" id="weekendShiftEnabled" />
+        Sábado/domingo têm turno de sala (5h) em vez da grade da semana
+      </label>
+      <p class="account-section-hint">Liga isso se sábado e domingo funcionam num turno único de 08:00–13:00 ou 13:00–18:00 (você escolhe qual, dia a dia), em vez dos horários fixos da semana. Não tem alunos VIP no fim de semana.</p>
+    </div>
+
+    <div class="row-actions" style="margin-top:16px;">
+      <button class="small bad" id="btnLogout">Sair da conta</button>
+    </div>
+  </div>
+</div>
 
 <!-- Day edit modal -->
 <div class="overlay" id="dayOverlay">
@@ -363,8 +596,18 @@
     <div class="day-actions">
       <button class="small" data-day-action="feriado">Feriado (dia todo)</button>
       <button class="small" data-day-action="sem">Sem escala (dia todo)</button>
+      <button class="small" id="btnCopyLastWeek">Repetir semana passada</button>
+      <button class="small" id="btnCopyToOthers">Copiar pra outros dias</button>
       <button class="small" data-day-action="clear">Limpar dia</button>
     </div>
+    <div class="day-actions shift-selector" id="shiftSelector" style="display:none;">
+      <span class="shift-selector-label">Turno de sala:</span>
+      <button class="small" data-shift="manha">Manhã (08:00–13:00)</button>
+      <button class="small" data-shift="tarde">Tarde (13:00–18:00)</button>
+    </div>
+    <label class="day-note-label">Anotação do dia
+      <textarea id="dayNote" rows="2" placeholder="Ex: aluno remarcou, cobri aula do Juan..."></textarea>
+    </label>
     <div id="slotList"></div>
   </div>
 </div>
@@ -383,6 +626,46 @@
       <button class="small" id="vipMarkX">Marcar "X" (sem aula)</button>
       <button class="small" id="vipClear">Limpar</button>
     </div>
+    <div class="account-section" id="vipAttendanceSection" style="display:none;">
+      <h3 id="vipAttendanceTitle">Presença</h3>
+      <div id="vipAttendanceList"></div>
+      <p class="account-section-hint" id="vipAttendanceSummary"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Aluno particular (personal/avulso) modal -->
+<div class="overlay" id="clientOverlay">
+  <div class="sheet">
+    <button class="close ghost small" data-close>Fechar</button>
+    <h3 id="clientTitle">Novo aluno particular</h3>
+    <form id="clientForm" class="auth-form">
+      <label>Nome do aluno
+        <input type="text" id="clientName" required />
+      </label>
+      <label>Valor por sessão (R$)
+        <input type="number" id="clientRate" inputmode="decimal" min="0" step="0.01" required />
+      </label>
+      <label>Horário (opcional)
+        <input type="text" id="clientTime" placeholder="Ex: 07:00" />
+      </label>
+      <label>Dias da semana
+        <div class="client-days-grid" id="clientDaysGrid"></div>
+      </label>
+      <div class="account-section" style="margin-top:2px;">
+        <h3 id="clientAdjustTitle">Ajuste manual neste mês</h3>
+        <p class="account-section-hint">Some ou subtraia sessões deste mês (ex: -1 se o aluno faltou, +1 se fez uma sessão extra).</p>
+        <div class="custom-input">
+          <input type="number" id="clientAdjustCount" step="1" style="width:80px;" placeholder="0" />
+          <input type="text" id="clientAdjustNote" placeholder="Motivo (opcional)" style="flex:1;" />
+        </div>
+      </div>
+      <div class="auth-error" id="clientError"></div>
+      <button type="submit" class="primary" id="clientSave">Salvar aluno</button>
+    </form>
+    <div class="row-actions" style="margin-top:12px;">
+      <button class="small bad" id="btnDeleteClient">Excluir aluno</button>
+    </div>
   </div>
 </div>
 
@@ -392,7 +675,7 @@
 (function(){
   "use strict";
 
-  var STORAGE_KEY = "pontoOverallData_v1";
+  var STORAGE_KEY = null; // definido depois do login, por conta (ver bootApp)
   var THEME_KEY = "pontoOverallTheme_v1";
 
   function applyTheme(theme){
@@ -421,6 +704,16 @@
   }
   var TIME_SLOTS = ["17:00–18:00","18:00–19:00","19:00–20:00","20:00–21:00","21:00–22:00","22:00–23:00"];
   var DOW_NAMES = ["DOM","SEG","TER","QUA","QUI","SEX","SÁB"];
+  // Horario de fim de semana alternativo (opcional, por conta): em vez da grade
+  // fixa de 6 horarios da semana, sabado/domingo viram um unico turno de "sala"
+  // de 5 horas, cujo horario exato (manha ou tarde) muda de fim de semana pra
+  // fim de semana — por isso e escolhido manualmente dia a dia, nao fixo.
+  var SHIFT_LABELS = { manha: "08:00–13:00", tarde: "13:00–18:00" };
+  var SHIFT_SHORT = { manha: "08–13", tarde: "13–18" };
+  function isWeekendDow(dow){ return dow === 0 || dow === 6; }
+  function isSingleShiftDay(dateKey){
+    return !!data.settings.weekendShiftEnabled && isWeekendDow(dowOfDateKey(dateKey));
+  }
   var VIP_COLS = [
     {key:"seg", label:"SEG"},
     {key:"ter", label:"TER"},
@@ -429,44 +722,111 @@
     {key:"sex", label:"SEX"}
   ];
 
-  // ---------- seed data (imported from the original FOLHA PONTO OVERALL spreadsheet, set. 2026) ----------
-  var SEED_MONTH_KEY = "2026-09";
-  var SEED_DAYS = {
-    "01":[10,10,15,15,15,10], "02":[15,10,15,15,15,10], "03":[15,10,15,15,15,10],
-    "04":[10,10,10,15,15,10], "05":[10,10,10,10,10,null], "06":[15,15,15,15,15,null],
-    "07":["FERIADO","FERIADO","FERIADO","FERIADO","FERIADO","FERIADO"],
-    "08":["FERIADO","FERIADO","FERIADO","FERIADO","FERIADO","FERIADO"],
-    "09":[15,10,10,15,15,10], "10":[15,10,10,15,15,10], "11":[15,10,10,10,10,10],
-    "12":["SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA"],
-    "13":["SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA"],
-    "14":[15,10,15,15,10,10], "15":[10,10,15,15,15,10],
-    "19":[10,10,10,10,10,null], "20":[15,15,15,15,15,null],
-    "26":["SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA"],
-    "27":["SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA"]
-  };
-  var SEED_AUXILIO = 200;
-  var SEED_OBS = "Aula experimental Dani / Juan adiantou a aula do Gregory";
-  var SEED_VIP = [
-    {seg:"Camila", ter:"X", qua:"Camila", qui:"Camila", sex:"X"},
-    {seg:"Aline", ter:"X", qua:"Aline", qui:"X", sex:"Aline"},
-    {seg:"", ter:"Cristiane", qua:"Cristiane", qui:"Cristiane", sex:"X"},
-    {seg:"Fabiana", ter:"Fabiana", qua:"Fabiana", qui:"Fabiana", sex:"Fabiana"},
-    {seg:"Gregory", ter:"Gregory", qua:"Gregory", qui:"Gregory", sex:"Gregory"},
-    {seg:"X", ter:"X", qua:"X", qui:"X", sex:"X"}
-  ];
+  // ---------- feriados nacionais + Curitiba/PR ----------
+  // Calculados na hora (sem precisar baixar nada), pra marcar automaticamente os
+  // dias de feriado quando um mes novo e criado, ou quando a pessoa clica em
+  // "Feriados" pra aplicar num mes ja existente. So marca dias que ainda estao
+  // 100% vazios — nunca sobrescreve um dia que a pessoa ja preencheu.
+  function easterDate(year){
+    // Algoritmo de Meeus/Jones/Butcher, usado so pra derivar Carnaval,
+    // Sexta-feira Santa e Corpus Christi de cada ano a partir da Pascoa.
+    var a = year % 19;
+    var b = Math.floor(year / 100);
+    var c = year % 100;
+    var d = Math.floor(b / 4);
+    var e = b % 4;
+    var f = Math.floor((b + 8) / 25);
+    var g = Math.floor((b - f + 1) / 3);
+    var h = (19 * a + b - d - g + 15) % 30;
+    var i = Math.floor(c / 4);
+    var k = c % 4;
+    var l = (32 + 2 * e + 2 * i - h - k) % 7;
+    var m = Math.floor((a + 11 * h + 22 * l) / 451);
+    var month = Math.floor((h + l - 7 * m + 114) / 31); // 3=marco, 4=abril
+    var day = ((h + l - 7 * m + 114) % 31) + 1;
+    return new Date(year, month - 1, day);
+  }
+
+  function addDays(date, days){
+    var d = new Date(date);
+    d.setDate(d.getDate() + days);
+    return d;
+  }
+
+  function dateKeyOf(date){
+    return date.getFullYear() + "-" + pad2(date.getMonth() + 1) + "-" + pad2(date.getDate());
+  }
+
+  function getHolidaysForYear(year){
+    var easter = easterDate(year);
+    var map = {};
+    function add(date, name){ map[dateKeyOf(date)] = name; }
+
+    add(new Date(year, 0, 1), "Confraternização Universal");
+    add(new Date(year, 3, 21), "Tiradentes");
+    add(new Date(year, 4, 1), "Dia do Trabalho");
+    add(new Date(year, 8, 7), "Independência do Brasil");
+    add(new Date(year, 8, 8), "Nossa Senhora da Luz dos Pinhais (Curitiba)");
+    add(new Date(year, 9, 12), "Nossa Senhora Aparecida");
+    add(new Date(year, 10, 2), "Finados");
+    add(new Date(year, 10, 15), "Proclamação da República");
+    add(new Date(year, 10, 20), "Dia da Consciência Negra");
+    add(new Date(year, 11, 25), "Natal");
+    add(new Date(year, 2, 29), "Aniversário de Curitiba");
+    add(new Date(year, 11, 19), "Emancipação Política do Paraná");
+
+    add(addDays(easter, -48), "Carnaval (segunda)");
+    add(addDays(easter, -47), "Carnaval (terça)");
+    add(addDays(easter, -2), "Sexta-feira Santa");
+    add(addDays(easter, 60), "Corpus Christi");
+
+    return map;
+  }
+
+  var HOLIDAY_CACHE = {};
+  function holidaysForDateKey(dateKey){
+    var year = parseInt(dateKey.split("-")[0], 10);
+    if(!HOLIDAY_CACHE[year]) HOLIDAY_CACHE[year] = getHolidaysForYear(year);
+    return HOLIDAY_CACHE[year][dateKey] || null;
+  }
 
   // ---------- data layer ----------
+  // Cada conta comeca do zero (sem horas/alunos pre-preenchidos) — os dados de
+  // setembro/2026 da Paulo, que existiam antes de ter login, foram migrados
+  // manualmente pra conta dele depois que ele se cadastrou.
+  function blankVipSlots(){
+    return TIME_SLOTS.map(function(){
+      return { seg:"", ter:"", qua:"", qui:"", sex:"" };
+    });
+  }
+
   function defaultData(){
     return {
       version: 1,
       updatedAt: null,
-      settings: { defaultAuxilio: 200 },
+      settings: { defaultAuxilio: 0, quickValues: [10, 15], reminderEnabled: false, reminderTime: "21:00", weekendShiftEnabled: false },
       months: {},
-      vip: { slots: SEED_VIP.map(function(row){ return Object.assign({}, row); }) }
+      vip: { slots: blankVipSlots(), attendance: {} },
+      clients: []
     };
   }
 
-  var data = loadData();
+  // Garante que dias/meses vindos de um backup mais antigo (de antes dessas
+  // funcoes existirem) tenham os campos novos com um valor padrao, em vez de
+  // ficar undefined.
+  function normalizeDay(dayObj){
+    if(typeof dayObj.note !== "string") dayObj.note = "";
+    if(typeof dayObj.shift === "undefined") dayObj.shift = null;
+    return dayObj;
+  }
+
+  function normalizeMonth(monthObj){
+    if(typeof monthObj.paid !== "boolean") monthObj.paid = false;
+    Object.keys(monthObj.days).forEach(function(k){ normalizeDay(monthObj.days[k]); });
+    return monthObj;
+  }
+
+  var data = defaultData();
 
   function loadData(){
     try{
@@ -477,10 +837,18 @@
       var d = defaultData();
       d.settings = Object.assign(d.settings, parsed.settings || {});
       d.months = parsed.months || {};
+      Object.keys(d.months).forEach(function(k){ normalizeMonth(d.months[k]); });
       d.updatedAt = parsed.updatedAt || null;
       if(parsed.vip && Array.isArray(parsed.vip.slots) && parsed.vip.slots.length === TIME_SLOTS.length){
         d.vip = parsed.vip;
+        if(!d.vip.attendance) d.vip.attendance = {};
       }
+      d.clients = Array.isArray(parsed.clients) ? parsed.clients : [];
+      d.clients.forEach(function(c){
+        if(!c.days) c.days = blankClientDays();
+        if(!c.adjustments) c.adjustments = {};
+        if(!c.id) c.id = newClientId();
+      });
       return d;
     }catch(e){
       console.warn("Falha ao carregar dados, iniciando vazio.", e);
@@ -499,9 +867,427 @@
     scheduleSync();
   }
 
+  // ---------- login / conta ----------
+  var API_BASE = "https://ponto-overall-api.onrender.com";
+  var TOKEN_KEY = "pontoOverallToken_v1";
+  var USER_KEY = "pontoOverallUser_v1";
+  var authToken = null;
+  var currentUser = null;
+  var pendingResetToken = null; // token de "esqueci minha senha" vindo da URL (ver checkResetLink)
+
+  function authFetch(path, options){
+    options = options || {};
+    var headers = {};
+    for(var k in (options.headers || {})){ headers[k] = options.headers[k]; }
+    if(authToken) headers["Authorization"] = "Bearer " + authToken;
+    options.headers = headers;
+    return fetch(API_BASE + path, options);
+  }
+
+  function migrateLegacyLocalData(userId){
+    var newKey = "pontoOverallData_v1_" + userId;
+    try{
+      if(!localStorage.getItem(newKey)){
+        var legacy = localStorage.getItem("pontoOverallData_v1");
+        if(legacy) localStorage.setItem(newKey, legacy);
+      }
+    }catch(e){}
+  }
+
+  function showAuthScreen(){
+    var el = document.getElementById("authScreen");
+    if(el) el.style.display = "flex";
+  }
+
+  function hideAuthScreen(){
+    var el = document.getElementById("authScreen");
+    if(el) el.style.display = "none";
+  }
+
+  function setAccountLabel(){
+    var el = document.getElementById("accountLabel");
+    if(el) el.textContent = currentUser ? currentUser.name.split(" ")[0] : "Conta";
+  }
+
+  // ---------- lembrete diario ----------
+  var reminderTimer = null;
+  var lastReminderShownKey = null; // "AAAA-MM-DD" do ultimo dia que ja avisamos, pra nao repetir
+
+  function checkReminder(){
+    if(!data.settings.reminderEnabled) return;
+    if(!("Notification" in window) || Notification.permission !== "granted") return;
+    var now = new Date();
+    var hhmm = pad2(now.getHours()) + ":" + pad2(now.getMinutes());
+    var todayFull = now.getFullYear() + "-" + pad2(now.getMonth() + 1) + "-" + pad2(now.getDate());
+    if(hhmm !== (data.settings.reminderTime || "21:00")) return;
+    if(lastReminderShownKey === todayFull) return;
+    var monthObj = data.months[todayFull.slice(0, 7)];
+    var dayObj = monthObj ? monthObj.days[todayFull] : null;
+    var relevantToday = dayObj ? (isSingleShiftDay(todayFull) ? [dayObj.slots[0]] : dayObj.slots) : [];
+    var isEmpty = !dayObj || relevantToday.every(function(v){ return v === null || v === undefined; });
+    lastReminderShownKey = todayFull;
+    if(isEmpty){
+      try{
+        new Notification("Ponto Overall", {
+          body: "Não esqueça de lançar as horas de hoje!",
+          icon: "icons/icon-192.png"
+        });
+      }catch(e){ console.warn("Falha ao mostrar notificação:", e); }
+    }
+  }
+
+  function startReminderLoop(){
+    clearInterval(reminderTimer);
+    reminderTimer = setInterval(checkReminder, 30000); // confere a cada 30s enquanto o app estiver aberto
+  }
+
+  function bootApp(){
+    STORAGE_KEY = "pontoOverallData_v1_" + currentUser.id;
+    migrateLegacyLocalData(currentUser.id);
+    data = loadData();
+    setAccountLabel();
+    hideAuthScreen();
+    initMonthState();
+    renderMonthSelect();
+    renderGrid();
+    renderVip();
+    initSync();
+    startReminderLoop();
+  }
+
+  function onAuthSuccess(user, token){
+    authToken = token;
+    currentUser = user;
+    try{
+      localStorage.setItem(TOKEN_KEY, token);
+      localStorage.setItem(USER_KEY, JSON.stringify(user));
+    }catch(e){}
+    bootApp();
+  }
+
+  function logout(){
+    authToken = null;
+    currentUser = null;
+    clearTimeout(syncTimer);
+    clearInterval(reminderTimer);
+    lastReminderShownKey = null;
+    try{
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+    }catch(e){}
+    document.querySelectorAll(".overlay").forEach(function(o){ o.classList.remove("open"); });
+    document.getElementById("loginForm").reset();
+    document.getElementById("registerForm").reset();
+    document.getElementById("forgotForm").reset();
+    document.getElementById("loginError").textContent = "";
+    document.getElementById("registerError").textContent = "";
+    document.getElementById("forgotError").textContent = "";
+    document.getElementById("forgotSuccess").textContent = "";
+    showAuthView("login");
+    showAuthScreen();
+  }
+
+  function handleAuthExpired(){
+    showToast("Sua sessão expirou. Entre novamente.");
+    logout();
+  }
+
+  function authErrorMessage(body, fallback){
+    return (body && body.message) ? body.message : fallback;
+  }
+
+  // Alterna entre as 4 telas dentro do cartao de login: "login", "register",
+  // "forgot" (pedir link de redefinicao) e "reset" (definir a nova senha, quando
+  // a pessoa chega pelo link do e-mail). As abas Entrar/Criar conta só aparecem
+  // nas duas primeiras.
+  function showAuthView(view){
+    var tabs = document.getElementById("authTabs");
+    var hint = document.getElementById("authHint");
+    var isTabView = (view === "login" || view === "register");
+    tabs.style.display = isTabView ? "flex" : "none";
+    hint.style.display = isTabView ? "block" : "none";
+    document.getElementById("tabLogin").classList.toggle("active", view === "login");
+    document.getElementById("tabRegister").classList.toggle("active", view === "register");
+    document.getElementById("loginForm").style.display = view === "login" ? "flex" : "none";
+    document.getElementById("registerForm").style.display = view === "register" ? "flex" : "none";
+    document.getElementById("forgotForm").style.display = view === "forgot" ? "flex" : "none";
+    document.getElementById("resetForm").style.display = view === "reset" ? "flex" : "none";
+  }
+
+  function initAuthForms(){
+    var tabLogin = document.getElementById("tabLogin");
+    var tabRegister = document.getElementById("tabRegister");
+    var loginForm = document.getElementById("loginForm");
+    var registerForm = document.getElementById("registerForm");
+
+    tabLogin.addEventListener("click", function(){ showAuthView("login"); });
+    tabRegister.addEventListener("click", function(){ showAuthView("register"); });
+
+    loginForm.addEventListener("submit", function(e){
+      e.preventDefault();
+      var errEl = document.getElementById("loginError");
+      errEl.textContent = "";
+      var email = document.getElementById("loginEmail").value.trim();
+      var password = document.getElementById("loginPassword").value;
+      var btn = document.getElementById("loginSubmit");
+      btn.disabled = true; btn.textContent = "Entrando...";
+      fetch(API_BASE + "/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email, password: password })
+      }).then(function(res){
+        return res.json().then(function(body){ return { ok: res.ok, body: body }; });
+      }).then(function(r){
+        btn.disabled = false; btn.textContent = "Entrar";
+        if(!r.ok){
+          errEl.textContent = authErrorMessage(r.body, "Não consegui entrar. Confira e-mail e senha.");
+          return;
+        }
+        onAuthSuccess(r.body.user, r.body.token);
+      }).catch(function(err){
+        btn.disabled = false; btn.textContent = "Entrar";
+        errEl.textContent = "Sem conexão com o servidor. Tente novamente.";
+        console.warn("Falha no login:", err);
+      });
+    });
+
+    registerForm.addEventListener("submit", function(e){
+      e.preventDefault();
+      var errEl = document.getElementById("registerError");
+      errEl.textContent = "";
+      var name = document.getElementById("regName").value.trim();
+      var role = document.getElementById("regRole").value.trim();
+      var email = document.getElementById("regEmail").value.trim();
+      var password = document.getElementById("regPassword").value;
+      var btn = document.getElementById("registerSubmit");
+      btn.disabled = true; btn.textContent = "Criando...";
+      fetch(API_BASE + "/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name, role: role, email: email, password: password })
+      }).then(function(res){
+        return res.json().then(function(body){ return { ok: res.ok, body: body }; });
+      }).then(function(r){
+        btn.disabled = false; btn.textContent = "Criar conta";
+        if(!r.ok){
+          errEl.textContent = authErrorMessage(r.body, "Não consegui criar a conta.");
+          return;
+        }
+        onAuthSuccess(r.body.user, r.body.token);
+      }).catch(function(err){
+        btn.disabled = false; btn.textContent = "Criar conta";
+        errEl.textContent = "Sem conexão com o servidor. Tente novamente.";
+        console.warn("Falha no cadastro:", err);
+      });
+    });
+
+    document.getElementById("btnAccount").addEventListener("click", function(){
+      if(!currentUser) return;
+      document.getElementById("accountSub").textContent =
+        currentUser.name + (currentUser.role ? " · " + currentUser.role : "") + " · " + currentUser.email;
+      document.getElementById("pwError").textContent = "";
+      document.getElementById("pwSuccess").textContent = "";
+      document.getElementById("pwForm").reset();
+      document.getElementById("quickValuesInput").value = (data.settings.quickValues || [10, 15]).join(", ");
+      document.getElementById("reminderEnabled").checked = !!data.settings.reminderEnabled;
+      document.getElementById("reminderTime").value = data.settings.reminderTime || "21:00";
+      document.getElementById("weekendShiftEnabled").checked = !!data.settings.weekendShiftEnabled;
+      document.getElementById("accountOverlay").classList.add("open");
+    });
+
+    document.getElementById("weekendShiftEnabled").addEventListener("change", function(){
+      data.settings.weekendShiftEnabled = this.checked;
+      saveData();
+      renderGrid();
+      showToast(this.checked ? "Turno de fim de semana ativado" : "Turno de fim de semana desativado");
+    });
+
+    document.getElementById("btnSaveQuickValues").addEventListener("click", function(){
+      var raw = document.getElementById("quickValuesInput").value;
+      var nums = raw.split(",").map(function(s){ return parseFloat(s.trim()); }).filter(function(n){ return !isNaN(n) && n > 0; });
+      if(nums.length === 0){
+        showToast("Informe pelo menos um valor válido");
+        return;
+      }
+      data.settings.quickValues = nums;
+      saveData();
+      showToast("Valores rápidos atualizados");
+    });
+
+    document.getElementById("reminderEnabled").addEventListener("change", function(){
+      var checkbox = this;
+      if(!checkbox.checked){
+        data.settings.reminderEnabled = false;
+        saveData();
+        showToast("Lembrete desativado");
+        return;
+      }
+      if(!("Notification" in window)){
+        showToast("Seu navegador não suporta notificações.");
+        checkbox.checked = false;
+        return;
+      }
+      if(Notification.permission === "granted"){
+        data.settings.reminderEnabled = true;
+        saveData();
+        showToast("Lembrete ativado!");
+        return;
+      }
+      Notification.requestPermission().then(function(perm){
+        if(perm !== "granted"){
+          checkbox.checked = false;
+          showToast("Permissão de notificação negada.");
+          return;
+        }
+        data.settings.reminderEnabled = true;
+        saveData();
+        showToast("Lembrete ativado!");
+      });
+    });
+
+    document.getElementById("reminderTime").addEventListener("change", function(){
+      data.settings.reminderTime = this.value || "21:00";
+      saveData();
+      lastReminderShownKey = null; // permite avisar hoje de novo no horario atualizado
+    });
+
+    document.getElementById("pwForm").addEventListener("submit", function(e){
+      e.preventDefault();
+      var errEl = document.getElementById("pwError");
+      var okEl = document.getElementById("pwSuccess");
+      errEl.textContent = ""; okEl.textContent = "";
+      var currentPassword = document.getElementById("pwCurrent").value;
+      var newPassword = document.getElementById("pwNew").value;
+      var btn = document.getElementById("pwSubmit");
+      btn.disabled = true; btn.textContent = "Trocando...";
+      authFetch("/api/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword: currentPassword, newPassword: newPassword })
+      }).then(function(res){
+        return res.json().then(function(body){ return { ok: res.ok, body: body }; });
+      }).then(function(r){
+        btn.disabled = false; btn.textContent = "Trocar senha";
+        if(!r.ok){
+          errEl.textContent = authErrorMessage(r.body, "Não consegui trocar a senha.");
+          return;
+        }
+        okEl.textContent = "Senha alterada com sucesso.";
+        document.getElementById("pwForm").reset();
+      }).catch(function(err){
+        btn.disabled = false; btn.textContent = "Trocar senha";
+        errEl.textContent = "Sem conexão com o servidor. Tente novamente.";
+        console.warn("Falha ao trocar senha:", err);
+      });
+    });
+
+    document.getElementById("btnLogout").addEventListener("click", function(){
+      logout();
+    });
+
+    document.getElementById("btnForgotPassword").addEventListener("click", function(){
+      document.getElementById("forgotEmail").value = document.getElementById("loginEmail").value.trim();
+      document.getElementById("forgotError").textContent = "";
+      document.getElementById("forgotSuccess").textContent = "";
+      showAuthView("forgot");
+    });
+    document.getElementById("btnBackToLoginFromForgot").addEventListener("click", function(){
+      showAuthView("login");
+    });
+    document.getElementById("btnBackToLoginFromReset").addEventListener("click", function(){
+      pendingResetToken = null;
+      try{
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }catch(hErr){}
+      document.getElementById("resetForm").reset();
+      document.getElementById("resetError").textContent = "";
+      showAuthView("login");
+    });
+
+    document.getElementById("forgotForm").addEventListener("submit", function(e){
+      e.preventDefault();
+      var errEl = document.getElementById("forgotError");
+      var okEl = document.getElementById("forgotSuccess");
+      errEl.textContent = ""; okEl.textContent = "";
+      var email = document.getElementById("forgotEmail").value.trim();
+      var btn = document.getElementById("forgotSubmit");
+      btn.disabled = true; btn.textContent = "Enviando...";
+      fetch(API_BASE + "/api/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email })
+      }).then(function(res){
+        return res.json().then(function(body){ return { ok: res.ok, body: body }; });
+      }).then(function(r){
+        btn.disabled = false; btn.textContent = "Enviar link de redefinição";
+        if(!r.ok){
+          errEl.textContent = authErrorMessage(r.body, "Não consegui enviar o e-mail agora.");
+          return;
+        }
+        okEl.textContent = authErrorMessage(r.body, "Se esse e-mail tiver uma conta, enviamos um link de redefinição. Confira sua caixa de entrada (e o spam).");
+        document.getElementById("forgotForm").reset();
+      }).catch(function(err){
+        btn.disabled = false; btn.textContent = "Enviar link de redefinição";
+        errEl.textContent = "Sem conexão com o servidor. Tente novamente.";
+        console.warn("Falha ao pedir redefinição de senha:", err);
+      });
+    });
+
+    document.getElementById("resetForm").addEventListener("submit", function(e){
+      e.preventDefault();
+      var errEl = document.getElementById("resetError");
+      errEl.textContent = "";
+      if(!pendingResetToken){
+        errEl.textContent = "Link inválido. Peça um novo em \"Esqueci minha senha\".";
+        return;
+      }
+      var newPassword = document.getElementById("resetPassword").value;
+      var btn = document.getElementById("resetSubmit");
+      btn.disabled = true; btn.textContent = "Salvando...";
+      fetch(API_BASE + "/api/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: pendingResetToken, newPassword: newPassword })
+      }).then(function(res){
+        return res.json().then(function(body){ return { ok: res.ok, body: body }; });
+      }).then(function(r){
+        btn.disabled = false; btn.textContent = "Salvar nova senha";
+        if(!r.ok){
+          errEl.textContent = authErrorMessage(r.body, "Não consegui redefinir a senha.");
+          return;
+        }
+        pendingResetToken = null;
+        try{
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }catch(hErr){}
+        document.getElementById("resetForm").reset();
+        showAuthView("login");
+        showToast("Senha redefinida! Faça login com a nova senha.");
+      }).catch(function(err){
+        btn.disabled = false; btn.textContent = "Salvar nova senha";
+        errEl.textContent = "Sem conexão com o servidor. Tente novamente.";
+        console.warn("Falha ao redefinir senha:", err);
+      });
+    });
+  }
+
+  function resumeSession(){
+    var token = null, user = null;
+    try{
+      token = localStorage.getItem(TOKEN_KEY);
+      var raw = localStorage.getItem(USER_KEY);
+      user = raw ? JSON.parse(raw) : null;
+    }catch(e){}
+    if(token && user){
+      authToken = token;
+      currentUser = user;
+      bootApp();
+    } else {
+      showAuthScreen();
+    }
+  }
+
   // ---------- sincronizacao com o servidor (Neon), pra usar o mesmo ponto no celular e no PC ----------
-  var SYNC_API_URL = "https://ponto-overall-api.onrender.com/api/state";
-  var SYNC_API_KEY = "70f735ada953b4c9d96043e6dbbdbc455c22b7b26c895b35";
   var syncTimer = null;
   var syncInFlight = false;
   var syncStatusEl = null;
@@ -525,15 +1311,17 @@
   }
 
   function pushRemoteState(){
+    if(!authToken) return;
     if(syncInFlight){ scheduleSync(); return; }
     syncInFlight = true;
     setSyncStatus("syncing", "Sincronizando...");
-    fetch(SYNC_API_URL, {
+    authFetch("/api/state", {
       method: "PUT",
-      headers: { "Content-Type": "application/json", "x-api-key": SYNC_API_KEY },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data)
     }).then(function(res){
       syncInFlight = false;
+      if(res.status === 401){ handleAuthExpired(); return; }
       if(!res.ok) throw new Error("HTTP " + res.status);
       setSyncStatus("ok", "Sincronizado com o servidor");
     }).catch(function(err){
@@ -544,9 +1332,8 @@
   }
 
   function fetchRemoteState(){
-    return fetch(SYNC_API_URL, {
-      headers: { "x-api-key": SYNC_API_KEY }
-    }).then(function(res){
+    return authFetch("/api/state").then(function(res){
+      if(res.status === 401){ handleAuthExpired(); throw new Error("auth_expired"); }
       if(!res.ok) throw new Error("HTTP " + res.status);
       return res.json();
     });
@@ -592,27 +1379,58 @@
   function daysInMonth(year, monthIndex){ return new Date(year, monthIndex + 1, 0).getDate(); }
 
   function ensureMonth(key){
-    if(data.months[key]) return data.months[key];
+    if(data.months[key]) return normalizeMonth(data.months[key]);
     var parts = key.split("-");
     var year = parseInt(parts[0], 10);
     var monthIndex = parseInt(parts[1], 10) - 1;
     var nDays = daysInMonth(year, monthIndex);
-    var isSeedMonth = (key === SEED_MONTH_KEY);
     var days = {};
     for(var d = 1; d <= nDays; d++){
-      var dd = pad2(d);
-      var dateKey = key + "-" + dd;
-      var seedSlots = isSeedMonth && SEED_DAYS[dd] ? SEED_DAYS[dd].slice() : [null,null,null,null,null,null];
-      days[dateKey] = { slots: seedSlots };
+      var dateKey = key + "-" + pad2(d);
+      var isHoliday = !!holidaysForDateKey(dateKey);
+      days[dateKey] = {
+        note: "",
+        shift: null,
+        slots: isHoliday ? ["FERIADO","FERIADO","FERIADO","FERIADO","FERIADO","FERIADO"] : [null,null,null,null,null,null]
+      };
     }
     data.months[key] = {
-      auxilio: isSeedMonth ? SEED_AUXILIO : (data.settings.defaultAuxilio || 0),
+      auxilio: data.settings.defaultAuxilio || 0,
       consumo: 0,
-      obs: isSeedMonth ? SEED_OBS : "",
+      obs: "",
+      paid: false,
       days: days
     };
     saveData();
     return data.months[key];
+  }
+
+  // Marca como feriado (sem apagar nada que ja tenha sido preenchido) os dias
+  // deste mes que caem em feriado nacional ou de Curitiba/PR. Usado tanto pelo
+  // botao "Feriados" (aplicar num mes ja existente) quanto internamente.
+  function applyHolidaysToMonth(monthKey){
+    var monthObj = ensureMonth(monthKey);
+    var keys = dayKeysOf(monthKey);
+    var count = 0;
+    keys.forEach(function(dateKey){
+      var name = holidaysForDateKey(dateKey);
+      if(!name) return;
+      var dayObj = monthObj.days[dateKey];
+      var single = isSingleShiftDay(dateKey);
+      var untouched = single
+        ? (dayObj.slots[0] === null || dayObj.slots[0] === undefined)
+        : dayObj.slots.every(function(v){ return v === null || v === undefined; });
+      if(untouched){
+        if(single){
+          dayObj.slots[0] = "FERIADO";
+        } else {
+          dayObj.slots = dayObj.slots.map(function(){ return "FERIADO"; });
+        }
+        count++;
+      }
+    });
+    if(count > 0) saveData();
+    return count;
   }
 
   function sortedMonthKeys(){
@@ -625,10 +1443,20 @@
     return monthKeyOf(t.getFullYear(), t.getMonth());
   })();
 
-  if(Object.keys(data.months).length === 0){
-    ensureMonth(todayKey);
+  var currentMonthKey = todayKey;
+  var todayFullKey = (function(){
+    var t = new Date();
+    return t.getFullYear() + "-" + pad2(t.getMonth() + 1) + "-" + pad2(t.getDate());
+  })();
+
+  // Chamado depois que os dados da conta logada ja foram carregados (ver bootApp),
+  // nunca antes disso — pra nao criar/gravar um mes "no vazio" antes do login.
+  function initMonthState(){
+    if(Object.keys(data.months).length === 0){
+      ensureMonth(todayKey);
+    }
+    currentMonthKey = sortedMonthKeys().indexOf(todayKey) >= 0 ? todayKey : sortedMonthKeys()[sortedMonthKeys().length - 1];
   }
-  var currentMonthKey = sortedMonthKeys().indexOf(todayKey) >= 0 ? todayKey : sortedMonthKeys()[sortedMonthKeys().length - 1];
 
   var activeDayKey = null;
   var activeVip = null; // {rowIndex, colKey}
@@ -644,6 +1472,7 @@
   var statSalario = document.getElementById("statSalario");
   var obsField = document.getElementById("obs");
   var printTitle = document.getElementById("printTitle");
+  var inputPaid = document.getElementById("inputPaid");
 
   function monthLabel(key){
     var parts = key.split("-");
@@ -658,7 +1487,7 @@
     keys.forEach(function(k){
       var opt = document.createElement("option");
       opt.value = k;
-      opt.textContent = monthLabel(k);
+      opt.textContent = monthLabel(k) + (data.months[k] && data.months[k].paid ? " ✓" : "");
       if(k === currentMonthKey) opt.selected = true;
       monthSelect.appendChild(opt);
     });
@@ -704,12 +1533,15 @@
       var dow = dowOfDateKey(dateKey);
       var isWeekend = (dow === 0 || dow === 6);
       var dayObj = monthObj.days[dateKey];
-      var allFer = dayObj.slots.every(function(v){ return v === "FERIADO"; });
-      var allSem = dayObj.slots.every(function(v){ return v === "SEM_ESCALA"; });
+      var single = isSingleShiftDay(dateKey);
+      var relevantSlots = single ? [dayObj.slots[0]] : dayObj.slots;
+      var allFer = relevantSlots.every(function(v){ return v === "FERIADO"; });
+      var allSem = relevantSlots.every(function(v){ return v === "SEM_ESCALA"; });
 
+      var hasNote = !!(dayObj.note && dayObj.note.trim());
       var thNum = document.createElement("th");
       thNum.className = "dayhead" + (isWeekend ? " weekend" : "") + (allFer ? " col-holiday" : "") + (allSem ? " col-noschedule" : "");
-      thNum.innerHTML = "<span class='num'>" + pad2(dayNum) + "</span>";
+      thNum.innerHTML = "<span class='num'>" + pad2(dayNum) + "</span>" + (hasNote ? "<span class='note-dot' title='Tem anotação'>•</span>" : "");
       if(clickable) thNum.addEventListener("click", function(){ openDayModal(dateKey); });
       rowNumEl.appendChild(thNum);
 
@@ -731,22 +1563,35 @@
         var dow = dowOfDateKey(dateKey);
         var isWeekend = (dow === 0 || dow === 6);
         var dayObj = monthObj.days[dateKey];
-        var val = dayObj.slots[s];
+        var single = isSingleShiftDay(dateKey);
         var td = document.createElement("td");
         td.className = "daycell" + (isWeekend ? " weekend" : "");
+
+        // Fim de semana com turno unico ligado: so a primeira "linha" (s===0)
+        // representa algo (o turno de 5h de sala); as outras 5 linhas ficam
+        // em branco/nao clicaveis pra essa coluna, ja que nao existem.
+        if(single && s > 0){
+          td.className += " cell-na";
+          if(clickable) td.addEventListener("click", function(dk){ return function(){ openDayModal(dk); }; }(dateKey));
+          tr.appendChild(td);
+          return;
+        }
+
+        var val = single ? dayObj.slots[0] : dayObj.slots[s];
         var span = document.createElement("span");
-        span.className = "slot";
+        span.className = "slot" + (single ? " shift-slot" : "");
+        var shiftTag = single ? (dayObj.shift ? SHIFT_SHORT[dayObj.shift] : "?") + " · " : "";
         if(val === null || val === undefined){
-          span.textContent = "–";
+          span.textContent = shiftTag + "–";
           span.className += " sem";
         } else if(val === "FERIADO"){
-          span.textContent = "FER";
+          span.textContent = shiftTag + "FER";
           span.className += " feriado";
         } else if(val === "SEM_ESCALA"){
-          span.textContent = "s/e";
+          span.textContent = shiftTag + "s/e";
           span.className += " sem";
         } else {
-          span.textContent = val;
+          span.textContent = shiftTag + val;
           span.className += " filled";
         }
         td.appendChild(span);
@@ -812,12 +1657,15 @@
     inputAuxilio.value = monthObj.auxilio;
     inputConsumo.value = monthObj.consumo;
     obsField.value = monthObj.obs || "";
+    inputPaid.checked = !!monthObj.paid;
 
     var total = monthTotal(monthObj);
     var salario = total + (Number(monthObj.auxilio) || 0) - (Number(monthObj.consumo) || 0);
     statTotal.textContent = total;
     statSalario.textContent = fmtMoney(salario);
     printTitle.textContent = "Folha de Ponto Overall — " + monthLabel(currentMonthKey);
+    renderClients();
+    renderVip();
   }
 
   // ---------- day modal ----------
@@ -826,88 +1674,114 @@
   var daySub = document.getElementById("daySub");
   var slotList = document.getElementById("slotList");
 
+  // Constroi uma linha de horario (usada tanto pros 6 horarios fixos da semana
+  // quanto pro turno unico de fim de semana, que so tem uma linha — idx sempre
+  // aponta pra posicao real dentro de dayObj.slots que aquela linha edita).
+  function buildSlotRow(dateKey, dayObj, label, idx){
+    var row = document.createElement("div");
+    row.className = "slot-row";
+
+    var time = document.createElement("div");
+    time.className = "time";
+    time.textContent = label;
+    row.appendChild(time);
+
+    var current = document.createElement("div");
+    current.className = "current";
+    current.textContent = describeSlot(dayObj.slots[idx]);
+    row.appendChild(current);
+
+    var btns = document.createElement("div");
+    btns.className = "slot-btns";
+
+    var quickValues = (data.settings.quickValues && data.settings.quickValues.length) ? data.settings.quickValues : [10, 15];
+    quickValues.forEach(function(v){
+      var b = document.createElement("button");
+      b.className = "small";
+      b.textContent = v;
+      b.addEventListener("click", function(){
+        dayObj.slots[idx] = v;
+        saveData(); openDayModal(dateKey); renderGrid();
+      });
+      btns.appendChild(b);
+    });
+
+    var bCustom = document.createElement("button");
+    bCustom.className = "small";
+    bCustom.textContent = "Outro";
+    bCustom.addEventListener("click", function(){
+      var v = prompt("Valor para este horário:", typeof dayObj.slots[idx] === "number" ? dayObj.slots[idx] : "");
+      if(v === null) return;
+      var num = parseFloat(v.replace(",", "."));
+      if(isNaN(num)){ showToast("Valor inválido"); return; }
+      dayObj.slots[idx] = num;
+      saveData(); openDayModal(dateKey); renderGrid();
+    });
+    btns.appendChild(bCustom);
+
+    var bFer = document.createElement("button");
+    bFer.className = "small";
+    bFer.textContent = "Feriado";
+    bFer.addEventListener("click", function(){
+      dayObj.slots[idx] = "FERIADO";
+      saveData(); openDayModal(dateKey); renderGrid();
+    });
+    btns.appendChild(bFer);
+
+    var bSem = document.createElement("button");
+    bSem.className = "small";
+    bSem.textContent = "Sem escala";
+    bSem.addEventListener("click", function(){
+      dayObj.slots[idx] = "SEM_ESCALA";
+      saveData(); openDayModal(dateKey); renderGrid();
+    });
+    btns.appendChild(bSem);
+
+    var bClear = document.createElement("button");
+    bClear.className = "small ghost";
+    bClear.textContent = "Limpar";
+    bClear.addEventListener("click", function(){
+      dayObj.slots[idx] = null;
+      saveData(); openDayModal(dateKey); renderGrid();
+    });
+    btns.appendChild(bClear);
+
+    row.appendChild(btns);
+    return row;
+  }
+
   function openDayModal(dateKey){
     activeDayKey = dateKey;
     var monthObj = ensureMonth(currentMonthKey);
     var dayObj = monthObj.days[dateKey];
     var dow = dowOfDateKey(dateKey);
     var dayNum = parseInt(dateKey.split("-")[2], 10);
+    var single = isSingleShiftDay(dateKey);
 
     dayTitle.textContent = "Dia " + pad2(dayNum) + " · " + DOW_NAMES[dow];
-    daySub.textContent = "Toque num valor rápido ou digite um valor personalizado.";
+    document.getElementById("dayNote").value = dayObj.note || "";
+
+    var shiftSelector = document.getElementById("shiftSelector");
+    if(single){
+      daySub.textContent = "Fim de semana — escolha o turno de sala (5h) e o valor. Sem alunos VIP no fim de semana.";
+      shiftSelector.style.display = "flex";
+      shiftSelector.querySelectorAll("[data-shift]").forEach(function(btn){
+        btn.classList.toggle("active", dayObj.shift === btn.getAttribute("data-shift"));
+      });
+    } else {
+      daySub.textContent = "Toque num valor rápido ou digite um valor personalizado.";
+      shiftSelector.style.display = "none";
+    }
 
     slotList.innerHTML = "";
-    TIME_SLOTS.forEach(function(label, idx){
-      var row = document.createElement("div");
-      row.className = "slot-row";
-
-      var time = document.createElement("div");
-      time.className = "time";
-      time.textContent = label;
-      row.appendChild(time);
-
-      var current = document.createElement("div");
-      current.className = "current";
-      current.textContent = describeSlot(dayObj.slots[idx]);
-      row.appendChild(current);
-
-      var btns = document.createElement("div");
-      btns.className = "slot-btns";
-
-      [10, 15].forEach(function(v){
-        var b = document.createElement("button");
-        b.className = "small";
-        b.textContent = v;
-        b.addEventListener("click", function(){
-          dayObj.slots[idx] = v;
-          saveData(); openDayModal(dateKey); renderGrid();
-        });
-        btns.appendChild(b);
+    if(single){
+      var label = dayObj.shift ? SHIFT_LABELS[dayObj.shift] : "Turno não definido";
+      slotList.appendChild(buildSlotRow(dateKey, dayObj, label, 0));
+    } else {
+      TIME_SLOTS.forEach(function(label, idx){
+        slotList.appendChild(buildSlotRow(dateKey, dayObj, label, idx));
       });
-
-      var bCustom = document.createElement("button");
-      bCustom.className = "small";
-      bCustom.textContent = "Outro";
-      bCustom.addEventListener("click", function(){
-        var v = prompt("Valor para este horário:", typeof dayObj.slots[idx] === "number" ? dayObj.slots[idx] : "");
-        if(v === null) return;
-        var num = parseFloat(v.replace(",", "."));
-        if(isNaN(num)){ showToast("Valor inválido"); return; }
-        dayObj.slots[idx] = num;
-        saveData(); openDayModal(dateKey); renderGrid();
-      });
-      btns.appendChild(bCustom);
-
-      var bFer = document.createElement("button");
-      bFer.className = "small";
-      bFer.textContent = "Feriado";
-      bFer.addEventListener("click", function(){
-        dayObj.slots[idx] = "FERIADO";
-        saveData(); openDayModal(dateKey); renderGrid();
-      });
-      btns.appendChild(bFer);
-
-      var bSem = document.createElement("button");
-      bSem.className = "small";
-      bSem.textContent = "Sem escala";
-      bSem.addEventListener("click", function(){
-        dayObj.slots[idx] = "SEM_ESCALA";
-        saveData(); openDayModal(dateKey); renderGrid();
-      });
-      btns.appendChild(bSem);
-
-      var bClear = document.createElement("button");
-      bClear.className = "small ghost";
-      bClear.textContent = "Limpar";
-      bClear.addEventListener("click", function(){
-        dayObj.slots[idx] = null;
-        saveData(); openDayModal(dateKey); renderGrid();
-      });
-      btns.appendChild(bClear);
-
-      row.appendChild(btns);
-      slotList.appendChild(row);
-    });
+    }
 
     dayOverlay.classList.add("open");
   }
@@ -933,9 +1807,182 @@
     });
   });
 
+  document.getElementById("shiftSelector").querySelectorAll("[data-shift]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      if(!activeDayKey) return;
+      var monthObj = ensureMonth(currentMonthKey);
+      var dayObj = monthObj.days[activeDayKey];
+      dayObj.shift = btn.getAttribute("data-shift");
+      saveData();
+      openDayModal(activeDayKey);
+      renderGrid();
+    });
+  });
+
+  document.getElementById("dayNote").addEventListener("input", function(){
+    if(!activeDayKey) return;
+    var monthObj = ensureMonth(currentMonthKey);
+    var dayObj = monthObj.days[activeDayKey];
+    if(dayObj){
+      dayObj.note = this.value;
+      saveData();
+      renderGrid();
+    }
+  });
+
+  // Procura o objeto de um dia em qualquer mes ja carregado (mesmo que nao seja
+  // o mes aberto no momento) — usado por "Repetir semana passada", que pode
+  // precisar buscar um dia do mes anterior.
+  function findDayObjByDateKey(dateKey){
+    var monthKey = dateKey.slice(0, 7);
+    var monthObj = data.months[monthKey];
+    if(!monthObj) return null;
+    return monthObj.days[dateKey] || null;
+  }
+
+  document.getElementById("btnCopyLastWeek").addEventListener("click", function(){
+    if(!activeDayKey) return;
+    var parts = activeDayKey.split("-").map(Number);
+    var d = new Date(parts[0], parts[1] - 1, parts[2]);
+    d.setDate(d.getDate() - 7);
+    var sourceKey = dateKeyOf(d);
+    var sourceDay = findDayObjByDateKey(sourceKey);
+    if(!sourceDay){
+      showToast("Sem dados salvos pra esse dia da semana passada ainda.");
+      return;
+    }
+    var monthObj = ensureMonth(currentMonthKey);
+    var dayObj = monthObj.days[activeDayKey];
+    dayObj.slots = sourceDay.slots.slice();
+    dayObj.shift = sourceDay.shift || null;
+    saveData();
+    openDayModal(activeDayKey);
+    renderGrid();
+    showToast("Horário copiado da semana passada");
+  });
+
+  document.getElementById("btnCopyToOthers").addEventListener("click", function(){
+    if(!activeDayKey) return;
+    var input = prompt("Copiar este horário pra quais dias deste mês? (números separados por vírgula, ex: 16,17,18)");
+    if(!input) return;
+    var monthObj = ensureMonth(currentMonthKey);
+    var sourceDay = monthObj.days[activeDayKey];
+    var nums = input.split(",").map(function(s){ return parseInt(s.trim(), 10); }).filter(function(n){ return !isNaN(n); });
+    var count = 0;
+    nums.forEach(function(n){
+      var dateKey = currentMonthKey + "-" + pad2(n);
+      if(monthObj.days[dateKey]){
+        monthObj.days[dateKey].slots = sourceDay.slots.slice();
+        monthObj.days[dateKey].shift = sourceDay.shift || null;
+        count++;
+      }
+    });
+    if(count > 0){
+      saveData();
+      renderGrid();
+      showToast("Horário copiado pra " + count + " dia(s)");
+    } else {
+      showToast("Nenhum dia válido encontrado");
+    }
+  });
+
   // ---------- VIP grid ----------
   var vipHead = document.getElementById("vipHead");
   var vipBody = document.getElementById("vipBody");
+
+  // ---------- presença dos alunos VIP ----------
+  // A agenda VIP e um horario semanal fixo (nao muda de mes pra mes), mas a
+  // presenca real de cada aluno e registrada por data especifica dentro do mes
+  // selecionado — assim da pra saber quem falta muito ou cobrar reposicao.
+  var VIP_COL_TO_DOW = { seg: 1, ter: 2, qua: 3, qui: 4, sex: 5 };
+
+  function vipAttendanceKey(rowIndex, colKey, dateKey){
+    return rowIndex + "_" + colKey + "_" + dateKey;
+  }
+
+  function getVipAttendance(rowIndex, colKey, dateKey){
+    return (data.vip.attendance || {})[vipAttendanceKey(rowIndex, colKey, dateKey)] || null;
+  }
+
+  function setVipAttendance(rowIndex, colKey, dateKey, status){
+    if(!data.vip.attendance) data.vip.attendance = {};
+    var key = vipAttendanceKey(rowIndex, colKey, dateKey);
+    if(status){
+      data.vip.attendance[key] = status;
+    } else {
+      delete data.vip.attendance[key];
+    }
+    saveData();
+  }
+
+  function datesForWeekdayInMonth(monthKey, dow){
+    var parts = monthKey.split("-");
+    var year = parseInt(parts[0], 10), monthIndex = parseInt(parts[1], 10) - 1;
+    var nDays = daysInMonth(year, monthIndex);
+    var dates = [];
+    for(var d = 1; d <= nDays; d++){
+      if(new Date(year, monthIndex, d).getDay() === dow) dates.push(monthKey + "-" + pad2(d));
+    }
+    return dates;
+  }
+
+  function countVipFaltasThisMonth(rowIndex, colKey){
+    var dow = VIP_COL_TO_DOW[colKey];
+    var dates = datesForWeekdayInMonth(currentMonthKey, dow);
+    var count = 0;
+    dates.forEach(function(dateKey){
+      if(getVipAttendance(rowIndex, colKey, dateKey) === "falta") count++;
+    });
+    return count;
+  }
+
+  function renderVipAttendanceSection(rowIndex, colKey){
+    var section = document.getElementById("vipAttendanceSection");
+    var listEl = document.getElementById("vipAttendanceList");
+    var titleEl = document.getElementById("vipAttendanceTitle");
+    var summaryEl = document.getElementById("vipAttendanceSummary");
+    var name = data.vip.slots[rowIndex][colKey];
+    if(!name || name === "X"){
+      section.style.display = "none";
+      return;
+    }
+    section.style.display = "block";
+    titleEl.textContent = "Presença em " + monthLabel(currentMonthKey);
+    var colLabel = VIP_COLS.filter(function(c){ return c.key === colKey; })[0].label;
+    var monthNum = currentMonthKey.split("-")[1];
+    var dow = VIP_COL_TO_DOW[colKey];
+    var dates = datesForWeekdayInMonth(currentMonthKey, dow);
+    listEl.innerHTML = "";
+    var presentCount = 0, faltaCount = 0;
+    dates.forEach(function(dateKey){
+      var dayNum = dateKey.split("-")[2];
+      var status = getVipAttendance(rowIndex, colKey, dateKey);
+      if(status === "presente") presentCount++;
+      if(status === "falta") faltaCount++;
+
+      var row = document.createElement("div");
+      row.className = "attendance-row";
+      var label = document.createElement("span");
+      label.textContent = colLabel + ", " + dayNum + "/" + monthNum;
+      var btns = document.createElement("div");
+      btns.className = "attendance-btns";
+      ["presente", "falta"].forEach(function(st){
+        var b = document.createElement("button");
+        b.className = "small attendance-btn " + st + (status === st ? " active" : "");
+        b.textContent = st === "presente" ? "Presente" : "Faltou";
+        b.addEventListener("click", function(){
+          setVipAttendance(rowIndex, colKey, dateKey, status === st ? null : st);
+          renderVipAttendanceSection(rowIndex, colKey);
+          renderVip();
+        });
+        btns.appendChild(b);
+      });
+      row.appendChild(label);
+      row.appendChild(btns);
+      listEl.appendChild(row);
+    });
+    summaryEl.textContent = "Presenças: " + presentCount + " · Faltas: " + faltaCount + " este mês";
+  }
 
   function renderVip(){
     vipHead.innerHTML = "<th class='timecol'>Horário</th>";
@@ -960,6 +2007,16 @@
         var span = document.createElement("span");
         span.className = "slot" + (val ? " filled" : " sem");
         span.textContent = val ? val : "–";
+        if(val && val !== "X"){
+          var faltas = countVipFaltasThisMonth(idx, c.key);
+          if(faltas > 0){
+            var badge = document.createElement("sup");
+            badge.className = "vip-falta-badge";
+            badge.textContent = faltas;
+            badge.title = faltas + " falta(s) este mês";
+            span.appendChild(badge);
+          }
+        }
         td.appendChild(span);
         td.addEventListener("click", function(){ openVipModal(idx, c.key, label, c.label); });
         tr.appendChild(td);
@@ -979,6 +2036,7 @@
     vipTitle.textContent = dayLabel + " · " + timeLabel;
     vipSub.textContent = "Nome do aluno, ou marque como sem aula.";
     vipNameInput.value = data.vip.slots[rowIndex][colKey] === "X" ? "" : (data.vip.slots[rowIndex][colKey] || "");
+    renderVipAttendanceSection(rowIndex, colKey);
     vipOverlay.classList.add("open");
     setTimeout(function(){ vipNameInput.focus(); }, 50);
   }
@@ -999,10 +2057,199 @@
     saveData(); renderVip(); closeOverlays();
   });
 
+  // ---------- alunos particulares (personal/avulso) ----------
+  // Separado da grade de horas de propósito: um professor/estagiário usa a grade
+  // (aulas em horário fixo, valor por slot), mas um personal trainer costuma
+  // atender aluno por aluno, cada um com seu próprio valor por sessão e seus
+  // próprios dias da semana — daqui sai um total próprio, que NÃO entra na conta
+  // do "Salário mensal" da grade (fica separado de propósito).
+  var CLIENT_DOW_KEYS = ["dom","seg","ter","qua","qui","sex","sab"];
+  var CLIENT_DOW_LABELS = ["DOM","SEG","TER","QUA","QUI","SEX","SÁB"];
+  var activeClientId = null;
+
+  function newClientId(){
+    return "c_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  function blankClientDays(){
+    var o = {};
+    CLIENT_DOW_KEYS.forEach(function(k){ o[k] = false; });
+    return o;
+  }
+
+  function countWeekdayOccurrences(year, monthIndex){
+    var nDays = daysInMonth(year, monthIndex);
+    var counts = [0,0,0,0,0,0,0];
+    for(var d = 1; d <= nDays; d++){
+      counts[new Date(year, monthIndex, d).getDay()]++;
+    }
+    return counts;
+  }
+
+  // Quantas sessoes esse aluno deve ter tido nesse mes: ocorrencias dos dias da
+  // semana marcados + o ajuste manual daquele mes (se houver), nunca negativo.
+  function clientMonthlySessions(client, monthKey){
+    var parts = monthKey.split("-");
+    var year = parseInt(parts[0], 10), monthIndex = parseInt(parts[1], 10) - 1;
+    var counts = countWeekdayOccurrences(year, monthIndex);
+    var total = 0;
+    CLIENT_DOW_KEYS.forEach(function(k, idx){
+      if(client.days && client.days[k]) total += counts[idx];
+    });
+    var adj = (client.adjustments && client.adjustments[monthKey]) ? (Number(client.adjustments[monthKey].count) || 0) : 0;
+    total += adj;
+    if(total < 0) total = 0;
+    return total;
+  }
+
+  function clientMonthlyValue(client, monthKey){
+    return clientMonthlySessions(client, monthKey) * (Number(client.rate) || 0);
+  }
+
+  function clientDaysLabel(client){
+    var parts = [];
+    CLIENT_DOW_KEYS.forEach(function(k, idx){
+      if(client.days && client.days[k]) parts.push(CLIENT_DOW_LABELS[idx]);
+    });
+    return parts.length ? parts.join(", ") : "sem dia fixo";
+  }
+
+  function renderClients(){
+    var listEl = document.getElementById("clientsList");
+    var totalEl = document.getElementById("clientsMonthTotal");
+    if(!listEl || !totalEl) return;
+    var clients = data.clients || [];
+    listEl.innerHTML = "";
+    if(clients.length === 0){
+      listEl.innerHTML = "<p style='font-size:12px;color:var(--text-dim);margin:4px 0;'>Nenhum aluno particular cadastrado ainda.</p>";
+    }
+    var monthTotal = 0;
+    clients.forEach(function(client){
+      var value = clientMonthlyValue(client, currentMonthKey);
+      monthTotal += value;
+      var row = document.createElement("div");
+      row.className = "client-row";
+
+      var info = document.createElement("div");
+      info.className = "client-info";
+      var name = document.createElement("strong");
+      name.textContent = client.name;
+      var meta = document.createElement("span");
+      meta.className = "client-meta";
+      meta.textContent = clientDaysLabel(client) + (client.time ? " · " + client.time : "") + " · " + fmtMoney(Number(client.rate) || 0) + "/sessão";
+      info.appendChild(name);
+      info.appendChild(meta);
+
+      var valueEl = document.createElement("div");
+      valueEl.className = "client-value";
+      valueEl.textContent = fmtMoney(value);
+
+      var editBtn = document.createElement("button");
+      editBtn.className = "small ghost";
+      editBtn.textContent = "Editar";
+      editBtn.addEventListener("click", function(){ openClientModal(client.id); });
+
+      row.appendChild(info);
+      row.appendChild(valueEl);
+      row.appendChild(editBtn);
+      listEl.appendChild(row);
+    });
+    totalEl.textContent = fmtMoney(monthTotal);
+  }
+
+  function openClientModal(clientId){
+    activeClientId = clientId || null;
+    var client = activeClientId ? (data.clients || []).find(function(c){ return c.id === activeClientId; }) : null;
+    document.getElementById("clientTitle").textContent = client ? "Editar aluno particular" : "Novo aluno particular";
+    document.getElementById("clientAdjustTitle").textContent = "Ajuste manual em " + monthLabel(currentMonthKey);
+    document.getElementById("clientError").textContent = "";
+    document.getElementById("clientName").value = client ? client.name : "";
+    document.getElementById("clientRate").value = client ? client.rate : "";
+    document.getElementById("clientTime").value = client ? (client.time || "") : "";
+
+    var daysGrid = document.getElementById("clientDaysGrid");
+    daysGrid.innerHTML = "";
+    var days = client ? client.days : blankClientDays();
+    CLIENT_DOW_KEYS.forEach(function(k, idx){
+      var label = document.createElement("label");
+      label.className = "client-day-chip" + (days[k] ? " checked" : "");
+      var input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = !!days[k];
+      input.dataset.dowKey = k;
+      input.addEventListener("change", function(){
+        label.classList.toggle("checked", input.checked);
+      });
+      label.appendChild(input);
+      label.appendChild(document.createTextNode(CLIENT_DOW_LABELS[idx]));
+      daysGrid.appendChild(label);
+    });
+
+    var adjust = client && client.adjustments ? client.adjustments[currentMonthKey] : null;
+    document.getElementById("clientAdjustCount").value = adjust ? adjust.count : "";
+    document.getElementById("clientAdjustNote").value = adjust ? (adjust.note || "") : "";
+    document.getElementById("btnDeleteClient").style.display = client ? "inline-block" : "none";
+    document.getElementById("clientOverlay").classList.add("open");
+  }
+
+  document.getElementById("btnAddClient").addEventListener("click", function(){ openClientModal(null); });
+
+  document.getElementById("clientForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var errEl = document.getElementById("clientError");
+    errEl.textContent = "";
+    var name = document.getElementById("clientName").value.trim();
+    var rate = parseFloat(document.getElementById("clientRate").value.replace(",", "."));
+    var time = document.getElementById("clientTime").value.trim();
+    if(!name){ errEl.textContent = "Informe o nome do aluno."; return; }
+    if(isNaN(rate) || rate < 0){ errEl.textContent = "Informe um valor por sessão válido."; return; }
+
+    var days = {};
+    document.querySelectorAll("#clientDaysGrid input[type=checkbox]").forEach(function(cb){
+      days[cb.dataset.dowKey] = cb.checked;
+    });
+
+    if(!data.clients) data.clients = [];
+    var client = activeClientId ? data.clients.find(function(c){ return c.id === activeClientId; }) : null;
+    if(!client){
+      client = { id: newClientId(), adjustments: {} };
+      data.clients.push(client);
+    }
+    client.name = name;
+    client.rate = rate;
+    client.time = time;
+    client.days = days;
+    if(!client.adjustments) client.adjustments = {};
+
+    var adjCountRaw = document.getElementById("clientAdjustCount").value;
+    var adjNote = document.getElementById("clientAdjustNote").value.trim();
+    var adjCount = adjCountRaw !== "" ? parseInt(adjCountRaw, 10) : 0;
+    if(!isNaN(adjCount) && adjCount !== 0){
+      client.adjustments[currentMonthKey] = { count: adjCount, note: adjNote };
+    } else {
+      delete client.adjustments[currentMonthKey];
+    }
+
+    saveData();
+    renderClients();
+    closeOverlays();
+    showToast("Aluno particular salvo");
+  });
+
+  document.getElementById("btnDeleteClient").addEventListener("click", function(){
+    if(!activeClientId) return;
+    if(!confirm("Excluir este aluno particular? Essa ação não pode ser desfeita.")) return;
+    data.clients = (data.clients || []).filter(function(c){ return c.id !== activeClientId; });
+    saveData();
+    renderClients();
+    closeOverlays();
+    showToast("Aluno excluído");
+  });
+
   // ---------- overlay close ----------
   function closeOverlays(){
     document.querySelectorAll(".overlay").forEach(function(o){ o.classList.remove("open"); });
-    activeDayKey = null; activeVip = null;
+    activeDayKey = null; activeVip = null; activeClientId = null;
   }
   document.querySelectorAll(".overlay").forEach(function(overlay){
     overlay.addEventListener("click", function(e){ if(e.target === overlay) closeOverlays(); });
@@ -1026,6 +2273,12 @@
     monthObj.obs = obsField.value;
     saveData();
   });
+  inputPaid.addEventListener("change", function(){
+    var monthObj = ensureMonth(currentMonthKey);
+    monthObj.paid = inputPaid.checked;
+    saveData();
+    renderMonthSelect();
+  });
 
   // ---------- month controls ----------
   monthSelect.addEventListener("change", function(){
@@ -1044,6 +2297,24 @@
     renderMonthSelect();
     renderGrid();
     showToast("Mês " + monthLabel(key) + " criado");
+  });
+
+  document.getElementById("btnToday").addEventListener("click", function(){
+    ensureMonth(todayKey);
+    currentMonthKey = todayKey;
+    renderMonthSelect();
+    renderGrid();
+    openDayModal(todayFullKey);
+  });
+
+  document.getElementById("btnApplyHolidays").addEventListener("click", function(){
+    var count = applyHolidaysToMonth(currentMonthKey);
+    if(count > 0){
+      renderGrid();
+      showToast(count + " feriado(s) marcado(s) automaticamente");
+    } else {
+      showToast("Nenhum feriado novo pra marcar neste mês");
+    }
   });
 
   // ---------- Excel export (colorido, no estilo da planilha original) ----------
@@ -1135,8 +2406,10 @@
       var dow = dowOfDateKey(dateKey);
       var isWeekend = (dow === 0 || dow === 6);
       var dayObj = monthObj.days[dateKey];
-      var allFer = dayObj.slots.every(function(v){ return v === "FERIADO"; });
-      var allSem = dayObj.slots.every(function(v){ return v === "SEM_ESCALA"; });
+      var singleXlsx = isSingleShiftDay(dateKey);
+      var relevantXlsx = singleXlsx ? [dayObj.slots[0]] : dayObj.slots;
+      var allFer = relevantXlsx.every(function(v){ return v === "FERIADO"; });
+      var allSem = relevantXlsx.every(function(v){ return v === "SEM_ESCALA"; });
       var headFill = allFer ? FILL_HOLIDAY : allSem ? FILL_NOSCHED : isWeekend ? FILL_WEEKEND : FILL_HEADER;
 
       var cNum = ws.getCell(rowDayNumIdx, col);
@@ -1164,23 +2437,31 @@
       keys.forEach(function(dateKey, dIdx){
         var col = dIdx + 2;
         var dayObj = monthObj.days[dateKey];
-        var val = dayObj.slots[idx];
+        var singleXlsx = isSingleShiftDay(dateKey);
         var cell = ws.getCell(r, col);
         cell.alignment = { horizontal: "center" };
         cell.border = THIN_BOX;
+
+        if(singleXlsx && idx > 0){
+          cell.value = "";
+          return;
+        }
+
+        var val = singleXlsx ? dayObj.slots[0] : dayObj.slots[idx];
+        var shiftTagXlsx = singleXlsx ? (dayObj.shift ? SHIFT_SHORT[dayObj.shift] : "?") + " " : "";
         if(val === null || val === undefined){
-          cell.value = "–";
+          cell.value = shiftTagXlsx + "–";
           cell.font = { size: 9, color: { argb: "FFAAAAAA" } };
         } else if(val === "FERIADO"){
-          cell.value = "FERIADO";
+          cell.value = shiftTagXlsx + "FERIADO";
           cell.font = { bold: true, size: 8, color: { argb: "FF7C4A03" } };
           cell.fill = fill(FILL_HOLIDAY);
         } else if(val === "SEM_ESCALA"){
-          cell.value = "SEM ESCALA";
+          cell.value = shiftTagXlsx + "SEM ESCALA";
           cell.font = { bold: true, size: 8, color: { argb: "FF888888" } };
           cell.fill = fill(FILL_NOSCHED);
         } else {
-          cell.value = val;
+          cell.value = shiftTagXlsx + val;
           cell.font = { bold: true, size: 9, color: { argb: "FF3B0764" } };
           cell.fill = fill(FILL_VALUE);
         }
@@ -1354,12 +2635,27 @@
     });
   }
 
+  // Se a pessoa abriu o link do e-mail de "esqueci minha senha" (?reset=TOKEN),
+  // mostra direto a tela de nova senha, mesmo que já exista uma sessão salva
+  // neste aparelho — o link foi um pedido explícito pra trocar a senha.
+  function checkResetLink(){
+    var token = null;
+    try{
+      token = new URLSearchParams(window.location.search).get("reset");
+    }catch(e){}
+    return token || null;
+  }
+
   // ---------- init ----------
   initTheme();
-  renderMonthSelect();
-  renderGrid();
-  renderVip();
-  initSync();
+  initAuthForms();
+  pendingResetToken = checkResetLink();
+  if(pendingResetToken){
+    showAuthView("reset");
+    showAuthScreen();
+  } else {
+    resumeSession();
+  }
 })();
 </script>
 </body>
