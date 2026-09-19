@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0f172a" />
+<meta name="description" content="Controle de horas, salário mensal e agenda de alunos VIP - Overall" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Ponto Overall" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<title>Ponto Overall</title>
+<style>
+  :root{
+    --bg:#0f172a;
+    --bg-panel:#152238;
+    --bg-panel-2:#1c2c47;
+    --border:#2a3b58;
+    --text:#e6edf7;
+    --text-dim:#93a4c3;
+    --accent:#38bdf8;
+    --accent-2:#22d3ee;
+    --good:#34d399;
+    --warn:#fbbf24;
+    --bad:#f87171;
+    --weekend:#22314f;
+    --holiday:#5b3a1a;
+    --noschedule:#33405a;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding-bottom:40px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  header{
+    position:sticky; top:0; z-index:30;
+    background:linear-gradient(180deg,#0f172a 85%, transparent);
+    padding:14px 16px 6px;
+  }
+  h1{
+    font-size:18px; margin:0 0 10px; font-weight:700; letter-spacing:.2px;
+    display:flex; align-items:center; gap:8px;
+  }
+  h1 .logo{
+    width:26px;height:26px;border-radius:8px;background:var(--bg-panel-2);
+    display:flex;align-items:center;justify-content:center;border:1px solid var(--border);
+  }
+  .month-bar{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  }
+  select, button, input, textarea{
+    font-family:inherit; font-size:14px; color:var(--text);
+    background:var(--bg-panel-2); border:1px solid var(--border); border-radius:10px;
+    padding:8px 10px;
+  }
+  select{ flex:1; min-width:140px; }
+  button{ cursor:pointer; white-space:nowrap; }
+  button.primary{ background:var(--accent); color:#04222f; border-color:var(--accent); font-weight:700; }
+  button.ghost{ background:transparent; }
+  button.small{ padding:6px 8px; font-size:12px; border-radius:8px; }
+  button:active{ transform:scale(.97); }
+
+  main{ padding:10px 16px 0; max-width:1100px; margin:0 auto; }
+
+  .card{
+    background:var(--bg-panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px; margin-bottom:14px;
+  }
+  .card h2{ font-size:13px; text-transform:uppercase; letter-spacing:.6px; color:var(--text-dim); margin:0 0 10px; }
+
+  .summary-grid{
+    display:grid; grid-template-columns:repeat(2,1fr); gap:10px;
+  }
+  @media(min-width:520px){ .summary-grid{ grid-template-columns:repeat(4,1fr); } }
+  .stat{
+    background:var(--bg-panel-2); border:1px solid var(--border); border-radius:10px; padding:10px;
+  }
+  .stat label{ display:block; font-size:11px; color:var(--text-dim); margin-bottom:4px; }
+  .stat input{ width:100%; background:transparent; border:none; padding:0; font-size:17px; font-weight:700; color:var(--text); }
+  .stat .value{ font-size:19px; font-weight:800; }
+  .stat.total .value{ color:var(--accent-2); }
+  .stat.salario .value{ color:var(--good); font-size:22px; }
+
+  .table-wrap{ overflow-x:auto; border-radius:10px; border:1px solid var(--border); }
+  table{ border-collapse:separate; border-spacing:0; width:100%; min-width:640px; }
+  thead th{
+    position:sticky; top:0; background:var(--bg-panel-2); z-index:2;
+    font-size:11px; color:var(--text-dim); font-weight:600; padding:6px 4px;
+    border-bottom:1px solid var(--border);
+  }
+  tbody td, thead th{ text-align:center; white-space:nowrap; }
+  td.timecol, th.timecol{
+    position:sticky; left:0; z-index:3; background:var(--bg-panel-2);
+    text-align:left; padding:8px 10px; font-size:11px; color:var(--text-dim);
+    border-right:1px solid var(--border); min-width:88px;
+  }
+  thead th.timecol{ z-index:4; }
+  .daycell{
+    padding:6px 4px; border-bottom:1px solid var(--border); border-right:1px solid rgba(255,255,255,.03);
+    min-width:46px; cursor:pointer;
+  }
+  .daycell .slot{
+    display:block; margin:0 auto; width:36px; height:28px; line-height:28px; border-radius:7px;
+    background:var(--bg-panel); font-size:12px; font-weight:700; color:var(--text-dim);
+  }
+  .daycell .slot.filled{ background:#0e3448; color:var(--accent-2); }
+  .daycell .slot.feriado{ background:#4a2c11; color:var(--warn); font-size:9px; }
+  .daycell .slot.sem{ background:transparent; color:#4a5a7a; }
+  .dayhead{ padding:4px 4px; cursor:pointer; }
+  .dayhead .num{ font-size:13px; font-weight:800; }
+  .dayhead .dow{ font-size:9px; color:var(--text-dim); display:block; }
+  th.weekend, td.weekend .slot{ background-color:var(--weekend); }
+  th.col-holiday{ background-color:var(--holiday) !important; }
+  th.col-noschedule{ background-color:var(--noschedule) !important; }
+  tr.totalrow td{ font-weight:800; color:var(--accent-2); background:var(--bg-panel-2); border-top:2px solid var(--border); }
+
+  textarea#obs{ width:100%; min-height:56px; resize:vertical; }
+
+  .vip-wrap table{ min-width:480px; }
+  .vip-wrap .daycell{ min-width:80px; }
+  .vip-wrap .slot{ width:auto; padding:0 6px; font-size:11px; font-weight:600; }
+
+  .row-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+
+  /* modal */
+  .overlay{
+    position:fixed; inset:0; background:rgba(4,10,20,.6); backdrop-filter:blur(2px);
+    display:none; align-items:flex-end; justify-content:center; z-index:100;
+  }
+  .overlay.open{ display:flex; }
+  .sheet{
+    background:var(--bg-panel); border:1px solid var(--border); border-radius:18px 18px 0 0;
+    width:100%; max-width:480px; padding:16px; max-height:85vh; overflow-y:auto;
+    animation:up .15s ease-out;
+  }
+  @media(min-width:520px){
+    .overlay{ align-items:center; }
+    .sheet{ border-radius:16px; }
+  }
+  @keyframes up{ from{ transform:translateY(20px); opacity:0;} to{ transform:translateY(0); opacity:1;} }
+  .sheet h3{ margin:0 0 4px; font-size:16px; }
+  .sheet .sub{ color:var(--text-dim); font-size:12px; margin-bottom:12px; }
+  .sheet .close{ float:right; }
+  .day-actions{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .slot-row{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:8px 0; border-bottom:1px solid var(--border);
+  }
+  .slot-row:last-child{ border-bottom:none; }
+  .slot-row .time{ font-size:12px; color:var(--text-dim); width:92px; flex-shrink:0; }
+  .slot-row .current{ flex:1; font-weight:700; font-size:13px; }
+  .slot-btns{ display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+  .slot-btns button{ padding:6px 9px; font-size:12px; }
+  .custom-input{ display:flex; gap:6px; margin-top:8px; }
+  .custom-input input{ width:80px; }
+
+  footer{ text-align:center; color:var(--text-dim); font-size:11px; padding:20px 16px; }
+  #installBanner{
+    display:none; margin:0 16px 14px; padding:12px; border-radius:12px;
+    background:var(--bg-panel-2); border:1px solid var(--accent); font-size:13px;
+    align-items:center; justify-content:space-between; gap:10px; max-width:1100px; margin-left:auto; margin-right:auto;
+  }
+  #installBanner.show{ display:flex; }
+  #toast{
+    position:fixed; bottom:18px; left:50%; transform:translateX(-50%);
+    background:#0e3448; color:var(--accent-2); padding:10px 16px; border-radius:10px;
+    font-size:13px; z-index:200; opacity:0; pointer-events:none; transition:opacity .2s;
+  }
+  #toast.show{ opacity:1; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="logo">⏱</span> Ponto Overall</h1>
+  <div class="month-bar">
+    <select id="monthSelect"></select>
+    <button class="small" id="btnNewMonth">+ Novo mês</button>
+    <button class="small" id="btnExportCsv">Exportar CSV</button>
+  </div>
+</header>
+
+<div id="installBanner">
+  <span id="installText">Instale este app na tela de início para acesso rápido.</span>
+  <button class="primary small" id="btnInstall">Instalar</button>
+</div>
+
+<main>
+
+  <div class="card">
+    <h2>Resumo do mês</h2>
+    <div class="summary-grid">
+      <div class="stat total">
+        <label>Total horas (mês)</label>
+        <div class="value" id="statTotal">0</div>
+      </div>
+      <div class="stat">
+        <label>Auxílio</label>
+        <input type="number" id="inputAuxilio" inputmode="decimal" />
+      </div>
+      <div class="stat">
+        <label>Consumo Overall</label>
+        <input type="number" id="inputConsumo" inputmode="decimal" />
+      </div>
+      <div class="stat salario">
+        <label>Salário mensal</label>
+        <div class="value" id="statSalario">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Grade de horários — toque num dia para lançar</h2>
+    <div class="table-wrap">
+      <table id="gridTable">
+        <thead>
+          <tr id="rowDayNum"></tr>
+          <tr id="rowDayDow"></tr>
+        </thead>
+        <tbody id="gridBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Observações do mês</h2>
+    <textarea id="obs" placeholder="Anotações, trocas de horário, combinados..."></textarea>
+  </div>
+
+  <div class="card vip-wrap">
+    <h2>Alunos VIP — agenda semanal fixa</h2>
+    <div class="table-wrap">
+      <table id="vipTable">
+        <thead><tr id="vipHead"></tr></thead>
+        <tbody id="vipBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Backup dos dados</h2>
+    <p style="font-size:12px;color:var(--text-dim);margin:0 0 10px;">
+      Os dados ficam salvos só neste aparelho/navegador. Exporte um backup de vez em quando.
+    </p>
+    <div class="row-actions">
+      <button id="btnExportJson">Exportar backup (.json)</button>
+      <button id="btnImportJson">Importar backup</button>
+      <input type="file" id="fileImport" accept="application/json" style="display:none" />
+    </div>
+  </div>
+
+</main>
+
+<footer>Ponto Overall · PA TEAM ELITE · dados salvos localmente neste dispositivo</footer>
+
+<!-- Day edit modal -->
+<div class="overlay" id="dayOverlay">
+  <div class="sheet">
+    <button class="close ghost small" data-close>Fechar</button>
+    <h3 id="dayTitle">Dia</h3>
+    <div class="sub" id="daySub"></div>
+    <div class="day-actions">
+      <button class="small" data-day-action="feriado">Feriado (dia todo)</button>
+      <button class="small" data-day-action="sem">Sem escala (dia todo)</button>
+      <button class="small" data-day-action="clear">Limpar dia</button>
+    </div>
+    <div id="slotList"></div>
+  </div>
+</div>
+
+<!-- VIP edit modal -->
+<div class="overlay" id="vipOverlay">
+  <div class="sheet">
+    <button class="close ghost small" data-close>Fechar</button>
+    <h3 id="vipTitle">Aluno</h3>
+    <div class="sub" id="vipSub"></div>
+    <div class="custom-input" style="margin-top:4px;">
+      <input type="text" id="vipNameInput" placeholder="Nome do aluno" style="flex:1;" />
+      <button class="primary small" id="vipSave">Salvar</button>
+    </div>
+    <div class="day-actions" style="margin-top:12px;">
+      <button class="small" id="vipMarkX">Marcar "X" (sem aula)</button>
+      <button class="small" id="vipClear">Limpar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  var STORAGE_KEY = "pontoOverallData_v1";
+  var TIME_SLOTS = ["17:00–18:00","18:00–19:00","19:00–20:00","20:00–21:00","21:00–22:00","22:00–23:00"];
+  var DOW_NAMES = ["DOM","SEG","TER","QUA","QUI","SEX","SÁB"];
+  var VIP_COLS = [
+    {key:"seg", label:"SEG"},
+    {key:"ter", label:"TER"},
+    {key:"qua", label:"QUA"},
+    {key:"qui", label:"QUI"},
+    {key:"sex", label:"SEX"}
+  ];
+
+  // ---------- seed data (imported from the original FOLHA PONTO OVERALL spreadsheet, set. 2026) ----------
+  var SEED_MONTH_KEY = "2026-09";
+  var SEED_DAYS = {
+    "01":[10,10,15,15,15,10], "02":[15,10,15,15,15,10], "03":[15,10,15,15,15,10],
+    "04":[10,10,10,15,15,10], "05":[10,10,10,10,10,null], "06":[15,15,15,15,15,null],
+    "07":["FERIADO","FERIADO","FERIADO","FERIADO","FERIADO","FERIADO"],
+    "08":["FERIADO","FERIADO","FERIADO","FERIADO","FERIADO","FERIADO"],
+    "09":[15,10,10,15,15,10], "10":[15,10,10,15,15,10], "11":[15,10,10,10,10,10],
+    "12":["SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA"],
+    "13":["SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA"],
+    "14":[15,10,15,15,10,10], "15":[10,10,15,15,15,10],
+    "19":[10,10,10,10,10,null], "20":[15,15,15,15,15,null],
+    "26":["SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA"],
+    "27":["SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA","SEM_ESCALA"]
+  };
+  var SEED_AUXILIO = 200;
+  var SEED_OBS = "Aula experimental Dani / Juan adiantou a aula do Gregory";
+  var SEED_VIP = [
+    {seg:"Camila", ter:"X", qua:"Camila", qui:"Camila", sex:"X"},
+    {seg:"Aline", ter:"X", qua:"Aline", qui:"X", sex:"Aline"},
+    {seg:"", ter:"Cristiane", qua:"Cristiane", qui:"Cristiane", sex:"X"},
+    {seg:"Fabiana", ter:"Fabiana", qua:"Fabiana", qui:"Fabiana", sex:"Fabiana"},
+    {seg:"Gregory", ter:"Gregory", qua:"Gregory", qui:"Gregory", sex:"Gregory"},
+    {seg:"X", ter:"X", qua:"X", qui:"X", sex:"X"}
+  ];
+
+  // ---------- data layer ----------
+  function defaultData(){
+    return {
+      version: 1,
+      settings: { defaultAuxilio: 200 },
+      months: {},
+      vip: { slots: SEED_VIP.map(function(row){ return Object.assign({}, row); }) }
+    };
+  }
+
+  var data = loadData();
+
+  function loadData(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw) return defaultData();
+      var parsed = JSON.parse(raw);
+      if(!parsed || typeof parsed !== "object") return defaultData();
+      var d = defaultData();
+      d.settings = Object.assign(d.settings, parsed.settings || {});
+      d.months = parsed.months || {};
+      if(parsed.vip && Array.isArray(parsed.vip.slots) && parsed.vip.slots.length === TIME_SLOTS.length){
+        d.vip = parsed.vip;
+      }
+      return d;
+    }catch(e){
+      console.warn("Falha ao carregar dados, iniciando vazio.", e);
+      return defaultData();
+    }
+  }
+
+  function saveData(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }catch(e){
+      showToast("Não consegui salvar (armazenamento cheio?)");
+      console.error(e);
+    }
+  }
+
+  function pad2(n){ return (n < 10 ? "0" : "") + n; }
+
+  function monthKeyOf(year, monthIndex){ return year + "-" + pad2(monthIndex + 1); }
+
+  function daysInMonth(year, monthIndex){ return new Date(year, monthIndex + 1, 0).getDate(); }
+
+  function ensureMonth(key){
+    if(data.months[key]) return data.months[key];
+    var parts = key.split("-");
+    var year = parseInt(parts[0], 10);
+    var monthIndex = parseInt(parts[1], 10) - 1;
+    var nDays = daysInMonth(year, monthIndex);
+    var isSeedMonth = (key === SEED_MONTH_KEY);
+    var days = {};
+    for(var d = 1; d <= nDays; d++){
+      var dd = pad2(d);
+      var dateKey = key + "-" + dd;
+      var seedSlots = isSeedMonth && SEED_DAYS[dd] ? SEED_DAYS[dd].slice() : [null,null,null,null,null,null];
+      days[dateKey] = { slots: seedSlots };
+    }
+    data.months[key] = {
+      auxilio: isSeedMonth ? SEED_AUXILIO : (data.settings.defaultAuxilio || 0),
+      consumo: 0,
+      obs: isSeedMonth ? SEED_OBS : "",
+      days: days
+    };
+    saveData();
+    return data.months[key];
+  }
+
+  function sortedMonthKeys(){
+    return Object.keys(data.months).sort();
+  }
+
+  // ---------- state ----------
+  var todayKey = (function(){
+    var t = new Date();
+    return monthKeyOf(t.getFullYear(), t.getMonth());
+  })();
+
+  if(Object.keys(data.months).length === 0){
+    ensureMonth(todayKey);
+  }
+  var currentMonthKey = sortedMonthKeys().indexOf(todayKey) >= 0 ? todayKey : sortedMonthKeys()[sortedMonthKeys().length - 1];
+
+  var activeDayKey = null;
+  var activeVip = null; // {rowIndex, colKey}
+
+  // ---------- rendering ----------
+  var monthSelect = document.getElementById("monthSelect");
+  var rowDayNum = document.getElementById("rowDayNum");
+  var rowDayDow = document.getElementById("rowDayDow");
+  var gridBody = document.getElementById("gridBody");
+  var inputAuxilio = document.getElementById("inputAuxilio");
+  var inputConsumo = document.getElementById("inputConsumo");
+  var statTotal = document.getElementById("statTotal");
+  var statSalario = document.getElementById("statSalario");
+  var obsField = document.getElementById("obs");
+
+  function monthLabel(key){
+    var parts = key.split("-");
+    var year = parseInt(parts[0],10), mIdx = parseInt(parts[1],10)-1;
+    var names = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+    return names[mIdx] + " / " + year;
+  }
+
+  function renderMonthSelect(){
+    var keys = sortedMonthKeys();
+    monthSelect.innerHTML = "";
+    keys.forEach(function(k){
+      var opt = document.createElement("option");
+      opt.value = k;
+      opt.textContent = monthLabel(k);
+      if(k === currentMonthKey) opt.selected = true;
+      monthSelect.appendChild(opt);
+    });
+  }
+
+  function dayKeysOf(monthKey){
+    var m = data.months[monthKey];
+    return Object.keys(m.days).sort();
+  }
+
+  function dowOfDateKey(dateKey){
+    var parts = dateKey.split("-").map(Number);
+    var dt = new Date(parts[0], parts[1]-1, parts[2]);
+    return dt.getDay(); // 0=Dom..6=Sab
+  }
+
+  function dayTotal(dayObj){
+    var sum = 0;
+    dayObj.slots.forEach(function(v){ if(typeof v === "number") sum += v; });
+    return sum;
+  }
+
+  function monthTotal(monthObj){
+    var sum = 0;
+    Object.keys(monthObj.days).forEach(function(k){ sum += dayTotal(monthObj.days[k]); });
+    return sum;
+  }
+
+  function fmtMoney(n){
+    return "R$ " + n.toLocaleString("pt-BR", {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+
+  function renderGrid(){
+    var monthObj = ensureMonth(currentMonthKey);
+    var keys = dayKeysOf(currentMonthKey);
+
+    rowDayNum.innerHTML = "<th class='timecol'>Dia</th>";
+    rowDayDow.innerHTML = "<th class='timecol'>Horário</th>";
+    gridBody.innerHTML = "";
+
+    keys.forEach(function(dateKey){
+      var dayNum = parseInt(dateKey.split("-")[2], 10);
+      var dow = dowOfDateKey(dateKey);
+      var isWeekend = (dow === 0 || dow === 6);
+      var dayObj = monthObj.days[dateKey];
+      var allFer = dayObj.slots.every(function(v){ return v === "FERIADO"; });
+      var allSem = dayObj.slots.every(function(v){ return v === "SEM_ESCALA"; });
+
+      var thNum = document.createElement("th");
+      thNum.className = "dayhead" + (isWeekend ? " weekend" : "") + (allFer ? " col-holiday" : "") + (allSem ? " col-noschedule" : "");
+      thNum.innerHTML = "<span class='num'>" + pad2(dayNum) + "</span>";
+      thNum.addEventListener("click", function(){ openDayModal(dateKey); });
+      rowDayNum.appendChild(thNum);
+
+      var thDow = document.createElement("th");
+      thDow.className = "dayhead" + (isWeekend ? " weekend" : "") + (allFer ? " col-holiday" : "") + (allSem ? " col-noschedule" : "");
+      thDow.innerHTML = "<span class='dow'>" + DOW_NAMES[dow] + "</span>";
+      thDow.addEventListener("click", function(){ openDayModal(dateKey); });
+      rowDayDow.appendChild(thDow);
+    });
+
+    for(var s = 0; s < TIME_SLOTS.length; s++){
+      var tr = document.createElement("tr");
+      var tdTime = document.createElement("td");
+      tdTime.className = "timecol";
+      tdTime.textContent = TIME_SLOTS[s];
+      tr.appendChild(tdTime);
+
+      keys.forEach(function(dateKey){
+        var dow = dowOfDateKey(dateKey);
+        var isWeekend = (dow === 0 || dow === 6);
+        var dayObj = monthObj.days[dateKey];
+        var val = dayObj.slots[s];
+        var td = document.createElement("td");
+        td.className = "daycell" + (isWeekend ? " weekend" : "");
+        var span = document.createElement("span");
+        span.className = "slot";
+        if(val === null || val === undefined){
+          span.textContent = "–";
+          span.className += " sem";
+        } else if(val === "FERIADO"){
+          span.textContent = "FER";
+          span.className += " feriado";
+        } else if(val === "SEM_ESCALA"){
+          span.textContent = "s/e";
+          span.className += " sem";
+        } else {
+          span.textContent = val;
+          span.className += " filled";
+        }
+        td.appendChild(span);
+        td.addEventListener("click", function(dk){ return function(){ openDayModal(dk); }; }(dateKey));
+        tr.appendChild(td);
+      });
+
+      gridBody.appendChild(tr);
+    }
+
+    // total row
+    var trTotal = document.createElement("tr");
+    trTotal.className = "totalrow";
+    var tdLabel = document.createElement("td");
+    tdLabel.className = "timecol";
+    tdLabel.textContent = "TOTAL";
+    trTotal.appendChild(tdLabel);
+    keys.forEach(function(dateKey){
+      var dayObj = monthObj.days[dateKey];
+      var td = document.createElement("td");
+      td.className = "daycell";
+      td.textContent = dayTotal(dayObj) || "";
+      trTotal.appendChild(td);
+    });
+    gridBody.appendChild(trTotal);
+
+    inputAuxilio.value = monthObj.auxilio;
+    inputConsumo.value = monthObj.consumo;
+    obsField.value = monthObj.obs || "";
+
+    var total = monthTotal(monthObj);
+    var salario = total + (Number(monthObj.auxilio) || 0) - (Number(monthObj.consumo) || 0);
+    statTotal.textContent = total;
+    statSalario.textContent = fmtMoney(salario);
+  }
+
+  // ---------- day modal ----------
+  var dayOverlay = document.getElementById("dayOverlay");
+  var dayTitle = document.getElementById("dayTitle");
+  var daySub = document.getElementById("daySub");
+  var slotList = document.getElementById("slotList");
+
+  function openDayModal(dateKey){
+    activeDayKey = dateKey;
+    var monthObj = ensureMonth(currentMonthKey);
+    var dayObj = monthObj.days[dateKey];
+    var dow = dowOfDateKey(dateKey);
+    var dayNum = parseInt(dateKey.split("-")[2], 10);
+
+    dayTitle.textContent = "Dia " + pad2(dayNum) + " · " + DOW_NAMES[dow];
+    daySub.textContent = "Toque num valor rápido ou digite um valor personalizado.";
+
+    slotList.innerHTML = "";
+    TIME_SLOTS.forEach(function(label, idx){
+      var row = document.createElement("div");
+      row.className = "slot-row";
+
+      var time = document.createElement("div");
+      time.className = "time";
+      time.textContent = label;
+      row.appendChild(time);
+
+      var current = document.createElement("div");
+      current.className = "current";
+      current.textContent = describeSlot(dayObj.slots[idx]);
+      row.appendChild(current);
+
+      var btns = document.createElement("div");
+      btns.className = "slot-btns";
+
+      [10, 15].forEach(function(v){
+        var b = document.createElement("button");
+        b.className = "small";
+        b.textContent = v;
+        b.addEventListener("click", function(){
+          dayObj.slots[idx] = v;
+          saveData(); openDayModal(dateKey); renderGrid();
+        });
+        btns.appendChild(b);
+      });
+
+      var bCustom = document.createElement("button");
+      bCustom.className = "small";
+      bCustom.textContent = "Outro";
+      bCustom.addEventListener("click", function(){
+        var v = prompt("Valor para este horário:", typeof dayObj.slots[idx] === "number" ? dayObj.slots[idx] : "");
+        if(v === null) return;
+        var num = parseFloat(v.replace(",", "."));
+        if(isNaN(num)){ showToast("Valor inválido"); return; }
+        dayObj.slots[idx] = num;
+        saveData(); openDayModal(dateKey); renderGrid();
+      });
+      btns.appendChild(bCustom);
+
+      var bFer = document.createElement("button");
+      bFer.className = "small";
+      bFer.textContent = "Feriado";
+      bFer.addEventListener("click", function(){
+        dayObj.slots[idx] = "FERIADO";
+        saveData(); openDayModal(dateKey); renderGrid();
+      });
+      btns.appendChild(bFer);
+
+      var bSem = document.createElement("button");
+      bSem.className = "small";
+      bSem.textContent = "Sem escala";
+      bSem.addEventListener("click", function(){
+        dayObj.slots[idx] = "SEM_ESCALA";
+        saveData(); openDayModal(dateKey); renderGrid();
+      });
+      btns.appendChild(bSem);
+
+      var bClear = document.createElement("button");
+      bClear.className = "small ghost";
+      bClear.textContent = "Limpar";
+      bClear.addEventListener("click", function(){
+        dayObj.slots[idx] = null;
+        saveData(); openDayModal(dateKey); renderGrid();
+      });
+      btns.appendChild(bClear);
+
+      row.appendChild(btns);
+      slotList.appendChild(row);
+    });
+
+    dayOverlay.classList.add("open");
+  }
+
+  function describeSlot(v){
+    if(v === null || v === undefined) return "Vazio";
+    if(v === "FERIADO") return "Feriado";
+    if(v === "SEM_ESCALA") return "Sem escala";
+    return String(v);
+  }
+
+  dayOverlay.querySelectorAll("[data-day-action]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      if(!activeDayKey) return;
+      var monthObj = ensureMonth(currentMonthKey);
+      var dayObj = monthObj.days[activeDayKey];
+      var action = btn.getAttribute("data-day-action");
+      var newVal = action === "feriado" ? "FERIADO" : action === "sem" ? "SEM_ESCALA" : null;
+      dayObj.slots = dayObj.slots.map(function(){ return newVal; });
+      saveData();
+      openDayModal(activeDayKey);
+      renderGrid();
+    });
+  });
+
+  // ---------- VIP grid ----------
+  var vipHead = document.getElementById("vipHead");
+  var vipBody = document.getElementById("vipBody");
+
+  function renderVip(){
+    vipHead.innerHTML = "<th class='timecol'>Horário</th>";
+    VIP_COLS.forEach(function(c){
+      var th = document.createElement("th");
+      th.textContent = c.label;
+      vipHead.appendChild(th);
+    });
+
+    vipBody.innerHTML = "";
+    TIME_SLOTS.forEach(function(label, idx){
+      var tr = document.createElement("tr");
+      var tdTime = document.createElement("td");
+      tdTime.className = "timecol";
+      tdTime.textContent = label;
+      tr.appendChild(tdTime);
+
+      VIP_COLS.forEach(function(c){
+        var val = data.vip.slots[idx][c.key] || "";
+        var td = document.createElement("td");
+        td.className = "daycell";
+        var span = document.createElement("span");
+        span.className = "slot" + (val ? " filled" : " sem");
+        span.textContent = val ? val : "–";
+        td.appendChild(span);
+        td.addEventListener("click", function(){ openVipModal(idx, c.key, label, c.label); });
+        tr.appendChild(td);
+      });
+
+      vipBody.appendChild(tr);
+    });
+  }
+
+  var vipOverlay = document.getElementById("vipOverlay");
+  var vipTitle = document.getElementById("vipTitle");
+  var vipSub = document.getElementById("vipSub");
+  var vipNameInput = document.getElementById("vipNameInput");
+
+  function openVipModal(rowIndex, colKey, timeLabel, dayLabel){
+    activeVip = { rowIndex: rowIndex, colKey: colKey };
+    vipTitle.textContent = dayLabel + " · " + timeLabel;
+    vipSub.textContent = "Nome do aluno, ou marque como sem aula.";
+    vipNameInput.value = data.vip.slots[rowIndex][colKey] === "X" ? "" : (data.vip.slots[rowIndex][colKey] || "");
+    vipOverlay.classList.add("open");
+    setTimeout(function(){ vipNameInput.focus(); }, 50);
+  }
+
+  document.getElementById("vipSave").addEventListener("click", function(){
+    if(!activeVip) return;
+    data.vip.slots[activeVip.rowIndex][activeVip.colKey] = vipNameInput.value.trim();
+    saveData(); renderVip(); closeOverlays();
+  });
+  document.getElementById("vipMarkX").addEventListener("click", function(){
+    if(!activeVip) return;
+    data.vip.slots[activeVip.rowIndex][activeVip.colKey] = "X";
+    saveData(); renderVip(); closeOverlays();
+  });
+  document.getElementById("vipClear").addEventListener("click", function(){
+    if(!activeVip) return;
+    data.vip.slots[activeVip.rowIndex][activeVip.colKey] = "";
+    saveData(); renderVip(); closeOverlays();
+  });
+
+  // ---------- overlay close ----------
+  function closeOverlays(){
+    document.querySelectorAll(".overlay").forEach(function(o){ o.classList.remove("open"); });
+    activeDayKey = null; activeVip = null;
+  }
+  document.querySelectorAll(".overlay").forEach(function(overlay){
+    overlay.addEventListener("click", function(e){ if(e.target === overlay) closeOverlays(); });
+    overlay.querySelectorAll("[data-close]").forEach(function(b){ b.addEventListener("click", closeOverlays); });
+  });
+
+  // ---------- inputs ----------
+  inputAuxilio.addEventListener("input", function(){
+    var monthObj = ensureMonth(currentMonthKey);
+    monthObj.auxilio = parseFloat(inputAuxilio.value.replace(",", ".")) || 0;
+    data.settings.defaultAuxilio = monthObj.auxilio;
+    saveData(); renderGrid();
+  });
+  inputConsumo.addEventListener("input", function(){
+    var monthObj = ensureMonth(currentMonthKey);
+    monthObj.consumo = parseFloat(inputConsumo.value.replace(",", ".")) || 0;
+    saveData(); renderGrid();
+  });
+  obsField.addEventListener("input", function(){
+    var monthObj = ensureMonth(currentMonthKey);
+    monthObj.obs = obsField.value;
+    saveData();
+  });
+
+  // ---------- month controls ----------
+  monthSelect.addEventListener("change", function(){
+    currentMonthKey = monthSelect.value;
+    renderGrid();
+  });
+
+  document.getElementById("btnNewMonth").addEventListener("click", function(){
+    var input = prompt("Novo mês (formato AAAA-MM), ex: 2026-10:");
+    if(!input) return;
+    var match = /^(\d{4})-(\d{2})$/.exec(input.trim());
+    if(!match){ showToast("Formato inválido. Use AAAA-MM"); return; }
+    var key = match[1] + "-" + match[2];
+    ensureMonth(key);
+    currentMonthKey = key;
+    renderMonthSelect();
+    renderGrid();
+    showToast("Mês " + monthLabel(key) + " criado");
+  });
+
+  // ---------- CSV export ----------
+  document.getElementById("btnExportCsv").addEventListener("click", function(){
+    var monthObj = ensureMonth(currentMonthKey);
+    var keys = dayKeysOf(currentMonthKey);
+    var lines = [];
+    var header = ["Horário"].concat(keys.map(function(k){
+      var dayNum = k.split("-")[2];
+      var dow = DOW_NAMES[dowOfDateKey(k)];
+      return dayNum + " " + dow;
+    }));
+    lines.push(header.join(";"));
+    TIME_SLOTS.forEach(function(label, idx){
+      var row = [label];
+      keys.forEach(function(k){
+        var v = monthObj.days[k].slots[idx];
+        row.push(v === null || v === undefined ? "" : (v === "FERIADO" ? "Feriado" : v === "SEM_ESCALA" ? "Sem escala" : v));
+      });
+      lines.push(row.join(";"));
+    });
+    var totalRow = ["TOTAL"].concat(keys.map(function(k){ return dayTotal(monthObj.days[k]) || ""; }));
+    lines.push(totalRow.join(";"));
+    lines.push("");
+    lines.push("Auxílio;" + monthObj.auxilio);
+    lines.push("Consumo Overall;" + monthObj.consumo);
+    lines.push("Total horas;" + monthTotal(monthObj));
+    lines.push("Salário mensal;" + (monthTotal(monthObj) + (Number(monthObj.auxilio)||0) - (Number(monthObj.consumo)||0)));
+    lines.push("Observações;" + (monthObj.obs || "").replace(/\n/g, " "));
+
+    var blob = new Blob(["﻿" + lines.join("\n")], {type:"text/csv;charset=utf-8"});
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "ponto-overall-" + currentMonthKey + ".csv";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+
+  // ---------- backup json ----------
+  document.getElementById("btnExportJson").addEventListener("click", function(){
+    var blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "backup-ponto-overall-" + new Date().toISOString().slice(0,10) + ".json";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+  document.getElementById("btnImportJson").addEventListener("click", function(){
+    document.getElementById("fileImport").click();
+  });
+  document.getElementById("fileImport").addEventListener("change", function(e){
+    var file = e.target.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      try{
+        var parsed = JSON.parse(reader.result);
+        if(!confirm("Isso vai substituir todos os dados salvos neste aparelho. Continuar?")) return;
+        data = parsed;
+        saveData();
+        renderMonthSelect(); renderGrid(); renderVip();
+        showToast("Backup importado");
+      }catch(err){
+        showToast("Arquivo inválido");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  });
+
+  // ---------- toast ----------
+  var toastEl = document.getElementById("toast");
+  var toastTimer = null;
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove("show"); }, 2200);
+  }
+
+  // ---------- install prompt ----------
+  var deferredPrompt = null;
+  var installBanner = document.getElementById("installBanner");
+  var installText = document.getElementById("installText");
+
+  window.addEventListener("beforeinstallprompt", function(e){
+    e.preventDefault();
+    deferredPrompt = e;
+    installBanner.classList.add("show");
+  });
+  document.getElementById("btnInstall").addEventListener("click", function(){
+    if(!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.finally(function(){
+      deferredPrompt = null;
+      installBanner.classList.remove("show");
+    });
+  });
+
+  (function checkIOS(){
+    var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    var isStandalone = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
+    if(isIOS && !isStandalone){
+      installText.textContent = "No iPhone: toque em Compartilhar e depois \"Adicionar à Tela de Início\".";
+      installBanner.classList.add("show");
+    }
+  })();
+
+  // ---------- service worker ----------
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", function(){
+      navigator.serviceWorker.register("sw.js").catch(function(err){
+        console.warn("SW falhou", err);
+      });
+    });
+  }
+
+  // ---------- init ----------
+  renderMonthSelect();
+  renderGrid();
+  renderVip();
+})();
+</script>
+</body>
+</html>
