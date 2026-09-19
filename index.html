@@ -116,6 +116,18 @@
   .stat.total .value{ color:var(--accent-2); }
   .stat.salario .value{ color:var(--good); font-size:22px; }
 
+  .legend{ display:flex; flex-wrap:wrap; gap:8px 14px; margin:-2px 0 12px; font-size:11px; color:var(--text-dim); }
+  .legend-item{ display:flex; align-items:center; gap:6px; }
+  .legend .swatch{
+    display:inline-flex; align-items:center; justify-content:center; width:24px; height:18px;
+    border-radius:5px; font-size:8px; font-weight:700; flex-shrink:0;
+  }
+  .legend .swatch-filled{ background:var(--slot-filled-bg); color:var(--accent-2); }
+  .legend .swatch-feriado{ background:var(--feriado-bg); color:var(--warn); }
+  .legend .swatch-sem{ background:transparent; border:1px solid var(--border); color:#6b5a99; }
+  .legend .swatch-none{ background:var(--bg-panel); border:1px solid var(--border); color:var(--text-dim); }
+  .legend .swatch-weekend{ background:var(--weekend); }
+
   .table-wrap{ overflow-x:auto; border-radius:10px; border:1px solid var(--border); }
   table{ border-collapse:separate; border-spacing:0; width:100%; min-width:640px; }
   thead th{
@@ -204,6 +216,7 @@
   #toast.show{ opacity:1; }
 
   .print-title{ display:none; }
+  .print-only{ display:none; }
 
   @media print{
     body{ background:#fff !important; color:#111 !important; padding-bottom:0; }
@@ -230,7 +243,18 @@
     tr.totalrow td{ background:#eee !important; color:#111 !important; border-top:2px solid #999; }
     .vip-wrap .slot.filled{ background:#e6e6e6 !important; color:#111 !important; }
     .vip-wrap .slot.sem{ color:#aaa !important; }
-    @page{ size:landscape; margin:12mm; }
+    .legend{ color:#444 !important; }
+    .legend .swatch-filled{ background:#e6e6e6 !important; color:#111 !important; }
+    .legend .swatch-feriado{ background:#fde68a !important; color:#7c4a03 !important; }
+    .legend .swatch-sem, .legend .swatch-none{ background:#fff !important; border:1px solid #ccc; color:#111 !important; }
+    .legend .swatch-weekend{ background:#eef0fb !important; border:1px solid #ccc; }
+    .print-only{ display:block; }
+    #gridWrapMain{ display:none; }
+    .print-only .table-wrap{ border:1px solid #ccc; overflow:visible; margin-bottom:10px; }
+    .print-only .table-wrap:last-child{ margin-bottom:0; }
+    .print-only table{ font-size:10px; }
+    .print-only .daycell .slot{ width:auto; min-width:22px; padding:0 2px; }
+    @page{ size:portrait; margin:12mm; }
   }
 </style>
 </head>
@@ -280,7 +304,14 @@
 
   <div class="card">
     <h2>Grade de horários — toque num dia para lançar</h2>
-    <div class="table-wrap">
+    <div class="legend">
+      <span class="legend-item"><span class="swatch swatch-filled">15</span> Valor da aula (R$)</span>
+      <span class="legend-item"><span class="swatch swatch-feriado">FER</span> Feriado</span>
+      <span class="legend-item"><span class="swatch swatch-sem">s/e</span> Sem escala</span>
+      <span class="legend-item"><span class="swatch swatch-none">–</span> Sem horário nesse dia</span>
+      <span class="legend-item"><span class="swatch swatch-weekend"></span> Fim de semana</span>
+    </div>
+    <div class="table-wrap" id="gridWrapMain">
       <table id="gridTable">
         <thead>
           <tr id="rowDayNum"></tr>
@@ -289,6 +320,7 @@
         <tbody id="gridBody"></tbody>
       </table>
     </div>
+    <div id="printGridSplit" class="print-only"></div>
   </div>
 
   <div class="card">
@@ -659,13 +691,13 @@
     return "R$ " + n.toLocaleString("pt-BR", {minimumFractionDigits:2, maximumFractionDigits:2});
   }
 
-  function renderGrid(){
-    var monthObj = ensureMonth(currentMonthKey);
-    var keys = dayKeysOf(currentMonthKey);
-
-    rowDayNum.innerHTML = "<th class='timecol'>Dia</th>";
-    rowDayDow.innerHTML = "<th class='timecol'>Horário</th>";
-    gridBody.innerHTML = "";
+  // Builds one grid table's rows into the given <tr>/<tbody> elements, for the given
+  // subset of day keys. Used both for the main on-screen table (all days) and for the
+  // narrower split tables used when printing (so a wide month still prints in portrait).
+  function buildGridInto(keys, monthObj, rowNumEl, rowDowEl, bodyEl, clickable){
+    rowNumEl.innerHTML = "<th class='timecol'>Dia</th>";
+    rowDowEl.innerHTML = "<th class='timecol'>Horário</th>";
+    bodyEl.innerHTML = "";
 
     keys.forEach(function(dateKey){
       var dayNum = parseInt(dateKey.split("-")[2], 10);
@@ -678,14 +710,14 @@
       var thNum = document.createElement("th");
       thNum.className = "dayhead" + (isWeekend ? " weekend" : "") + (allFer ? " col-holiday" : "") + (allSem ? " col-noschedule" : "");
       thNum.innerHTML = "<span class='num'>" + pad2(dayNum) + "</span>";
-      thNum.addEventListener("click", function(){ openDayModal(dateKey); });
-      rowDayNum.appendChild(thNum);
+      if(clickable) thNum.addEventListener("click", function(){ openDayModal(dateKey); });
+      rowNumEl.appendChild(thNum);
 
       var thDow = document.createElement("th");
       thDow.className = "dayhead" + (isWeekend ? " weekend" : "") + (allFer ? " col-holiday" : "") + (allSem ? " col-noschedule" : "");
       thDow.innerHTML = "<span class='dow'>" + DOW_NAMES[dow] + "</span>";
-      thDow.addEventListener("click", function(){ openDayModal(dateKey); });
-      rowDayDow.appendChild(thDow);
+      if(clickable) thDow.addEventListener("click", function(){ openDayModal(dateKey); });
+      rowDowEl.appendChild(thDow);
     });
 
     for(var s = 0; s < TIME_SLOTS.length; s++){
@@ -718,11 +750,11 @@
           span.className += " filled";
         }
         td.appendChild(span);
-        td.addEventListener("click", function(dk){ return function(){ openDayModal(dk); }; }(dateKey));
+        if(clickable) td.addEventListener("click", function(dk){ return function(){ openDayModal(dk); }; }(dateKey));
         tr.appendChild(td);
       });
 
-      gridBody.appendChild(tr);
+      bodyEl.appendChild(tr);
     }
 
     // total row
@@ -739,7 +771,43 @@
       td.textContent = dayTotal(dayObj) || "";
       trTotal.appendChild(td);
     });
-    gridBody.appendChild(trTotal);
+    bodyEl.appendChild(trTotal);
+  }
+
+  // Rebuilds the print-only split tables: the full month grid is too wide to fit a
+  // portrait page in one piece, so for printing it's broken into two narrower tables
+  // (first/second half of the month), stacked vertically, keeping the whole PDF portrait.
+  function renderPrintGrid(monthObj, keys){
+    var container = document.getElementById("printGridSplit");
+    if(!container) return;
+    container.innerHTML = "";
+    var mid = Math.ceil(keys.length / 2);
+    var chunks = [keys.slice(0, mid), keys.slice(mid)];
+    chunks.forEach(function(chunkKeys){
+      if(chunkKeys.length === 0) return;
+      var wrap = document.createElement("div");
+      wrap.className = "table-wrap";
+      var table = document.createElement("table");
+      var thead = document.createElement("thead");
+      var trNum = document.createElement("tr");
+      var trDow = document.createElement("tr");
+      thead.appendChild(trNum);
+      thead.appendChild(trDow);
+      var tbody = document.createElement("tbody");
+      table.appendChild(thead);
+      table.appendChild(tbody);
+      wrap.appendChild(table);
+      container.appendChild(wrap);
+      buildGridInto(chunkKeys, monthObj, trNum, trDow, tbody, false);
+    });
+  }
+
+  function renderGrid(){
+    var monthObj = ensureMonth(currentMonthKey);
+    var keys = dayKeysOf(currentMonthKey);
+
+    buildGridInto(keys, monthObj, rowDayNum, rowDayDow, gridBody, true);
+    renderPrintGrid(monthObj, keys);
 
     inputAuxilio.value = monthObj.auxilio;
     inputConsumo.value = monthObj.consumo;
