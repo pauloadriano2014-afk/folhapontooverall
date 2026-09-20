@@ -297,9 +297,6 @@
     font:inherit; color:inherit; cursor:pointer;
   }
   .legend-item-btn:hover{ border-color:var(--accent); }
-  .daycell .slot.falta{ background:transparent; color:var(--bad); text-decoration:line-through; }
-  .daycell .slot.extra{ background:var(--slot-filled-bg); color:var(--accent-2); outline:1px dashed var(--accent-2); }
-  .daycell .slot.na-monthly{ opacity:.55; }
 
   .table-wrap{ overflow-x:auto; border-radius:10px; border:1px solid var(--border); }
   table{ border-collapse:separate; border-spacing:0; width:100%; min-width:640px; }
@@ -528,7 +525,7 @@
 
 <main>
 
-  <div class="card">
+  <div class="card" id="resumoCard">
     <h2>Resumo do mês</h2>
     <div class="summary-grid">
       <div class="stat total">
@@ -576,26 +573,6 @@
       </table>
     </div>
     <div id="printGridSplit" class="print-only"></div>
-  </div>
-
-  <div class="card" id="personalAgendaCard">
-    <h2>Minha agenda — alunos particulares</h2>
-    <p class="account-section-hint">Vem direto do seu cadastro de alunos particulares. Toque num dia pra marcar falta (dia combinado) ou sessão extra (dia avulso). Alunos com cobrança mensal fixa só aparecem informativamente, o valor não muda por presença.</p>
-    <div class="legend">
-      <span class="legend-item"><span class="swatch swatch-filled">✓</span> Sessão (combinada ou extra)</span>
-      <span class="legend-item"><span class="swatch swatch-feriado" style="color:var(--bad);">falta</span> Faltou</span>
-      <span class="legend-item"><span class="swatch swatch-none">–</span> Sem sessão</span>
-      <span class="legend-item"><span class="swatch swatch-weekend"></span> Fim de semana</span>
-    </div>
-    <div class="table-wrap" id="paWrapMain">
-      <table id="paTable">
-        <thead>
-          <tr id="paRowDayNum"></tr>
-          <tr id="paRowDayDow"></tr>
-        </thead>
-        <tbody id="paBody"></tbody>
-      </table>
-    </div>
   </div>
 
   <div class="card">
@@ -676,6 +653,7 @@
       </div>
     </div>
 
+    <div id="gradeAccountSections">
     <div class="account-section">
       <h3>Valores rápidos</h3>
       <p class="account-section-hint">Os valores que aparecem como atalho ao lançar uma aula (separados por vírgula, use ponto pra decimais).</p>
@@ -717,6 +695,7 @@
         Sábado/domingo têm turno de sala (5h) em vez da grade da semana
       </label>
       <p class="account-section-hint">Liga isso se sábado e domingo funcionam num turno único de 08:00–13:00 ou 13:00–18:00 (você escolhe qual, dia a dia), em vez dos horários fixos da semana. Não tem alunos VIP no fim de semana.</p>
+    </div>
     </div>
 
     <div class="account-section">
@@ -823,7 +802,7 @@
       </label>
       <div class="account-section" id="clientAdjustWrap" style="margin-top:2px;">
         <h3 id="clientAdjustTitle">Ajuste manual neste mês</h3>
-        <p class="account-section-hint">Some ou subtraia sessões deste mês (ex: -1 se o aluno faltou, +1 se fez uma sessão extra). Se o personal marcar falta/extra pela agenda, isso soma aqui também.</p>
+        <p class="account-section-hint">Some ou subtraia sessões deste mês (ex: -1 se o aluno faltou, +1 se fez uma sessão extra).</p>
         <div class="custom-input">
           <input type="number" id="clientAdjustCount" step="1" style="width:80px;" placeholder="0" />
           <input type="text" id="clientAdjustNote" placeholder="Motivo (opcional)" style="flex:1;" />
@@ -1077,7 +1056,7 @@
       d.clients.forEach(function(c){
         if(!c.days) c.days = blankClientDays();
         if(!c.adjustments) c.adjustments = {};
-        if(!c.attendance) c.attendance = {};
+        delete c.attendance; // mecanismo de falta/extra removido a pedido do Paulo
         if(c.billingType !== "monthly") c.billingType = "session";
         if(typeof c.flatMonthlyValue === "undefined" || c.flatMonthlyValue === null) c.flatMonthlyValue = 0;
         if(!c.id) c.id = newClientId();
@@ -1184,11 +1163,11 @@
   // estagiario atende os VIP da sala) — professor e personal usam a parte de
   // alunos particulares. So escondemos quando temos certeza da funcao —
   // funcao desconhecida/em branco mostra tudo.
-  // Personal trainer nao trabalha em escala fixa (ele mesmo pediu pra tirar
-  // isso) — pra ele a grade generica de horarios some e vira uma agenda
-  // montada direto a partir dos alunos particulares que ele cadastrou.
-  function isPersonalTrainer(){ return roleCategory() === "personal"; }
-
+  // Personal trainer nao bate ponto nem trabalha em escala fixa (ele mesmo
+  // pediu pra tirar isso) — pra ele some a grade, o resumo do mes (horas,
+  // auxilio, consumo) e tudo que so faz sentido pra quem tem escala (lembrete
+  // de ponto, horario de fim de semana). Fica so o controle de alunos
+  // particulares: aluno, horario e valor, sem conceito de falta.
   function applyRoleVisibility(){
     var cat = roleCategory();
     var showVip = cat === "estagiario" || cat === null;
@@ -1197,11 +1176,13 @@
     var vipCard = document.getElementById("vipCard");
     var clientsCard = document.getElementById("clientsCard");
     var gradeCard = document.getElementById("gradeCard");
-    var personalAgendaCard = document.getElementById("personalAgendaCard");
+    var resumoCard = document.getElementById("resumoCard");
+    var gradeAccountSections = document.getElementById("gradeAccountSections");
     if(vipCard) vipCard.style.display = showVip ? "" : "none";
     if(clientsCard) clientsCard.style.display = showClients ? "" : "none";
     if(gradeCard) gradeCard.style.display = showGrade ? "" : "none";
-    if(personalAgendaCard) personalAgendaCard.style.display = showGrade ? "none" : "";
+    if(resumoCard) resumoCard.style.display = showGrade ? "" : "none";
+    if(gradeAccountSections) gradeAccountSections.style.display = showGrade ? "" : "none";
   }
 
   // Valores rapidos: dava pra editar so dentro de "Minha conta" — agora o chip
@@ -2112,7 +2093,6 @@
     statSalario.textContent = fmtMoney(salario);
     printTitle.textContent = "Folha de Ponto Overall — " + monthLabel(currentMonthKey);
     renderClients();
-    renderPersonalAgenda();
     renderVip();
   }
 
@@ -2545,26 +2525,11 @@
     return counts;
   }
 
-  // Soma quantas sessoes desse aluno foram marcadas como falta (-1) ou extra
-  // (+1) num mes especifico, direto na agenda do personal (ver renderPersonalAgenda).
-  // Isso e somado ao ajuste manual do modal — os dois mecanismos convivem.
-  function attendanceDeltaForMonth(client, monthKey){
-    var delta = 0;
-    if(client.attendance){
-      Object.keys(client.attendance).forEach(function(dateKey){
-        if(dateKey.slice(0, 7) !== monthKey) return;
-        var v = client.attendance[dateKey];
-        if(v === "extra") delta += 1;
-        else if(v === "falta") delta -= 1;
-      });
-    }
-    return delta;
-  }
-
   // Quantas sessoes esse aluno deve ter tido nesse mes: ocorrencias dos dias da
-  // semana marcados + faltas/extras marcadas na agenda + o ajuste manual
-  // daquele mes (se houver), nunca negativo. So importa pra cobranca "por
-  // sessao" — cobranca "mensal fixa" ignora isso (ver clientMonthlyValue).
+  // semana marcados + o ajuste manual daquele mes (se houver), nunca negativo.
+  // So importa pra cobranca "por sessao" — cobranca "mensal fixa" ignora isso
+  // (ver clientMonthlyValue). Sem controle de presenca/falta de proposito — o
+  // personal so quer aluno, horario e valor, o ajuste manual cobre exceções.
   function clientMonthlySessions(client, monthKey){
     var parts = monthKey.split("-");
     var year = parseInt(parts[0], 10), monthIndex = parseInt(parts[1], 10) - 1;
@@ -2575,7 +2540,6 @@
     });
     var adj = (client.adjustments && client.adjustments[monthKey]) ? (Number(client.adjustments[monthKey].count) || 0) : 0;
     total += adj;
-    total += attendanceDeltaForMonth(client, monthKey);
     if(total < 0) total = 0;
     return total;
   }
@@ -2645,148 +2609,6 @@
       listEl.appendChild(row);
     });
     totalEl.textContent = fmtMoney(monthTotal);
-  }
-
-  // Agenda do personal trainer: mesma ideia visual da grade de horarios (dias
-  // do mes nas colunas), mas com uma linha por aluno particular em vez de
-  // horarios fixos — isso e a grade e os alunos particulares "interligados"
-  // que ele pediu. Toca num dia agendado pra marcar falta, ou num dia livre
-  // pra marcar uma sessao extra; aluno com cobranca mensal fixa so aparece
-  // informativamente (celula nao clicavel, ja que presenca nao muda o valor).
-  function renderPersonalAgenda(){
-    var rowNumEl = document.getElementById("paRowDayNum");
-    var rowDowEl = document.getElementById("paRowDayDow");
-    var bodyEl = document.getElementById("paBody");
-    if(!rowNumEl || !rowDowEl || !bodyEl) return;
-    if(!isPersonalTrainer()) return; // nao gasta trabalho com o card escondido
-
-    var keys = dayKeysOf(currentMonthKey);
-    var clients = data.clients || [];
-
-    rowNumEl.innerHTML = "<th class='timecol'>Dia</th>";
-    rowDowEl.innerHTML = "<th class='timecol'>Horário</th>";
-    bodyEl.innerHTML = "";
-
-    keys.forEach(function(dateKey){
-      var dayNum = parseInt(dateKey.split("-")[2], 10);
-      var dow = dowOfDateKey(dateKey);
-      var isWeekend = (dow === 0 || dow === 6);
-
-      var thNum = document.createElement("th");
-      thNum.className = "dayhead" + (isWeekend ? " weekend" : "");
-      thNum.innerHTML = "<span class='num'>" + pad2(dayNum) + "</span>";
-      rowNumEl.appendChild(thNum);
-
-      var thDow = document.createElement("th");
-      thDow.className = "dayhead" + (isWeekend ? " weekend" : "");
-      thDow.innerHTML = "<span class='dow'>" + DOW_NAMES[dow] + "</span>";
-      rowDowEl.appendChild(thDow);
-    });
-
-    if(clients.length === 0){
-      var trEmpty = document.createElement("tr");
-      var tdEmptyLabel = document.createElement("td");
-      tdEmptyLabel.className = "timecol";
-      tdEmptyLabel.textContent = "Nenhum aluno";
-      trEmpty.appendChild(tdEmptyLabel);
-      keys.forEach(function(){
-        var td = document.createElement("td");
-        td.className = "daycell cell-na";
-        trEmpty.appendChild(td);
-      });
-      bodyEl.appendChild(trEmpty);
-    }
-
-    var dailyTotals = {}; // dateKey -> soma do valor por-sessao dos alunos atendidos naquele dia
-
-    clients.forEach(function(client){
-      var tr = document.createElement("tr");
-      var tdLabel = document.createElement("td");
-      tdLabel.className = "timecol";
-      var nameEl = document.createElement("strong");
-      nameEl.style.display = "block";
-      nameEl.textContent = client.name;
-      var rateEl = document.createElement("span");
-      rateEl.style.cssText = "font-size:10px;color:var(--text-dim);";
-      rateEl.textContent = clientRateLabel(client);
-      tdLabel.appendChild(nameEl);
-      tdLabel.appendChild(rateEl);
-      tr.appendChild(tdLabel);
-
-      var isMonthly = client.billingType === "monthly";
-
-      keys.forEach(function(dateKey){
-        var dow = dowOfDateKey(dateKey);
-        var isWeekend = (dow === 0 || dow === 6);
-        var td = document.createElement("td");
-        td.className = "daycell" + (isWeekend ? " weekend" : "");
-
-        var dowKey = CLIENT_DOW_KEYS[dow];
-        var normallyScheduled = !!(client.days && client.days[dowKey]);
-        var override = client.attendance ? client.attendance[dateKey] : null;
-        var effectiveOn = normallyScheduled ? (override !== "falta") : (override === "extra");
-
-        var span = document.createElement("span");
-        span.className = "slot";
-
-        if(effectiveOn){
-          span.textContent = client.time ? client.time : "✓";
-          span.className += " filled";
-          if(!normallyScheduled) span.className += " extra";
-          if(!isMonthly) dailyTotals[dateKey] = (dailyTotals[dateKey] || 0) + (Number(client.rate) || 0);
-        } else if(normallyScheduled && override === "falta"){
-          span.textContent = "falta";
-          span.className += " falta";
-        } else {
-          span.textContent = "–";
-          span.className += " sem";
-        }
-        if(isMonthly) span.className += " na-monthly";
-
-        td.appendChild(span);
-        if(!isMonthly){
-          td.addEventListener("click", function(){ toggleClientAttendance(client, dateKey, normallyScheduled); });
-        } else {
-          td.title = "Cobrança mensal fixa — presença não muda o valor";
-        }
-        tr.appendChild(td);
-      });
-
-      bodyEl.appendChild(tr);
-    });
-
-    var trTotal = document.createElement("tr");
-    trTotal.className = "totalrow";
-    var tdTotalLabel = document.createElement("td");
-    tdTotalLabel.className = "timecol";
-    tdTotalLabel.textContent = "TOTAL";
-    trTotal.appendChild(tdTotalLabel);
-    keys.forEach(function(dateKey){
-      var td = document.createElement("td");
-      td.className = "daycell";
-      var v = dailyTotals[dateKey] || 0;
-      td.textContent = v ? fmtMoney(v) : "";
-      trTotal.appendChild(td);
-    });
-    bodyEl.appendChild(trTotal);
-  }
-
-  // Marca falta (num dia combinado) ou sessao extra (num dia fora da agenda
-  // fixa) pra um aluno particular numa data especifica — clicar de novo
-  // desfaz. Isso soma no total do mes junto com o ajuste manual do modal.
-  function toggleClientAttendance(client, dateKey, normallyScheduled){
-    if(!client.attendance) client.attendance = {};
-    var current = client.attendance[dateKey];
-    if(normallyScheduled){
-      if(current === "falta") delete client.attendance[dateKey];
-      else client.attendance[dateKey] = "falta";
-    } else {
-      if(current === "extra") delete client.attendance[dateKey];
-      else client.attendance[dateKey] = "extra";
-    }
-    saveData();
-    renderPersonalAgenda();
-    renderClients();
   }
 
   // Mostra so os campos que fazem sentido pro tipo de cobranca escolhido: valor
@@ -2880,7 +2702,7 @@
     if(!data.clients) data.clients = [];
     var client = activeClientId ? data.clients.find(function(c){ return c.id === activeClientId; }) : null;
     if(!client){
-      client = { id: newClientId(), adjustments: {}, attendance: {} };
+      client = { id: newClientId(), adjustments: {} };
       data.clients.push(client);
     }
     client.name = name;
@@ -2890,7 +2712,6 @@
     client.time = time;
     client.days = days;
     if(!client.adjustments) client.adjustments = {};
-    if(!client.attendance) client.attendance = {};
 
     var adjCountRaw = document.getElementById("clientAdjustCount").value;
     var adjNote = document.getElementById("clientAdjustNote").value.trim();
@@ -2903,7 +2724,6 @@
 
     saveData();
     renderClients();
-    renderPersonalAgenda();
     closeOverlays();
     showToast("Aluno particular salvo");
   });
@@ -2914,7 +2734,6 @@
     data.clients = (data.clients || []).filter(function(c){ return c.id !== activeClientId; });
     saveData();
     renderClients();
-    renderPersonalAgenda();
     closeOverlays();
     showToast("Aluno excluído");
   });
