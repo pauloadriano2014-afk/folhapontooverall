@@ -232,6 +232,18 @@
   #dayNote{ width:100%; min-height:44px; resize:vertical; margin-top:4px; }
   .note-dot{ color:var(--warn); font-size:14px; margin-left:1px; line-height:1; }
 
+  .qv-chips{ display:flex; flex-wrap:wrap; gap:8px; margin:10px 0; }
+  .qv-chip{
+    display:flex; align-items:center; gap:6px; background:var(--bg-panel-2); border:1px solid var(--border);
+    border-radius:20px; padding:6px 8px 6px 14px; font-size:13px; font-weight:700;
+  }
+  .qv-chip button{
+    background:var(--bad); color:#fff; border:none; border-radius:50%; width:20px; height:20px;
+    font-size:12px; line-height:1; cursor:pointer; padding:0;
+  }
+  .qv-add-row{ display:flex; gap:6px; margin-top:4px; }
+  .qv-add-row input{ flex:1; }
+
   .time-slots-list{ display:flex; flex-direction:column; gap:6px; }
   .time-slot-row{ display:flex; align-items:center; gap:6px; }
   .time-slot-row input[type="time"]{ flex:1; min-width:0; }
@@ -280,6 +292,14 @@
   .legend .swatch-sem{ background:transparent; border:1px solid var(--border); color:#6b5a99; }
   .legend .swatch-none{ background:var(--bg-panel); border:1px solid var(--border); color:var(--text-dim); }
   .legend .swatch-weekend{ background:var(--weekend); }
+  .legend-item-btn{
+    background:none; border:1px dashed var(--border); border-radius:8px; padding:3px 8px 3px 4px;
+    font:inherit; color:inherit; cursor:pointer;
+  }
+  .legend-item-btn:hover{ border-color:var(--accent); }
+  .daycell .slot.falta{ background:transparent; color:var(--bad); text-decoration:line-through; }
+  .daycell .slot.extra{ background:var(--slot-filled-bg); color:var(--accent-2); outline:1px dashed var(--accent-2); }
+  .daycell .slot.na-monthly{ opacity:.55; }
 
   .table-wrap{ overflow-x:auto; border-radius:10px; border:1px solid var(--border); }
   table{ border-collapse:separate; border-spacing:0; width:100%; min-width:640px; }
@@ -408,6 +428,7 @@
     .legend .swatch-sem, .legend .swatch-none{ background:#fff !important; border:1px solid #ccc; color:#111 !important; }
     .legend .swatch-weekend{ background:#eef0fb !important; border:1px solid #ccc; }
     .print-only{ display:block; }
+    .legend .print-only{ display:flex; }
     #gridWrapMain{ display:none; }
     .print-only .table-wrap{ border:1px solid #ccc; overflow:visible; margin-bottom:10px; }
     .print-only .table-wrap:last-child{ margin-bottom:0; }
@@ -533,10 +554,13 @@
     </div>
   </div>
 
-  <div class="card">
+  <div class="card" id="gradeCard">
     <h2>Grade de horários — toque num dia para lançar</h2>
     <div class="legend">
-      <span class="legend-item"><span class="swatch swatch-filled">15</span> Valor da aula (R$)</span>
+      <button type="button" class="legend-item legend-item-btn no-print" id="btnQuickValuesChip" title="Toque para adicionar, alterar ou remover">
+        <span class="swatch swatch-filled" id="quickValuesChipSwatch">15</span> Valores rápidos (toque p/ editar) ✏️
+      </button>
+      <span class="legend-item print-only"><span class="swatch swatch-filled" id="quickValuesChipSwatchPrint">15</span> Valor da aula (R$)</span>
       <span class="legend-item"><span class="swatch swatch-feriado">FER</span> Feriado</span>
       <span class="legend-item"><span class="swatch swatch-sem">s/e</span> Sem escala</span>
       <span class="legend-item"><span class="swatch swatch-none">–</span> Sem horário nesse dia</span>
@@ -552,6 +576,26 @@
       </table>
     </div>
     <div id="printGridSplit" class="print-only"></div>
+  </div>
+
+  <div class="card" id="personalAgendaCard">
+    <h2>Minha agenda — alunos particulares</h2>
+    <p class="account-section-hint">Vem direto do seu cadastro de alunos particulares. Toque num dia pra marcar falta (dia combinado) ou sessão extra (dia avulso). Alunos com cobrança mensal fixa só aparecem informativamente, o valor não muda por presença.</p>
+    <div class="legend">
+      <span class="legend-item"><span class="swatch swatch-filled">✓</span> Sessão (combinada ou extra)</span>
+      <span class="legend-item"><span class="swatch swatch-feriado" style="color:var(--bad);">falta</span> Faltou</span>
+      <span class="legend-item"><span class="swatch swatch-none">–</span> Sem sessão</span>
+      <span class="legend-item"><span class="swatch swatch-weekend"></span> Fim de semana</span>
+    </div>
+    <div class="table-wrap" id="paWrapMain">
+      <table id="paTable">
+        <thead>
+          <tr id="paRowDayNum"></tr>
+          <tr id="paRowDayDow"></tr>
+        </thead>
+        <tbody id="paBody"></tbody>
+      </table>
+    </div>
   </div>
 
   <div class="card">
@@ -714,6 +758,20 @@
   </div>
 </div>
 
+<!-- Valores rapidos (editar direto na grade) -->
+<div class="overlay" id="quickValuesOverlay">
+  <div class="sheet">
+    <button class="close ghost small" data-close>Fechar</button>
+    <h3>Valores rápidos</h3>
+    <p class="account-section-hint">Os valores que aparecem como atalho ao lançar uma aula. Toque no "×" pra remover um, ou adicione um novo abaixo.</p>
+    <div class="qv-chips" id="quickValuesChipsList"></div>
+    <div class="qv-add-row">
+      <input type="number" id="newQuickValueInput" inputmode="decimal" min="0" step="0.01" placeholder="Novo valor" />
+      <button class="small primary" id="btnAddQuickValue">Adicionar</button>
+    </div>
+  </div>
+</div>
+
 <!-- VIP edit modal -->
 <div class="overlay" id="vipOverlay">
   <div class="sheet">
@@ -745,8 +803,17 @@
       <label>Nome do aluno
         <input type="text" id="clientName" required />
       </label>
-      <label>Valor por sessão (R$)
-        <input type="number" id="clientRate" inputmode="decimal" min="0" step="0.01" required />
+      <label>Como esse aluno paga?
+        <div class="client-days-grid" id="clientBillingType">
+          <label class="client-day-chip"><input type="radio" name="clientBillingType" value="session" checked /> Por sessão</label>
+          <label class="client-day-chip"><input type="radio" name="clientBillingType" value="monthly" /> Mensal fixo</label>
+        </div>
+      </label>
+      <label id="clientRateWrap">Valor por sessão (R$)
+        <input type="number" id="clientRate" inputmode="decimal" min="0" step="0.01" />
+      </label>
+      <label id="clientMonthlyValueWrap" style="display:none;">Valor mensal fixo (R$)
+        <input type="number" id="clientMonthlyValueInput" inputmode="decimal" min="0" step="0.01" />
       </label>
       <label>Horário (opcional)
         <input type="text" id="clientTime" placeholder="Ex: 07:00" />
@@ -754,9 +821,9 @@
       <label>Dias da semana
         <div class="client-days-grid" id="clientDaysGrid"></div>
       </label>
-      <div class="account-section" style="margin-top:2px;">
+      <div class="account-section" id="clientAdjustWrap" style="margin-top:2px;">
         <h3 id="clientAdjustTitle">Ajuste manual neste mês</h3>
-        <p class="account-section-hint">Some ou subtraia sessões deste mês (ex: -1 se o aluno faltou, +1 se fez uma sessão extra).</p>
+        <p class="account-section-hint">Some ou subtraia sessões deste mês (ex: -1 se o aluno faltou, +1 se fez uma sessão extra). Se o personal marcar falta/extra pela agenda, isso soma aqui também.</p>
         <div class="custom-input">
           <input type="number" id="clientAdjustCount" step="1" style="width:80px;" placeholder="0" />
           <input type="text" id="clientAdjustNote" placeholder="Motivo (opcional)" style="flex:1;" />
@@ -1010,6 +1077,9 @@
       d.clients.forEach(function(c){
         if(!c.days) c.days = blankClientDays();
         if(!c.adjustments) c.adjustments = {};
+        if(!c.attendance) c.attendance = {};
+        if(c.billingType !== "monthly") c.billingType = "session";
+        if(typeof c.flatMonthlyValue === "undefined" || c.flatMonthlyValue === null) c.flatMonthlyValue = 0;
         if(!c.id) c.id = newClientId();
       });
       return d;
@@ -1110,18 +1180,93 @@
   }
 
   // Nem todo mundo usa o app do mesmo jeito: estagiario tem grade + VIP mas nao
-  // atende aluno particular; personal trainer nao tem alunos VIP, so a grade e
-  // os alunos que ele mesmo cadastra; professor tem tudo. So escondemos quando
-  // temos certeza da funcao — funcao desconhecida/em branco mostra tudo.
+  // atende aluno particular; professor e personal nao tem alunos VIP (so o
+  // estagiario atende os VIP da sala) — professor e personal usam a parte de
+  // alunos particulares. So escondemos quando temos certeza da funcao —
+  // funcao desconhecida/em branco mostra tudo.
+  // Personal trainer nao trabalha em escala fixa (ele mesmo pediu pra tirar
+  // isso) — pra ele a grade generica de horarios some e vira uma agenda
+  // montada direto a partir dos alunos particulares que ele cadastrou.
+  function isPersonalTrainer(){ return roleCategory() === "personal"; }
+
   function applyRoleVisibility(){
     var cat = roleCategory();
-    var showVip = cat !== "personal";
+    var showVip = cat === "estagiario" || cat === null;
     var showClients = cat !== "estagiario";
+    var showGrade = cat !== "personal";
     var vipCard = document.getElementById("vipCard");
     var clientsCard = document.getElementById("clientsCard");
+    var gradeCard = document.getElementById("gradeCard");
+    var personalAgendaCard = document.getElementById("personalAgendaCard");
     if(vipCard) vipCard.style.display = showVip ? "" : "none";
     if(clientsCard) clientsCard.style.display = showClients ? "" : "none";
+    if(gradeCard) gradeCard.style.display = showGrade ? "" : "none";
+    if(personalAgendaCard) personalAgendaCard.style.display = showGrade ? "none" : "";
   }
+
+  // Valores rapidos: dava pra editar so dentro de "Minha conta" — agora o chip
+  // da legenda da grade mostra os valores de verdade e edita ali mesmo, num
+  // popover pequeno, sem sair da tela.
+  function currentQuickValues(){
+    return (data.settings.quickValues && data.settings.quickValues.length) ? data.settings.quickValues : [10, 15];
+  }
+
+  function setQuickValues(nums){
+    data.settings.quickValues = nums;
+    saveData();
+    renderQuickValuesUI();
+  }
+
+  function renderQuickValuesUI(){
+    var values = currentQuickValues();
+    var label = values.join("/");
+    var chipSwatch = document.getElementById("quickValuesChipSwatch");
+    var chipSwatchPrint = document.getElementById("quickValuesChipSwatchPrint");
+    if(chipSwatch) chipSwatch.textContent = label;
+    if(chipSwatchPrint) chipSwatchPrint.textContent = label;
+
+    var qvInput = document.getElementById("quickValuesInput");
+    if(qvInput) qvInput.value = values.join(", ");
+
+    var listEl = document.getElementById("quickValuesChipsList");
+    if(listEl){
+      listEl.innerHTML = "";
+      values.forEach(function(v){
+        var chip = document.createElement("span");
+        chip.className = "qv-chip";
+        var text = document.createElement("span");
+        text.textContent = v;
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = "×";
+        btn.title = "Remover";
+        btn.addEventListener("click", function(){
+          var updated = currentQuickValues().filter(function(x){ return x !== v; });
+          if(updated.length === 0){ showToast("Precisa ter pelo menos um valor"); return; }
+          setQuickValues(updated);
+        });
+        chip.appendChild(text);
+        chip.appendChild(btn);
+        listEl.appendChild(chip);
+      });
+    }
+  }
+
+  document.getElementById("btnQuickValuesChip").addEventListener("click", function(){
+    renderQuickValuesUI();
+    document.getElementById("newQuickValueInput").value = "";
+    document.getElementById("quickValuesOverlay").classList.add("open");
+  });
+
+  document.getElementById("btnAddQuickValue").addEventListener("click", function(){
+    var input = document.getElementById("newQuickValueInput");
+    var num = parseFloat(String(input.value).replace(",", "."));
+    if(isNaN(num) || num <= 0){ showToast("Informe um valor válido"); return; }
+    var updated = currentQuickValues().slice();
+    if(updated.indexOf(num) < 0) updated.push(num);
+    setQuickValues(updated);
+    input.value = "";
+  });
 
   function bootApp(){
     STORAGE_KEY = "pontoOverallData_v1_" + currentUser.id;
@@ -1133,6 +1278,7 @@
     renderMonthSelect();
     renderGrid();
     renderVip();
+    renderQuickValuesUI();
     initSync();
     startReminderLoop();
   }
@@ -1389,8 +1535,7 @@
         showToast("Informe pelo menos um valor válido");
         return;
       }
-      data.settings.quickValues = nums;
-      saveData();
+      setQuickValues(nums);
       showToast("Valores rápidos atualizados");
     });
 
@@ -1967,6 +2112,7 @@
     statSalario.textContent = fmtMoney(salario);
     printTitle.textContent = "Folha de Ponto Overall — " + monthLabel(currentMonthKey);
     renderClients();
+    renderPersonalAgenda();
     renderVip();
   }
 
@@ -2399,8 +2545,26 @@
     return counts;
   }
 
+  // Soma quantas sessoes desse aluno foram marcadas como falta (-1) ou extra
+  // (+1) num mes especifico, direto na agenda do personal (ver renderPersonalAgenda).
+  // Isso e somado ao ajuste manual do modal — os dois mecanismos convivem.
+  function attendanceDeltaForMonth(client, monthKey){
+    var delta = 0;
+    if(client.attendance){
+      Object.keys(client.attendance).forEach(function(dateKey){
+        if(dateKey.slice(0, 7) !== monthKey) return;
+        var v = client.attendance[dateKey];
+        if(v === "extra") delta += 1;
+        else if(v === "falta") delta -= 1;
+      });
+    }
+    return delta;
+  }
+
   // Quantas sessoes esse aluno deve ter tido nesse mes: ocorrencias dos dias da
-  // semana marcados + o ajuste manual daquele mes (se houver), nunca negativo.
+  // semana marcados + faltas/extras marcadas na agenda + o ajuste manual
+  // daquele mes (se houver), nunca negativo. So importa pra cobranca "por
+  // sessao" — cobranca "mensal fixa" ignora isso (ver clientMonthlyValue).
   function clientMonthlySessions(client, monthKey){
     var parts = monthKey.split("-");
     var year = parseInt(parts[0], 10), monthIndex = parseInt(parts[1], 10) - 1;
@@ -2411,11 +2575,18 @@
     });
     var adj = (client.adjustments && client.adjustments[monthKey]) ? (Number(client.adjustments[monthKey].count) || 0) : 0;
     total += adj;
+    total += attendanceDeltaForMonth(client, monthKey);
     if(total < 0) total = 0;
     return total;
   }
 
+  // Personal trainer recebe por aula (valor x numero de sessoes) ou mensal
+  // fixo (sempre o mesmo valor, presenca/falta nao muda nada) — ele mesmo
+  // pediu essa segunda opcao, ja que muitos alunos particulares pagam fixo.
   function clientMonthlyValue(client, monthKey){
+    if(client.billingType === "monthly"){
+      return Number(client.flatMonthlyValue) || 0;
+    }
     return clientMonthlySessions(client, monthKey) * (Number(client.rate) || 0);
   }
 
@@ -2425,6 +2596,12 @@
       if(client.days && client.days[k]) parts.push(CLIENT_DOW_LABELS[idx]);
     });
     return parts.length ? parts.join(", ") : "sem dia fixo";
+  }
+
+  function clientRateLabel(client){
+    return client.billingType === "monthly"
+      ? fmtMoney(Number(client.flatMonthlyValue) || 0) + "/mês (fixo)"
+      : fmtMoney(Number(client.rate) || 0) + "/sessão";
   }
 
   function renderClients(){
@@ -2449,7 +2626,7 @@
       name.textContent = client.name;
       var meta = document.createElement("span");
       meta.className = "client-meta";
-      meta.textContent = clientDaysLabel(client) + (client.time ? " · " + client.time : "") + " · " + fmtMoney(Number(client.rate) || 0) + "/sessão";
+      meta.textContent = clientDaysLabel(client) + (client.time ? " · " + client.time : "") + " · " + clientRateLabel(client);
       info.appendChild(name);
       info.appendChild(meta);
 
@@ -2470,6 +2647,169 @@
     totalEl.textContent = fmtMoney(monthTotal);
   }
 
+  // Agenda do personal trainer: mesma ideia visual da grade de horarios (dias
+  // do mes nas colunas), mas com uma linha por aluno particular em vez de
+  // horarios fixos — isso e a grade e os alunos particulares "interligados"
+  // que ele pediu. Toca num dia agendado pra marcar falta, ou num dia livre
+  // pra marcar uma sessao extra; aluno com cobranca mensal fixa so aparece
+  // informativamente (celula nao clicavel, ja que presenca nao muda o valor).
+  function renderPersonalAgenda(){
+    var rowNumEl = document.getElementById("paRowDayNum");
+    var rowDowEl = document.getElementById("paRowDayDow");
+    var bodyEl = document.getElementById("paBody");
+    if(!rowNumEl || !rowDowEl || !bodyEl) return;
+    if(!isPersonalTrainer()) return; // nao gasta trabalho com o card escondido
+
+    var keys = dayKeysOf(currentMonthKey);
+    var clients = data.clients || [];
+
+    rowNumEl.innerHTML = "<th class='timecol'>Dia</th>";
+    rowDowEl.innerHTML = "<th class='timecol'>Horário</th>";
+    bodyEl.innerHTML = "";
+
+    keys.forEach(function(dateKey){
+      var dayNum = parseInt(dateKey.split("-")[2], 10);
+      var dow = dowOfDateKey(dateKey);
+      var isWeekend = (dow === 0 || dow === 6);
+
+      var thNum = document.createElement("th");
+      thNum.className = "dayhead" + (isWeekend ? " weekend" : "");
+      thNum.innerHTML = "<span class='num'>" + pad2(dayNum) + "</span>";
+      rowNumEl.appendChild(thNum);
+
+      var thDow = document.createElement("th");
+      thDow.className = "dayhead" + (isWeekend ? " weekend" : "");
+      thDow.innerHTML = "<span class='dow'>" + DOW_NAMES[dow] + "</span>";
+      rowDowEl.appendChild(thDow);
+    });
+
+    if(clients.length === 0){
+      var trEmpty = document.createElement("tr");
+      var tdEmptyLabel = document.createElement("td");
+      tdEmptyLabel.className = "timecol";
+      tdEmptyLabel.textContent = "Nenhum aluno";
+      trEmpty.appendChild(tdEmptyLabel);
+      keys.forEach(function(){
+        var td = document.createElement("td");
+        td.className = "daycell cell-na";
+        trEmpty.appendChild(td);
+      });
+      bodyEl.appendChild(trEmpty);
+    }
+
+    var dailyTotals = {}; // dateKey -> soma do valor por-sessao dos alunos atendidos naquele dia
+
+    clients.forEach(function(client){
+      var tr = document.createElement("tr");
+      var tdLabel = document.createElement("td");
+      tdLabel.className = "timecol";
+      var nameEl = document.createElement("strong");
+      nameEl.style.display = "block";
+      nameEl.textContent = client.name;
+      var rateEl = document.createElement("span");
+      rateEl.style.cssText = "font-size:10px;color:var(--text-dim);";
+      rateEl.textContent = clientRateLabel(client);
+      tdLabel.appendChild(nameEl);
+      tdLabel.appendChild(rateEl);
+      tr.appendChild(tdLabel);
+
+      var isMonthly = client.billingType === "monthly";
+
+      keys.forEach(function(dateKey){
+        var dow = dowOfDateKey(dateKey);
+        var isWeekend = (dow === 0 || dow === 6);
+        var td = document.createElement("td");
+        td.className = "daycell" + (isWeekend ? " weekend" : "");
+
+        var dowKey = CLIENT_DOW_KEYS[dow];
+        var normallyScheduled = !!(client.days && client.days[dowKey]);
+        var override = client.attendance ? client.attendance[dateKey] : null;
+        var effectiveOn = normallyScheduled ? (override !== "falta") : (override === "extra");
+
+        var span = document.createElement("span");
+        span.className = "slot";
+
+        if(effectiveOn){
+          span.textContent = client.time ? client.time : "✓";
+          span.className += " filled";
+          if(!normallyScheduled) span.className += " extra";
+          if(!isMonthly) dailyTotals[dateKey] = (dailyTotals[dateKey] || 0) + (Number(client.rate) || 0);
+        } else if(normallyScheduled && override === "falta"){
+          span.textContent = "falta";
+          span.className += " falta";
+        } else {
+          span.textContent = "–";
+          span.className += " sem";
+        }
+        if(isMonthly) span.className += " na-monthly";
+
+        td.appendChild(span);
+        if(!isMonthly){
+          td.addEventListener("click", function(){ toggleClientAttendance(client, dateKey, normallyScheduled); });
+        } else {
+          td.title = "Cobrança mensal fixa — presença não muda o valor";
+        }
+        tr.appendChild(td);
+      });
+
+      bodyEl.appendChild(tr);
+    });
+
+    var trTotal = document.createElement("tr");
+    trTotal.className = "totalrow";
+    var tdTotalLabel = document.createElement("td");
+    tdTotalLabel.className = "timecol";
+    tdTotalLabel.textContent = "TOTAL";
+    trTotal.appendChild(tdTotalLabel);
+    keys.forEach(function(dateKey){
+      var td = document.createElement("td");
+      td.className = "daycell";
+      var v = dailyTotals[dateKey] || 0;
+      td.textContent = v ? fmtMoney(v) : "";
+      trTotal.appendChild(td);
+    });
+    bodyEl.appendChild(trTotal);
+  }
+
+  // Marca falta (num dia combinado) ou sessao extra (num dia fora da agenda
+  // fixa) pra um aluno particular numa data especifica — clicar de novo
+  // desfaz. Isso soma no total do mes junto com o ajuste manual do modal.
+  function toggleClientAttendance(client, dateKey, normallyScheduled){
+    if(!client.attendance) client.attendance = {};
+    var current = client.attendance[dateKey];
+    if(normallyScheduled){
+      if(current === "falta") delete client.attendance[dateKey];
+      else client.attendance[dateKey] = "falta";
+    } else {
+      if(current === "extra") delete client.attendance[dateKey];
+      else client.attendance[dateKey] = "extra";
+    }
+    saveData();
+    renderPersonalAgenda();
+    renderClients();
+  }
+
+  // Mostra so os campos que fazem sentido pro tipo de cobranca escolhido: valor
+  // por sessao (some com o ajuste manual, ja que presenca importa) ou valor
+  // mensal fixo (esconde o ajuste manual, ja que presenca nao muda o valor).
+  function applyClientBillingTypeUI(type){
+    var isMonthly = type === "monthly";
+    document.getElementById("clientRateWrap").style.display = isMonthly ? "none" : "";
+    document.getElementById("clientRate").required = !isMonthly;
+    document.getElementById("clientMonthlyValueWrap").style.display = isMonthly ? "" : "none";
+    document.getElementById("clientMonthlyValueInput").required = isMonthly;
+    document.getElementById("clientAdjustWrap").style.display = isMonthly ? "none" : "";
+  }
+
+  document.querySelectorAll('input[name="clientBillingType"]').forEach(function(radio){
+    radio.addEventListener("change", function(){
+      document.querySelectorAll('input[name="clientBillingType"]').forEach(function(r){
+        r.closest(".client-day-chip").classList.toggle("checked", r.checked);
+      });
+      applyClientBillingTypeUI(radio.value);
+    });
+  });
+
   function openClientModal(clientId){
     activeClientId = clientId || null;
     var client = activeClientId ? (data.clients || []).find(function(c){ return c.id === activeClientId; }) : null;
@@ -2478,7 +2818,15 @@
     document.getElementById("clientError").textContent = "";
     document.getElementById("clientName").value = client ? client.name : "";
     document.getElementById("clientRate").value = client ? client.rate : "";
+    document.getElementById("clientMonthlyValueInput").value = client ? (client.flatMonthlyValue || "") : "";
     document.getElementById("clientTime").value = client ? (client.time || "") : "";
+
+    var billingType = client ? (client.billingType || "session") : "session";
+    document.querySelectorAll('input[name="clientBillingType"]').forEach(function(radio){
+      radio.checked = (radio.value === billingType);
+      radio.closest(".client-day-chip").classList.toggle("checked", radio.checked);
+    });
+    applyClientBillingTypeUI(billingType);
 
     var daysGrid = document.getElementById("clientDaysGrid");
     daysGrid.innerHTML = "";
@@ -2512,10 +2860,17 @@
     var errEl = document.getElementById("clientError");
     errEl.textContent = "";
     var name = document.getElementById("clientName").value.trim();
+    var billingTypeInput = document.querySelector('input[name="clientBillingType"]:checked');
+    var billingType = billingTypeInput ? billingTypeInput.value : "session";
     var rate = parseFloat(document.getElementById("clientRate").value.replace(",", "."));
+    var monthlyValue = parseFloat(document.getElementById("clientMonthlyValueInput").value.replace(",", "."));
     var time = document.getElementById("clientTime").value.trim();
     if(!name){ errEl.textContent = "Informe o nome do aluno."; return; }
-    if(isNaN(rate) || rate < 0){ errEl.textContent = "Informe um valor por sessão válido."; return; }
+    if(billingType === "monthly"){
+      if(isNaN(monthlyValue) || monthlyValue < 0){ errEl.textContent = "Informe um valor mensal fixo válido."; return; }
+    } else {
+      if(isNaN(rate) || rate < 0){ errEl.textContent = "Informe um valor por sessão válido."; return; }
+    }
 
     var days = {};
     document.querySelectorAll("#clientDaysGrid input[type=checkbox]").forEach(function(cb){
@@ -2525,14 +2880,17 @@
     if(!data.clients) data.clients = [];
     var client = activeClientId ? data.clients.find(function(c){ return c.id === activeClientId; }) : null;
     if(!client){
-      client = { id: newClientId(), adjustments: {} };
+      client = { id: newClientId(), adjustments: {}, attendance: {} };
       data.clients.push(client);
     }
     client.name = name;
-    client.rate = rate;
+    client.billingType = billingType;
+    client.rate = isNaN(rate) ? 0 : rate;
+    client.flatMonthlyValue = isNaN(monthlyValue) ? 0 : monthlyValue;
     client.time = time;
     client.days = days;
     if(!client.adjustments) client.adjustments = {};
+    if(!client.attendance) client.attendance = {};
 
     var adjCountRaw = document.getElementById("clientAdjustCount").value;
     var adjNote = document.getElementById("clientAdjustNote").value.trim();
@@ -2545,6 +2903,7 @@
 
     saveData();
     renderClients();
+    renderPersonalAgenda();
     closeOverlays();
     showToast("Aluno particular salvo");
   });
@@ -2555,6 +2914,7 @@
     data.clients = (data.clients || []).filter(function(c){ return c.id !== activeClientId; });
     saveData();
     renderClients();
+    renderPersonalAgenda();
     closeOverlays();
     showToast("Aluno excluído");
   });
