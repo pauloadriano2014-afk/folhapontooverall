@@ -128,6 +128,154 @@ async function ensureTables() {
       updated_at timestamptz NOT NULL DEFAULT now()
     );
   `);
+  // Camada de "empresa" (academia): opcional e aditiva — uma conta que nunca
+  // usou codigo de convite nem virou dona de academia continua exatamente
+  // como sempre foi (company_id fica null). Uma "empresa" e apenas um dono
+  // (company_role = 'owner') mais zero ou mais profissionais vinculados
+  // (company_role null) que entraram usando o codigo de convite no cadastro.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS companies (
+      id serial PRIMARY KEY,
+      name text NOT NULL,
+      invite_code text UNIQUE NOT NULL,
+      owner_user_id integer REFERENCES users(id),
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS company_id integer REFERENCES companies(id);`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS company_role text;`);
+  // Convite por e-mail: a academia digita nome/e-mail/funcao (e, opcionalmente,
+  // o horario de trabalho) uma vez, a gente manda um link, e quem se cadastra
+  // por ele ja entra vinculado e com a escala preenchida — sem precisar copiar
+  // e colar codigo nenhum. Tambem aditivo, nao afeta o fluxo de codigo manual.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS company_invites (
+      id serial PRIMARY KEY,
+      company_id integer NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      token text UNIQUE NOT NULL,
+      name text NOT NULL,
+      role text,
+      email text NOT NULL,
+      shift_start text,
+      shift_end text,
+      weekend_shift boolean NOT NULL DEFAULT false,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      used_at timestamptz,
+      redeemed_user_id integer REFERENCES users(id)
+    );
+  `);
+  // Nivel de acesso do convite: 'staff' (profissional comum, padrao — mantem
+  // o comportamento de sempre), 'coordinator' (tambem bate ponto, mas alem
+  // disso gerencia a escala de fim de semana/feriado da equipe) ou 'partner'
+  // (socio(a) da academia: so acompanha, sem editar nada financeiro nem de
+  // escala). Aditivo — convites antigos ja tem o default 'staff'.
+  await pool.query(`ALTER TABLE company_invites ADD COLUMN IF NOT EXISTS access_role text NOT NULL DEFAULT 'staff';`);
+  // Escala/roster da equipe: quem trabalhou, faltou ou foi coberto em cada
+  // dia (pensado sobretudo pra fim de semana/feriado, onde a escala muda
+  // semana a semana). Uma linha por (profissional, dia) — editar de novo no
+  // mesmo dia so atualiza a linha existente.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS company_schedule (
+      id serial PRIMARY KEY,
+      company_id integer NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      date text NOT NULL,
+      status text NOT NULL,
+      note text,
+      covered_by_user_id integer REFERENCES users(id),
+      created_by integer REFERENCES users(id),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE(user_id, date)
+    );
+  `);
+}
+
+// 'owner' sempre pode tudo. 'coordinator' gerencia a escala (mas nao ve
+// valores financeiros da equipe). 'partner' (socio) so acompanha, sem editar
+// nada.
+function isScheduleManager(role) {
+  return role === "owner" || role === "coordinator";
+}
+function isScheduleViewer(role) {
+  return role === "owner" || role === "coordinator" || role === "partner";
+}
+
+var INVITE_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sem O/0 e I/1, pra nao confundir na hora de digitar
+function randomInviteCode() {
+  var out = "";
+  for (var i = 0; i < 6; i++) {
+    out += INVITE_CODE_CHARS[crypto.randomInt(INVITE_CODE_CHARS.length)];
+  }
+  return out;
+}
+
+function randomInviteToken() {
+  return crypto.randomBytes(24).toString("hex");
+}
+
+function pad2Hour(n) {
+  return (n < 10 ? "0" : "") + n;
+}
+
+// A partir de "entrada"/"saida" (so hora, ex "05:00"/"13:00"), gera os blocos
+// de 1h no mesmo formato que a grade ja usa (ex "05:00–06:00"). Sem
+// entrada/saida definidos no convite, devolve null (a pessoa configura os
+// proprios horarios como sempre, sem nada pre-preenchido).
+function buildSuggestedSchedule(shiftStart, shiftEnd, weekendShift) {
+  if (!shiftStart || !shiftEnd) return null;
+  var startH = parseInt(String(shiftStart).split(":")[0], 10);
+  var endH = parseInt(String(shiftEnd).split(":")[0], 10);
+  if (isNaN(startH) || isNaN(endH) || startH === endH) return null;
+  var slots = [];
+  var h = startH;
+  var guard = 0;
+  while (h !== endH && guard < 24) {
+    var next = (h + 1) % 24;
+    slots.push(pad2Hour(h) + ":00–" + pad2Hour(next) + ":00");
+    h = next;
+    guard++;
+  }
+  if (slots.length === 0) return null;
+  return { timeSlots: slots, weekendShiftEnabled: !!weekendShift };
+}
+
+function sendInviteEmail(toEmail, name, companyName, link) {
+  return mailer.sendMail({
+    from: "Ponto Overall <" + SMTP_USER + ">",
+    to: toEmail,
+    subject: "Convite para o Ponto Overall — " + companyName,
+    text:
+      "Oi, " + name + "!\n\n" +
+      companyName + " te convidou pra usar o Ponto Overall.\n\n" +
+      "Clique no link abaixo pra completar seu cadastro (a conta já vem vinculada):\n" +
+      link +
+      "\n\nSe você não esperava esse convite, pode ignorar este e-mail.",
+    html:
+      "<p>Oi, " + name + "!</p>" +
+      "<p><strong>" + companyName + "</strong> te convidou pra usar o <strong>Ponto Overall</strong>.</p>" +
+      "<p><a href=\"" + link + "\" style=\"background:#a855f7;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;\">Completar cadastro</a></p>" +
+      "<p>Ou copie e cole este link no navegador:<br>" + link + "</p>" +
+      "<p style=\"color:#888;font-size:12px;\">Se você não esperava esse convite, pode ignorar este e-mail.</p>",
+  });
+}
+
+async function createCompanyForOwner(ownerUserId, companyName) {
+  // Tenta gerar um codigo de convite unico; colisao e raridade estatistica,
+  // mas a unicidade e uma constraint do banco, entao tenta de novo se bater.
+  for (var attempt = 0; attempt < 5; attempt++) {
+    var code = randomInviteCode();
+    try {
+      var result = await pool.query(
+        "INSERT INTO companies (name, invite_code, owner_user_id) VALUES ($1, $2, $3) RETURNING id, name, invite_code",
+        [companyName, code, ownerUserId]
+      );
+      return result.rows[0];
+    } catch (err) {
+      if (err && err.code === "23505") continue; // invite_code duplicado, tenta outro
+      throw err;
+    }
+  }
+  throw new Error("nao_foi_possivel_gerar_codigo_de_convite");
 }
 
 const app = express();
@@ -135,7 +283,14 @@ app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
 function publicUser(row) {
-  return { id: row.id, name: row.name, role: row.role || "", email: row.email };
+  return {
+    id: row.id,
+    name: row.name,
+    role: row.role || "",
+    email: row.email,
+    companyId: row.company_id || null,
+    companyRole: row.company_role || null,
+  };
 }
 
 function signToken(row) {
@@ -161,8 +316,12 @@ app.get("/health", (req, res) => {
 
 app.post("/api/register", async (req, res) => {
   var body = req.body || {};
+  var accountType = String(body.accountType || "profissional").trim(); // "profissional" (padrao, compativel com o app antigo) ou "empresa"
   var name = String(body.name || "").trim();
   var role = String(body.role || "").trim();
+  var companyName = String(body.companyName || "").trim();
+  var inviteCode = String(body.inviteCode || "").trim().toUpperCase();
+  var inviteToken = String(body.inviteToken || "").trim();
   var email = String(body.email || "").trim().toLowerCase();
   var password = String(body.password || "");
 
@@ -175,19 +334,72 @@ app.post("/api/register", async (req, res) => {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ error: "invalid_email", message: "E-mail inválido." });
   }
+  if (accountType === "empresa" && !companyName) {
+    return res.status(400).json({ error: "invalid_input", message: "Informe o nome da academia." });
+  }
 
   try {
     var existing = await pool.query("SELECT id FROM users WHERE email = $1", [email]);
     if (existing.rows.length > 0) {
       return res.status(409).json({ error: "email_in_use", message: "Já existe uma conta com esse e-mail." });
     }
+
+    // Se veio um token de convite por e-mail, ele manda mais que o codigo
+    // manual: ja resolve a academia E carrega o horario de trabalho que ela
+    // definiu (se definiu). Se veio um codigo de convite normal, confere
+    // antes de criar a conta pra dar um erro claro em vez de criar um
+    // profissional "solto" por engano.
+    var invitedCompany = null;
+    var inviteRow = null;
+    if (accountType !== "empresa" && inviteToken) {
+      var inviteLookup = await pool.query(
+        "SELECT id, company_id, shift_start, shift_end, weekend_shift, access_role FROM company_invites WHERE token = $1 AND used_at IS NULL",
+        [inviteToken]
+      );
+      if (inviteLookup.rows.length === 0) {
+        return res.status(400).json({ error: "invite_token_invalid", message: "Esse link de convite não é mais válido. Peça um novo pra academia." });
+      }
+      inviteRow = inviteLookup.rows[0];
+      invitedCompany = { id: inviteRow.company_id };
+    } else if (accountType !== "empresa" && inviteCode) {
+      var companyLookup = await pool.query("SELECT id, name FROM companies WHERE invite_code = $1", [inviteCode]);
+      if (companyLookup.rows.length === 0) {
+        return res.status(400).json({ error: "invite_code_invalid", message: "Código de convite inválido. Confira com a academia." });
+      }
+      invitedCompany = companyLookup.rows[0];
+    }
+
     var hash = await bcrypt.hash(password, 10);
     var result = await pool.query(
-      "INSERT INTO users (name, role, email, password_hash) VALUES ($1, $2, $3, $4) RETURNING id, name, role, email",
-      [name, role, email, hash]
+      "INSERT INTO users (name, role, email, password_hash, company_id) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, role, email, company_id, company_role",
+      [name, role, email, hash, invitedCompany ? invitedCompany.id : null]
     );
     var user = result.rows[0];
-    res.json({ token: signToken(user), user: publicUser(user) });
+
+    if (accountType === "empresa") {
+      var company = await createCompanyForOwner(user.id, companyName);
+      await pool.query("UPDATE users SET company_id = $1, company_role = 'owner' WHERE id = $2", [company.id, user.id]);
+      user.company_id = company.id;
+      user.company_role = "owner";
+    }
+
+    if (inviteRow) {
+      await pool.query("UPDATE company_invites SET used_at = now(), redeemed_user_id = $1 WHERE id = $2", [user.id, inviteRow.id]);
+      // Convite de coordenador(a) ou socio(a): a conta ja nasce com esse
+      // nivel de acesso, sem precisar de nenhum passo manual depois.
+      if (inviteRow.access_role === "coordinator" || inviteRow.access_role === "partner") {
+        await pool.query("UPDATE users SET company_role = $1 WHERE id = $2", [inviteRow.access_role, user.id]);
+        user.company_role = inviteRow.access_role;
+      }
+    }
+
+    var publicUserObj = publicUser(user);
+    if (inviteRow && inviteRow.access_role !== "partner") {
+      var suggested = buildSuggestedSchedule(inviteRow.shift_start, inviteRow.shift_end, inviteRow.weekend_shift);
+      if (suggested) publicUserObj.suggestedSchedule = suggested;
+    }
+
+    res.json({ token: signToken(user), user: publicUserObj });
   } catch (err) {
     console.error("Erro no /api/register:", err);
     res.status(500).json({ error: "internal_error" });
@@ -220,11 +432,282 @@ app.post("/api/login", async (req, res) => {
 
 app.get("/api/me", auth, async (req, res) => {
   try {
-    var result = await pool.query("SELECT id, name, role, email FROM users WHERE id = $1", [req.userId]);
+    var result = await pool.query("SELECT id, name, role, email, company_id, company_role FROM users WHERE id = $1", [req.userId]);
     if (result.rows.length === 0) return res.status(404).json({ error: "not_found" });
     res.json({ user: publicUser(result.rows[0]) });
   } catch (err) {
     console.error("Erro no /api/me:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Painel da academia: soh quem e dono (company_role = 'owner') consegue ver a
+// lista de profissionais vinculados e o "data" (jsonb) de cada um, que e o
+// mesmo formato que o proprio app usa pra calcular o total do mes — o painel
+// reaproveita esse mesmo calculo no front-end, em vez de duplicar a logica
+// financeira aqui no servidor.
+app.get("/api/company/overview", auth, async (req, res) => {
+  try {
+    var me = await pool.query("SELECT company_id, company_role FROM users WHERE id = $1", [req.userId]);
+    if (me.rows.length === 0) return res.status(404).json({ error: "not_found" });
+    var myRole = me.rows[0].company_role;
+    // Dono e socio(a) veem o painel (valores inclusos); coordenador(a) nao
+    // tem acesso a valores financeiros, entao nao usa esse endpoint.
+    if ((myRole !== "owner" && myRole !== "partner") || !me.rows[0].company_id) {
+      return res.status(403).json({ error: "not_owner", message: "Você não tem acesso a esse painel." });
+    }
+    var companyId = me.rows[0].company_id;
+    var company = await pool.query("SELECT id, name, invite_code FROM companies WHERE id = $1", [companyId]);
+    if (company.rows.length === 0) return res.status(404).json({ error: "not_found" });
+
+    var staff = await pool.query(
+      `SELECT u.id, u.name, u.role, u.email, u.company_role, s.data
+       FROM users u
+       LEFT JOIN user_state s ON s.user_id = u.id
+       WHERE u.company_id = $1
+       ORDER BY (u.company_role = 'owner') DESC, u.name ASC`,
+      [companyId]
+    );
+
+    res.json({
+      viewerRole: myRole,
+      company: { name: company.rows[0].name, inviteCode: company.rows[0].invite_code },
+      staff: staff.rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        role: row.role || "",
+        email: row.email,
+        isOwner: row.company_role === "owner",
+        companyRole: row.company_role || null,
+        data: row.data || null,
+      })),
+    });
+  } catch (err) {
+    console.error("Erro no /api/company/overview:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Convidar por e-mail: a academia digita nome/e-mail/funcao (e, opcionalmente,
+// o horario de trabalho) uma unica vez, a gente gera um link de uso unico e
+// manda por e-mail (reaproveitando o mesmo SMTP do "esqueci minha senha").
+// Continua tambem devolvendo o link na resposta, pra quem preferir mandar
+// por WhatsApp em vez de depender do e-mail.
+app.post("/api/company/invite", auth, async (req, res) => {
+  var body = req.body || {};
+  var name = String(body.name || "").trim();
+  var email = String(body.email || "").trim().toLowerCase();
+  var role = String(body.role || "").trim();
+  var accessRole = String(body.accessRole || "staff").trim();
+  if (["staff", "coordinator", "partner"].indexOf(accessRole) === -1) accessRole = "staff";
+  var isPartnerInvite = accessRole === "partner";
+  var shiftStart = isPartnerInvite ? "" : String(body.shiftStart || "").trim();
+  var shiftEnd = isPartnerInvite ? "" : String(body.shiftEnd || "").trim();
+  var weekendShift = isPartnerInvite ? false : !!body.weekendShift;
+  if (!name || !email) {
+    return res.status(400).json({ error: "invalid_input", message: "Informe nome e e-mail." });
+  }
+  try {
+    var me = await pool.query("SELECT company_id, company_role FROM users WHERE id = $1", [req.userId]);
+    if (me.rows.length === 0) return res.status(404).json({ error: "not_found" });
+    if (me.rows[0].company_role !== "owner" || !me.rows[0].company_id) {
+      return res.status(403).json({ error: "not_owner", message: "Só o dono da academia pode convidar." });
+    }
+    var companyId = me.rows[0].company_id;
+    var companyRow = await pool.query("SELECT name FROM companies WHERE id = $1", [companyId]);
+    var companyName = companyRow.rows[0] ? companyRow.rows[0].name : "sua academia";
+    var token = randomInviteToken();
+    await pool.query(
+      `INSERT INTO company_invites (company_id, token, name, role, email, shift_start, shift_end, weekend_shift, access_role)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [companyId, token, name, role, email, shiftStart || null, shiftEnd || null, weekendShift, accessRole]
+    );
+    var link = APP_URL.replace(/\/+$/, "") + "/?invite=" + token;
+    var emailSent = false;
+    if (mailer) {
+      try {
+        await sendInviteEmail(email, name, companyName, link);
+        emailSent = true;
+      } catch (mailErr) {
+        console.error("Falha ao enviar e-mail de convite:", mailErr);
+      }
+    }
+    res.json({ ok: true, inviteLink: link, emailSent: emailSent });
+  } catch (err) {
+    console.error("Erro no /api/company/invite:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Publico (sem login) — a tela de cadastro usa isso pra pre-preencher
+// nome/funcao/e-mail quando a pessoa abre o link do convite.
+app.get("/api/company/invite/:token", async (req, res) => {
+  try {
+    var token = String(req.params.token || "");
+    var result = await pool.query(
+      `SELECT ci.name, ci.role, ci.email, ci.access_role, c.name AS company_name
+       FROM company_invites ci JOIN companies c ON c.id = ci.company_id
+       WHERE ci.token = $1 AND ci.used_at IS NULL`,
+      [token]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ valid: false, error: "invite_not_found", message: "Convite inválido ou já usado." });
+    }
+    var row = result.rows[0];
+    res.json({ valid: true, name: row.name, role: row.role || "", email: row.email, companyName: row.company_name, accessRole: row.access_role || "staff" });
+  } catch (err) {
+    console.error("Erro no GET /api/company/invite/:token:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Lista de convites da academia (pendentes e ja usados), pro dono acompanhar
+// quem ainda nao entrou e reenviar o link se precisar.
+app.get("/api/company/invites", auth, async (req, res) => {
+  try {
+    var me = await pool.query("SELECT company_id, company_role FROM users WHERE id = $1", [req.userId]);
+    if (me.rows.length === 0) return res.status(404).json({ error: "not_found" });
+    if (me.rows[0].company_role !== "owner" || !me.rows[0].company_id) {
+      return res.status(403).json({ error: "not_owner" });
+    }
+    var result = await pool.query(
+      `SELECT id, name, role, email, token, used_at, access_role
+       FROM company_invites
+       WHERE company_id = $1
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [me.rows[0].company_id]
+    );
+    var invites = result.rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      role: row.role || "",
+      email: row.email,
+      status: row.used_at ? "used" : "pending",
+      accessRole: row.access_role || "staff",
+      inviteLink: APP_URL.replace(/\/+$/, "") + "/?invite=" + row.token,
+    }));
+    res.json({ invites: invites });
+  } catch (err) {
+    console.error("Erro no GET /api/company/invites:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Cancela um convite ainda nao usado (nao apaga o historico dos ja usados).
+app.delete("/api/company/invite/:id", auth, async (req, res) => {
+  try {
+    var me = await pool.query("SELECT company_id, company_role FROM users WHERE id = $1", [req.userId]);
+    if (me.rows.length === 0) return res.status(404).json({ error: "not_found" });
+    if (me.rows[0].company_role !== "owner" || !me.rows[0].company_id) {
+      return res.status(403).json({ error: "not_owner" });
+    }
+    await pool.query(
+      "DELETE FROM company_invites WHERE id = $1 AND company_id = $2 AND used_at IS NULL",
+      [req.params.id, me.rows[0].company_id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro no DELETE /api/company/invite/:id:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Escala da equipe (pensada sobretudo pra fim de semana/feriado, onde a
+// escala muda toda semana): quem trabalhou, faltou ou foi coberto em cada
+// dia. Dono e coordenador(a) editam; socio(a) so acompanha (leitura).
+app.get("/api/company/schedule", auth, async (req, res) => {
+  try {
+    var me = await pool.query("SELECT company_id, company_role FROM users WHERE id = $1", [req.userId]);
+    if (me.rows.length === 0) return res.status(404).json({ error: "not_found" });
+    var role = me.rows[0].company_role;
+    if (!isScheduleViewer(role) || !me.rows[0].company_id) {
+      return res.status(403).json({ error: "not_allowed", message: "Você não tem acesso à escala da equipe." });
+    }
+    var companyId = me.rows[0].company_id;
+    var monthKey = String(req.query.month || "").trim();
+    if (!/^\d{4}-\d{2}$/.test(monthKey)) {
+      return res.status(400).json({ error: "invalid_month" });
+    }
+    var staffRes = await pool.query(
+      `SELECT id, name, role, company_role FROM users
+       WHERE company_id = $1 AND (company_role IS NULL OR company_role = 'coordinator')
+       ORDER BY name ASC`,
+      [companyId]
+    );
+    var entriesRes = await pool.query(
+      `SELECT id, user_id, date, status, note, covered_by_user_id
+       FROM company_schedule
+       WHERE company_id = $1 AND date LIKE $2`,
+      [companyId, monthKey + "-%"]
+    );
+    res.json({
+      canManage: isScheduleManager(role),
+      staff: staffRes.rows.map((row) => ({ id: row.id, name: row.name, role: row.role || "", companyRole: row.company_role || null })),
+      entries: entriesRes.rows.map((row) => ({
+        id: row.id,
+        userId: row.user_id,
+        date: row.date,
+        status: row.status,
+        note: row.note || "",
+        coveredByUserId: row.covered_by_user_id || null,
+      })),
+    });
+  } catch (err) {
+    console.error("Erro no GET /api/company/schedule:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+app.post("/api/company/schedule", auth, async (req, res) => {
+  var body = req.body || {};
+  var userId = parseInt(body.userId, 10);
+  var date = String(body.date || "").trim();
+  var status = String(body.status || "").trim();
+  var note = String(body.note || "").trim();
+  var coveredByUserId = body.coveredByUserId ? parseInt(body.coveredByUserId, 10) : null;
+  if (!userId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || ["trabalhou", "falta", "coberto"].indexOf(status) === -1) {
+    return res.status(400).json({ error: "invalid_input" });
+  }
+  try {
+    var me = await pool.query("SELECT company_id, company_role FROM users WHERE id = $1", [req.userId]);
+    if (me.rows.length === 0) return res.status(404).json({ error: "not_found" });
+    var role = me.rows[0].company_role;
+    if (!isScheduleManager(role) || !me.rows[0].company_id) {
+      return res.status(403).json({ error: "not_allowed", message: "Você não pode editar a escala da equipe." });
+    }
+    var companyId = me.rows[0].company_id;
+    var target = await pool.query("SELECT id FROM users WHERE id = $1 AND company_id = $2", [userId, companyId]);
+    if (target.rows.length === 0) return res.status(400).json({ error: "invalid_user" });
+    var result = await pool.query(
+      `INSERT INTO company_schedule (company_id, user_id, date, status, note, covered_by_user_id, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (user_id, date) DO UPDATE SET status = $4, note = $5, covered_by_user_id = $6, updated_at = now()
+       RETURNING id`,
+      [companyId, userId, date, status, note || null, status === "coberto" ? coveredByUserId : null, req.userId]
+    );
+    res.json({ ok: true, id: result.rows[0].id });
+  } catch (err) {
+    console.error("Erro no POST /api/company/schedule:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+app.delete("/api/company/schedule/:id", auth, async (req, res) => {
+  try {
+    var me = await pool.query("SELECT company_id, company_role FROM users WHERE id = $1", [req.userId]);
+    if (me.rows.length === 0) return res.status(404).json({ error: "not_found" });
+    var role = me.rows[0].company_role;
+    if (!isScheduleManager(role) || !me.rows[0].company_id) {
+      return res.status(403).json({ error: "not_allowed" });
+    }
+    await pool.query(
+      "DELETE FROM company_schedule WHERE id = $1 AND company_id = $2",
+      [req.params.id, me.rows[0].company_id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro no DELETE /api/company/schedule/:id:", err);
     res.status(500).json({ error: "internal_error" });
   }
 });
