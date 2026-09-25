@@ -56,11 +56,22 @@ function isPartner(){
   return !!(currentUser && currentUser.companyRole === "partner");
 }
 
+// Gerente: hierarquia e dono/socio(a) > gerente > coordenador(a) >
+// profissional. E 100% administrativo (nao bate ponto, igual dono/socio) e
+// convida/gerencia a equipe igual ao dono — mas, diferente do dono, NAO ve o
+// dinheiro que um profissional ganha com aluno particular (isso e renda
+// pessoal dele, nao da academia), so o valor de grade/sala (o que foi
+// trabalhado PRA academia). Essa restricao financeira e aplicada no servidor
+// (/api/company/overview ja nem manda o "clients" de cada um pro gerente).
+function isGerente(){
+  return !!(currentUser && currentUser.companyRole === "manager");
+}
+
 // Quem ve o painel "de cima" (o painel da academia, nao a grade individual):
-// dono e socio(a). Coordenador(a) NAO entra aqui — ele continua na propria
-// grade individual, so que com o card extra da escala.
+// dono, socio(a) e gerente. Coordenador(a) NAO entra aqui — ele continua na
+// propria grade individual, so que com o card extra da escala.
 function isCompanyAdminView(){
-  return isCompanyOwner() || isPartner();
+  return isCompanyOwner() || isPartner() || isGerente();
 }
 
 function onAuthSuccess(user, token){

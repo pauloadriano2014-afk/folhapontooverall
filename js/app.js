@@ -60,11 +60,12 @@ async function bootApp(){
     if(mainDashboard) mainDashboard.style.display = "none";
     if(companyDashboard) companyDashboard.style.display = "block";
     document.body.classList.add("brand-view");
-    if(typeof applyCompanyReadOnlyUI === "function") applyCompanyReadOnlyUI(!isCompanyOwner());
+    // Só o(a) sócio(a) é 100% leitura — dono e gerente convidam/gerenciam.
+    if(typeof applyCompanyReadOnlyUI === "function") applyCompanyReadOnlyUI(isPartner());
     if(typeof mountScheduleCard === "function") mountScheduleCard(companyDashboard.querySelector("main"));
     loadCompanyOverview();
     if(typeof loadScheduleMonth === "function") loadScheduleMonth(currentScheduleMonthKey());
-    maybeShowOnboarding(isPartner() ? "socio" : "empresa");
+    maybeShowOnboarding(isPartner() ? "socio" : (isGerente() ? "gerente" : "empresa"));
     return;
   }
   if(companyDashboard) companyDashboard.style.display = "none";

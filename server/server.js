@@ -190,14 +190,23 @@ async function ensureTables() {
   `);
 }
 
-// 'owner' sempre pode tudo. 'coordinator' gerencia a escala (mas nao ve
-// valores financeiros da equipe). 'partner' (socio) so acompanha, sem editar
-// nada.
+// 'owner' sempre pode tudo. 'manager' (gerente) convida/gerencia a equipe e a
+// escala igual ao dono, mas nao ve o quanto cada profissional ganha com
+// alunos particulares (so o valor de grade/sala, pago pela academia — ver
+// isCompanyManager e o /api/company/overview abaixo). 'coordinator' gerencia
+// a escala (mas nao ve valores financeiros da equipe). 'partner' (socio) so
+// acompanha, sem editar nada.
 function isScheduleManager(role) {
-  return role === "owner" || role === "coordinator";
+  return role === "owner" || role === "manager" || role === "coordinator";
 }
 function isScheduleViewer(role) {
-  return role === "owner" || role === "coordinator" || role === "partner";
+  return role === "owner" || role === "manager" || role === "coordinator" || role === "partner";
+}
+// Quem pode convidar/gerenciar quem entra na equipe (nivel "administrativo"
+// de gerenciamento, nao de leitura): dono e gerente. Socio(a) fica de fora de
+// proposito (acesso so leitura).
+function isCompanyManager(role) {
+  return role === "owner" || role === "manager";
 }
 
 var INVITE_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sem O/0 e I/1, pra nao confundir na hora de digitar
@@ -385,16 +394,18 @@ app.post("/api/register", async (req, res) => {
 
     if (inviteRow) {
       await pool.query("UPDATE company_invites SET used_at = now(), redeemed_user_id = $1 WHERE id = $2", [user.id, inviteRow.id]);
-      // Convite de coordenador(a) ou socio(a): a conta ja nasce com esse
-      // nivel de acesso, sem precisar de nenhum passo manual depois.
-      if (inviteRow.access_role === "coordinator" || inviteRow.access_role === "partner") {
+      // Convite de coordenador(a), socio(a) ou gerente: a conta ja nasce com
+      // esse nivel de acesso, sem precisar de nenhum passo manual depois.
+      if (inviteRow.access_role === "coordinator" || inviteRow.access_role === "partner" || inviteRow.access_role === "manager") {
         await pool.query("UPDATE users SET company_role = $1 WHERE id = $2", [inviteRow.access_role, user.id]);
         user.company_role = inviteRow.access_role;
       }
     }
 
     var publicUserObj = publicUser(user);
-    if (inviteRow && inviteRow.access_role !== "partner") {
+    // Socio(a) e gerente sao 100% administrativos (nao batem ponto), entao
+    // nenhum horario sugerido faz sentido pra eles.
+    if (inviteRow && inviteRow.access_role !== "partner" && inviteRow.access_role !== "manager") {
       var suggested = buildSuggestedSchedule(inviteRow.shift_start, inviteRow.shift_end, inviteRow.weekend_shift);
       if (suggested) publicUserObj.suggestedSchedule = suggested;
     }
@@ -441,19 +452,24 @@ app.get("/api/me", auth, async (req, res) => {
   }
 });
 
-// Painel da academia: soh quem e dono (company_role = 'owner') consegue ver a
-// lista de profissionais vinculados e o "data" (jsonb) de cada um, que e o
-// mesmo formato que o proprio app usa pra calcular o total do mes — o painel
+// Painel da academia: dono, socio(a) e gerente conseguem ver a lista de
+// profissionais vinculados e o "data" (jsonb) de cada um, que e o mesmo
+// formato que o proprio app usa pra calcular o total do mes — o painel
 // reaproveita esse mesmo calculo no front-end, em vez de duplicar a logica
-// financeira aqui no servidor.
+// financeira aqui no servidor. Excecao: gerente NAO tem acesso ao dinheiro
+// que um profissional ganha com aluno particular (isso e renda pessoal do
+// profissional, nao da academia) — so ao valor de grade/sala (o que ele
+// trabalhou PRA academia). Por isso, pra gerente, a gente nem manda o
+// "clients" de cada profissional — assim nem o total nem a lista de alunos
+// particulares vazam pra quem nao devia ver.
 app.get("/api/company/overview", auth, async (req, res) => {
   try {
     var me = await pool.query("SELECT company_id, company_role FROM users WHERE id = $1", [req.userId]);
     if (me.rows.length === 0) return res.status(404).json({ error: "not_found" });
     var myRole = me.rows[0].company_role;
-    // Dono e socio(a) veem o painel (valores inclusos); coordenador(a) nao
-    // tem acesso a valores financeiros, entao nao usa esse endpoint.
-    if ((myRole !== "owner" && myRole !== "partner") || !me.rows[0].company_id) {
+    // Coordenador(a) nao tem acesso a valores financeiros, entao nao usa
+    // esse endpoint (ver isScheduleViewer/isScheduleManager pra escala).
+    if ((myRole !== "owner" && myRole !== "partner" && myRole !== "manager") || !me.rows[0].company_id) {
       return res.status(403).json({ error: "not_owner", message: "Você não tem acesso a esse painel." });
     }
     var companyId = me.rows[0].company_id;
@@ -472,15 +488,21 @@ app.get("/api/company/overview", auth, async (req, res) => {
     res.json({
       viewerRole: myRole,
       company: { name: company.rows[0].name, inviteCode: company.rows[0].invite_code },
-      staff: staff.rows.map((row) => ({
-        id: row.id,
-        name: row.name,
-        role: row.role || "",
-        email: row.email,
-        isOwner: row.company_role === "owner",
-        companyRole: row.company_role || null,
-        data: row.data || null,
-      })),
+      staff: staff.rows.map((row) => {
+        var staffData = row.data || null;
+        if (staffData && myRole === "manager") {
+          staffData = Object.assign({}, staffData, { clients: [] });
+        }
+        return {
+          id: row.id,
+          name: row.name,
+          role: row.role || "",
+          email: row.email,
+          isOwner: row.company_role === "owner",
+          companyRole: row.company_role || null,
+          data: staffData,
+        };
+      }),
     });
   } catch (err) {
     console.error("Erro no /api/company/overview:", err);
@@ -499,19 +521,21 @@ app.post("/api/company/invite", auth, async (req, res) => {
   var email = String(body.email || "").trim().toLowerCase();
   var role = String(body.role || "").trim();
   var accessRole = String(body.accessRole || "staff").trim();
-  if (["staff", "coordinator", "partner"].indexOf(accessRole) === -1) accessRole = "staff";
-  var isPartnerInvite = accessRole === "partner";
-  var shiftStart = isPartnerInvite ? "" : String(body.shiftStart || "").trim();
-  var shiftEnd = isPartnerInvite ? "" : String(body.shiftEnd || "").trim();
-  var weekendShift = isPartnerInvite ? false : !!body.weekendShift;
+  if (["staff", "coordinator", "partner", "manager"].indexOf(accessRole) === -1) accessRole = "staff";
+  // Socio(a) e gerente sao 100% administrativos — nao faz sentido pedir
+  // horario de trabalho pra eles.
+  var isAdminInvite = accessRole === "partner" || accessRole === "manager";
+  var shiftStart = isAdminInvite ? "" : String(body.shiftStart || "").trim();
+  var shiftEnd = isAdminInvite ? "" : String(body.shiftEnd || "").trim();
+  var weekendShift = isAdminInvite ? false : !!body.weekendShift;
   if (!name || !email) {
     return res.status(400).json({ error: "invalid_input", message: "Informe nome e e-mail." });
   }
   try {
     var me = await pool.query("SELECT company_id, company_role FROM users WHERE id = $1", [req.userId]);
     if (me.rows.length === 0) return res.status(404).json({ error: "not_found" });
-    if (me.rows[0].company_role !== "owner" || !me.rows[0].company_id) {
-      return res.status(403).json({ error: "not_owner", message: "Só o dono da academia pode convidar." });
+    if (!isCompanyManager(me.rows[0].company_role) || !me.rows[0].company_id) {
+      return res.status(403).json({ error: "not_owner", message: "Só o dono ou o(a) gerente da academia podem convidar." });
     }
     var companyId = me.rows[0].company_id;
     var companyRow = await pool.query("SELECT name FROM companies WHERE id = $1", [companyId]);
@@ -567,7 +591,7 @@ app.get("/api/company/invites", auth, async (req, res) => {
   try {
     var me = await pool.query("SELECT company_id, company_role FROM users WHERE id = $1", [req.userId]);
     if (me.rows.length === 0) return res.status(404).json({ error: "not_found" });
-    if (me.rows[0].company_role !== "owner" || !me.rows[0].company_id) {
+    if (!isCompanyManager(me.rows[0].company_role) || !me.rows[0].company_id) {
       return res.status(403).json({ error: "not_owner" });
     }
     var result = await pool.query(
@@ -599,7 +623,7 @@ app.delete("/api/company/invite/:id", auth, async (req, res) => {
   try {
     var me = await pool.query("SELECT company_id, company_role FROM users WHERE id = $1", [req.userId]);
     if (me.rows.length === 0) return res.status(404).json({ error: "not_found" });
-    if (me.rows[0].company_role !== "owner" || !me.rows[0].company_id) {
+    if (!isCompanyManager(me.rows[0].company_role) || !me.rows[0].company_id) {
       return res.status(403).json({ error: "not_owner" });
     }
     await pool.query(

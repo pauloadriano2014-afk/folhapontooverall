@@ -60,13 +60,14 @@ function computeStaffMonthlyTotal(staffData, monthKey){
 function companyRoleLabel(member){
   if(member.companyRole === "owner") return "Administrador(a)";
   if(member.companyRole === "partner") return "Sócio(a)";
+  if(member.companyRole === "manager") return "Gerente";
   var base = member.role || "Sem função definida";
   if(member.companyRole === "coordinator") return base + " · Coordenador(a)";
   return base;
 }
 
 function companyRoleCountsFinancially(member){
-  return member.companyRole !== "owner" && member.companyRole !== "partner";
+  return member.companyRole !== "owner" && member.companyRole !== "partner" && member.companyRole !== "manager";
 }
 
 function renderCompanyStaffList(staff, monthKey){
@@ -153,16 +154,20 @@ function selectedInviteAccessRole(){
   return checked ? checked.value : "staff";
 }
 
-// Socio(a) nao trabalha na grade nem tem "função" no sentido operacional —
-// esconde os dois campos que so fazem sentido pra quem bate ponto.
+// Socio(a) e gerente sao 100% administrativos — nao trabalham na grade nem
+// tem "função" no sentido operacional. Esconde os dois campos que so fazem
+// sentido pra quem bate ponto.
+function isAdminAccessRole(accessRole){
+  return accessRole === "partner" || accessRole === "manager";
+}
 function updateInviteScheduleVisibility(){
   var wrap = document.getElementById("inviteScheduleWrap");
   var roleWrap = document.getElementById("inviteRoleWrap");
   var roleInput = document.getElementById("inviteRole");
   var accessRole = selectedInviteAccessRole();
-  var isPartnerInvite = accessRole === "partner";
-  if(roleWrap) roleWrap.style.display = isPartnerInvite ? "none" : "";
-  if(wrap) wrap.style.display = (isPartnerInvite || roleTextIsPersonal(roleInput.value)) ? "none" : "";
+  var isAdminInvite = isAdminAccessRole(accessRole);
+  if(roleWrap) roleWrap.style.display = isAdminInvite ? "none" : "";
+  if(wrap) wrap.style.display = (isAdminInvite || roleTextIsPersonal(roleInput.value)) ? "none" : "";
 }
 
 document.getElementById("btnOpenInvite").addEventListener("click", function(){
@@ -193,9 +198,9 @@ document.getElementById("inviteForm").addEventListener("submit", function(e){
   var name = document.getElementById("inviteName").value.trim();
   var email = document.getElementById("inviteEmail").value.trim();
   var accessRole = selectedInviteAccessRole();
-  var isPartnerInvite = accessRole === "partner";
-  var role = isPartnerInvite ? "" : document.getElementById("inviteRole").value.trim();
-  var applySchedule = !isPartnerInvite && !roleTextIsPersonal(role);
+  var isAdminInvite = isAdminAccessRole(accessRole);
+  var role = isAdminInvite ? "" : document.getElementById("inviteRole").value.trim();
+  var applySchedule = !isAdminInvite && !roleTextIsPersonal(role);
   var shiftStart = applySchedule ? document.getElementById("inviteShiftStart").value : "";
   var shiftEnd = applySchedule ? document.getElementById("inviteShiftEnd").value : "";
   var weekendShift = applySchedule ? document.getElementById("inviteWeekendShift").checked : false;
@@ -272,7 +277,7 @@ function loadPendingInvites(){
       name.textContent = inv.name;
       var meta = document.createElement("span");
       meta.className = "client-meta";
-      var accessLabel = inv.accessRole === "coordinator" ? "Coordenador(a)" : (inv.accessRole === "partner" ? "Sócio(a)" : (inv.role || "Sem função definida"));
+      var accessLabel = inv.accessRole === "coordinator" ? "Coordenador(a)" : (inv.accessRole === "partner" ? "Sócio(a)" : (inv.accessRole === "manager" ? "Gerente" : (inv.role || "Sem função definida")));
       meta.textContent = accessLabel + " · " + inv.email;
       info.appendChild(name);
       info.appendChild(meta);
