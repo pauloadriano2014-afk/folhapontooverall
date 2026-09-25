@@ -51,14 +51,22 @@ function applyRoleVisibility(){
   // gerente/coordenador(a) de lá, não mais pela própria pessoa — ela mantém
   // controle só do que é dela mesma (alunos particulares, valores rápidos,
   // lembrete). Sem academia (freelancer), continua editando o próprio horário.
+  // Coordenador(a) é exceção: ele(a) já é um dos dois papéis que EDITAM a
+  // escala da equipe (ver isStaffScheduleEditor/schedule.js) — não faz
+  // sentido ele "se fiscalizar" aparecendo na própria lista de edição da
+  // equipe (schedule.js já tira ele de lá), então ele continua com controle
+  // direto do próprio horário aqui, igual sempre foi. Isso também evita que o
+  // horário dele fique sem dono numa academia sem gerente (só dono/sócio(a),
+  // que são só leitura).
   var isCompanyLinked = !!(currentUser && currentUser.companyId);
-  var showOwnScheduleEdit = showGrade && !isCompanyLinked;
+  var selfManagesSchedule = typeof isCoordinator === "function" && isCoordinator();
+  var showOwnScheduleEdit = showGrade && (!isCompanyLinked || selfManagesSchedule);
   var ownScheduleEditSection = document.getElementById("ownScheduleEditSection");
   var ownWeekendShiftSection = document.getElementById("ownWeekendShiftSection");
   var companyManagesScheduleHint = document.getElementById("companyManagesScheduleHint");
   if(ownScheduleEditSection) ownScheduleEditSection.style.display = showOwnScheduleEdit ? "" : "none";
   if(ownWeekendShiftSection) ownWeekendShiftSection.style.display = showOwnScheduleEdit ? "" : "none";
-  if(companyManagesScheduleHint) companyManagesScheduleHint.style.display = (showGrade && isCompanyLinked) ? "" : "none";
+  if(companyManagesScheduleHint) companyManagesScheduleHint.style.display = (showGrade && isCompanyLinked && !selfManagesSchedule) ? "" : "none";
 }
 
 // Uma conta de academia (dono) nao tem ponto proprio pra bater — ela so ve o

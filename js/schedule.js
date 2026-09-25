@@ -178,7 +178,14 @@ function renderScheduleStaffEditList(){
   section.style.display = "";
   el.innerHTML = "";
   var canEdit = !!scheduleData.canEditStaffSchedule;
-  var staff = scheduleData.staff || [];
+  // Coordenador(a) tambem aparece na lista de "staff" (ele(a) bate ponto
+  // normal, igual profissional) — mas ele(a) mesmo(a) nao deve aparecer na
+  // PROPRIA lista de edicao (ninguem "se fiscaliza"; o proprio horario dele
+  // continua em "Minha conta", ver applyRoleVisibility em app.js). Isso nao
+  // afeta gerente vendo essa mesma lista: gerente nunca aparece aqui, porque
+  // a consulta do servidor so traz quem tem grade (profissional/coordenador).
+  var myId = currentUser ? currentUser.id : null;
+  var staff = (scheduleData.staff || []).filter(function(s){ return s.id !== myId; });
   if(staff.length === 0){
     el.innerHTML = "<p style='font-size:12px;color:var(--text-dim);margin:4px 0;'>Sem profissionais na equipe ainda.</p>";
     return;
