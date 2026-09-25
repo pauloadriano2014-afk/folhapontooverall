@@ -73,10 +73,9 @@ async function bootApp(){
     if(mainHeader) mainHeader.style.display = "none";
     if(mainDashboard) mainDashboard.style.display = "none";
     if(companyDashboard) companyDashboard.style.display = "block";
-    document.body.classList.add("brand-view");
     // Dono, sócio(a) e gerente representam a academia — ficam travados na
-    // cor de identidade da Overall (ver applyColorPolicyForCurrentUser em
-    // account.js), sem opção de trocar.
+    // identidade visual da Overall (classe "brand-view", ver
+    // applyColorPolicyForCurrentUser em account.js), sem opção de trocar cor.
     if(typeof applyColorPolicyForCurrentUser === "function") applyColorPolicyForCurrentUser();
     // Só o(a) sócio(a) é 100% leitura — dono e gerente convidam/gerenciam.
     if(typeof applyCompanyReadOnlyUI === "function") applyCompanyReadOnlyUI(isPartner());
@@ -87,7 +86,6 @@ async function bootApp(){
     return;
   }
   if(companyDashboard) companyDashboard.style.display = "none";
-  document.body.classList.remove("brand-view");
 
   STORAGE_KEY = "pontoOverallData_v1_" + currentUser.id;
   data = loadData();

@@ -78,45 +78,27 @@ function initColor(){
 }
 
 // Gerente, coordenador(a), dono e sócio(a) representam a academia perante os
-// alunos (é a "vitrine" da marca) — por isso ficam travados na cor de
-// identidade da Overall, sem opção de trocar. Professor, estagiário,
-// personal trainer e qualquer conta sem academia continuam escolhendo a cor
-// como preferência do próprio aparelho, normalmente.
+// alunos (é a "vitrine" da marca) — por isso ficam travados na identidade
+// visual da Overall (azul/vermelho/preto-branco, ver "body.brand-view" no
+// CSS), sem o seletor de cor pessoal. Professor, estagiário, personal
+// trainer e qualquer conta sem academia continuam escolhendo a cor como
+// preferência do próprio aparelho, normalmente.
 function isBrandColorLockedRole(){
   var adminView = typeof isCompanyAdminView === "function" && isCompanyAdminView();
   var coord = typeof isCoordinator === "function" && isCoordinator();
   return !!(adminView || coord);
 }
 
-// Aplica uma cor sem gravar no aparelho — usada só pra "travar" visualmente
-// quem tem cor de papel obrigatória, sem sobrescrever a preferência real do
-// aparelho (que é por aparelho, não por conta — ver comentário acima de
-// COLOR_KEY) pro próximo profissional que logar nesse mesmo aparelho depois.
-function applyColorForced(color){
-  if(VALID_COLORS.indexOf(color) < 0) color = "roxo";
-  if(color === "roxo"){
-    document.documentElement.removeAttribute("data-color");
-  } else {
-    document.documentElement.setAttribute("data-color", color);
-  }
-  updateThemeColorMeta();
-  var swatches = document.querySelectorAll("#colorSwatches .color-swatch");
-  for(var i = 0; i < swatches.length; i++){
-    swatches[i].classList.toggle("active", swatches[i].getAttribute("data-color-choice") === color);
-  }
-}
-
-// Chamado no boot (pra cada tipo de tela) e no logout, pra decidir entre a
-// cor de identidade fixa da Overall (papéis de gestão) e a preferência do
-// aparelho (profissionais). Também esconde a escolha de cor em "Minha conta"
-// pra quem está travado.
+// Chamado no boot (pra cada tipo de tela) e no logout: liga/desliga a classe
+// "brand-view" (a identidade visual fixa azul/vermelho/preto-branco da
+// Overall, já usada no painel da academia — ver styles.css) e esconde a
+// escolha de cor pessoal em "Minha conta" pra quem está travado num papel de
+// gestão. Não mexe em data-color/localStorage — a cor pessoal do profissional
+// continua intacta e simplesmente fica sem efeito visual enquanto uma dessas
+// contas estiver logada nesse aparelho.
 function applyColorPolicyForCurrentUser(){
   var locked = !!(currentUser && isBrandColorLockedRole());
-  if(locked){
-    applyColorForced("roxo");
-  } else {
-    applyColor(currentSavedColor());
-  }
+  document.body.classList.toggle("brand-view", locked);
   var swatchesEl = document.getElementById("colorSwatches");
   var hintEl = document.getElementById("brandColorLockedHint");
   if(swatchesEl) swatchesEl.style.display = locked ? "none" : "";
