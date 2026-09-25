@@ -58,18 +58,69 @@ function applyColor(color){
   }
 }
 
-function initColor(){
+function currentSavedColor(){
   var saved = "roxo";
   try{ saved = localStorage.getItem(COLOR_KEY) || "roxo"; }catch(e){}
-  applyColor(saved);
+  return saved;
+}
+
+function initColor(){
+  applyColor(currentSavedColor());
   var wrap = document.getElementById("colorSwatches");
   if(wrap){
     wrap.addEventListener("click", function(e){
+      if(typeof isBrandColorLockedRole === "function" && isBrandColorLockedRole()) return; // travado, ver applyColorPolicyForCurrentUser()
       var btn = e.target.closest ? e.target.closest(".color-swatch") : null;
       if(!btn) return;
       applyColor(btn.getAttribute("data-color-choice"));
     });
   }
+}
+
+// Gerente, coordenador(a), dono e sócio(a) representam a academia perante os
+// alunos (é a "vitrine" da marca) — por isso ficam travados na cor de
+// identidade da Overall, sem opção de trocar. Professor, estagiário,
+// personal trainer e qualquer conta sem academia continuam escolhendo a cor
+// como preferência do próprio aparelho, normalmente.
+function isBrandColorLockedRole(){
+  var adminView = typeof isCompanyAdminView === "function" && isCompanyAdminView();
+  var coord = typeof isCoordinator === "function" && isCoordinator();
+  return !!(adminView || coord);
+}
+
+// Aplica uma cor sem gravar no aparelho — usada só pra "travar" visualmente
+// quem tem cor de papel obrigatória, sem sobrescrever a preferência real do
+// aparelho (que é por aparelho, não por conta — ver comentário acima de
+// COLOR_KEY) pro próximo profissional que logar nesse mesmo aparelho depois.
+function applyColorForced(color){
+  if(VALID_COLORS.indexOf(color) < 0) color = "roxo";
+  if(color === "roxo"){
+    document.documentElement.removeAttribute("data-color");
+  } else {
+    document.documentElement.setAttribute("data-color", color);
+  }
+  updateThemeColorMeta();
+  var swatches = document.querySelectorAll("#colorSwatches .color-swatch");
+  for(var i = 0; i < swatches.length; i++){
+    swatches[i].classList.toggle("active", swatches[i].getAttribute("data-color-choice") === color);
+  }
+}
+
+// Chamado no boot (pra cada tipo de tela) e no logout, pra decidir entre a
+// cor de identidade fixa da Overall (papéis de gestão) e a preferência do
+// aparelho (profissionais). Também esconde a escolha de cor em "Minha conta"
+// pra quem está travado.
+function applyColorPolicyForCurrentUser(){
+  var locked = !!(currentUser && isBrandColorLockedRole());
+  if(locked){
+    applyColorForced("roxo");
+  } else {
+    applyColor(currentSavedColor());
+  }
+  var swatchesEl = document.getElementById("colorSwatches");
+  var hintEl = document.getElementById("brandColorLockedHint");
+  if(swatchesEl) swatchesEl.style.display = locked ? "none" : "";
+  if(hintEl) hintEl.style.display = locked ? "" : "none";
 }
 
 // ---------- lembrete diario ----------

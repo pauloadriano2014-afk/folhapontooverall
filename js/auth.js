@@ -90,6 +90,11 @@ function logout(){
   clearTimeout(syncTimer);
   clearInterval(reminderTimer);
   lastReminderShownKey = null;
+  // Restaura a cor salva do aparelho (currentUser já é null aqui, então
+  // isBrandColorLockedRole() dá false) — desfaz a "trava" de identidade
+  // visual de dono/sócio(a)/gerente/coordenador(a) pro próximo login nesse
+  // mesmo aparelho, seja lá quem for.
+  if(typeof applyColorPolicyForCurrentUser === "function") applyColorPolicyForCurrentUser();
   try{
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);

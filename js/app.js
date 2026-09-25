@@ -74,6 +74,10 @@ async function bootApp(){
     if(mainDashboard) mainDashboard.style.display = "none";
     if(companyDashboard) companyDashboard.style.display = "block";
     document.body.classList.add("brand-view");
+    // Dono, sócio(a) e gerente representam a academia — ficam travados na
+    // cor de identidade da Overall (ver applyColorPolicyForCurrentUser em
+    // account.js), sem opção de trocar.
+    if(typeof applyColorPolicyForCurrentUser === "function") applyColorPolicyForCurrentUser();
     // Só o(a) sócio(a) é 100% leitura — dono e gerente convidam/gerenciam.
     if(typeof applyCompanyReadOnlyUI === "function") applyCompanyReadOnlyUI(isPartner());
     if(typeof mountScheduleCard === "function") mountScheduleCard(companyDashboard.querySelector("main"));
@@ -112,6 +116,10 @@ async function bootApp(){
   }
   setAccountLabel();
   applyRoleVisibility();
+  // Coordenador(a) também representa a academia (gerencia a escala da
+  // equipe) — fica travado na cor de identidade da Overall igual
+  // dono/sócio(a)/gerente. Os demais escolhem a cor livremente.
+  if(typeof applyColorPolicyForCurrentUser === "function") applyColorPolicyForCurrentUser();
   initMonthState();
   renderMonthSelect();
   renderGrid();
