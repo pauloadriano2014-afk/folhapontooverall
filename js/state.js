@@ -192,6 +192,19 @@
   var syncIconEl = null;
   var syncLabelEl = null;
   var syncStatusMsg = "";
+  // Enquanto isso for falso, nenhum PUT sai pro servidor — so existe pra
+  // evitar uma corrida real: no primeiro boot num aparelho novo, coisas como
+  // criar o mes atual (ensureMonth) chamam saveData() (que agenda um envio em
+  // 900ms) ANTES do primeiro GET /api/state (initSync) terminar de decidir se
+  // os dados daqui sao mais novos que os do servidor. Numa conexao mais lenta
+  // (ou servidor/banco em regioes diferentes), esse envio agendado pode
+  // terminar ANTES do GET responder, sobrescrevendo no servidor os dados reais
+  // (de outro aparelho) com o "mes em branco" local — e o GET, que ja estava a
+  // caminho, entao volta com esse mesmo em branco, apagando os dados de quem
+  // teria dados na conta (visto na pratica ao logar pela 1a vez num aparelho
+  // novo numa conta que ja tinha dado em outro lugar). Travar todo envio ate o
+  // primeiro GET terminar (com sucesso ou falha) resolve isso sem mudar mais nada.
+  var initialSyncDone = false;
 
   function setSyncStatus(state, title){
     syncStatusMsg = title || "";
@@ -210,6 +223,7 @@
 
   function pushRemoteState(){
     if(!authToken) return;
+    if(!initialSyncDone){ scheduleSync(); return; }
     if(syncInFlight){ scheduleSync(); return; }
     syncInFlight = true;
     setSyncStatus("syncing", "Sincronizando...");
@@ -248,6 +262,7 @@
     }
     setSyncStatus("syncing", "Verificando dados do servidor...");
     fetchRemoteState().then(function(remote){
+      initialSyncDone = true;
       var remoteData = remote && remote.data;
       if(remoteData && typeof remoteData === "object"){
         var remoteTime = remoteData.updatedAt ? new Date(remoteData.updatedAt).getTime() : 0;
@@ -265,6 +280,7 @@
       }
       setSyncStatus("ok", "Sincronizado com o servidor");
     }).catch(function(err){
+      initialSyncDone = true;
       setSyncStatus("offline", "Sem conexão com o servidor — usando dados salvos neste aparelho");
       console.warn("Falha ao buscar dados do servidor:", err);
     });
