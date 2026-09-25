@@ -192,18 +192,22 @@
   var syncIconEl = null;
   var syncLabelEl = null;
   var syncStatusMsg = "";
-  // Enquanto isso for falso, nenhum PUT sai pro servidor — so existe pra
-  // evitar uma corrida real: no primeiro boot num aparelho novo, coisas como
-  // criar o mes atual (ensureMonth) chamam saveData() (que agenda um envio em
-  // 900ms) ANTES do primeiro GET /api/state (initSync) terminar de decidir se
-  // os dados daqui sao mais novos que os do servidor. Numa conexao mais lenta
-  // (ou servidor/banco em regioes diferentes), esse envio agendado pode
-  // terminar ANTES do GET responder, sobrescrevendo no servidor os dados reais
-  // (de outro aparelho) com o "mes em branco" local — e o GET, que ja estava a
-  // caminho, entao volta com esse mesmo em branco, apagando os dados de quem
-  // teria dados na conta (visto na pratica ao logar pela 1a vez num aparelho
-  // novo numa conta que ja tinha dado em outro lugar). Travar todo envio ate o
-  // primeiro GET terminar (com sucesso ou falha) resolve isso sem mudar mais nada.
+  // Enquanto isso for falso, nenhum PUT sai pro servidor. Isso sozinho NAO
+  // bastava (ver historico): o problema real nao era so uma corrida de rede,
+  // era a ORDEM. O boot chamava initMonthState() — que pode chamar
+  // ensureMonth(), que chama saveData(), que carimba data.updatedAt = agora —
+  // ANTES do primeiro GET /api/state comparar local vs. servidor. Ou seja, no
+  // momento da comparacao, o "local" ja tinha sido artificialmente carimbado
+  // como "agora", parecendo sempre mais novo que o servidor, mesmo quando o
+  // aparelho era novo e nao tinha nada de verdade. Resultado: apagava dados
+  // reais de outro aparelho ao logar pela 1a vez num aparelho novo.
+  // A correcao: resolveInitialSync() roda e TERMINA (aguardado com await no
+  // bootApp, em app.js) logo depois do loadData(), antes de QUALQUER coisa
+  // que possa chamar saveData() (aplicar horario sugerido do convite,
+  // initMonthState/ensureMonth, etc.). Assim a comparacao usa o timestamp
+  // local genuino (o que estava salvo antes do boot mexer em nada), e so
+  // depois disso o resto do boot continua, ja com os dados certos (os do
+  // servidor, se eram mais novos, ou os locais, senao).
   var initialSyncDone = false;
 
   function setSyncStatus(state, title){
@@ -251,7 +255,14 @@
     });
   }
 
-  function initSync(){
+  // Chamada logo apos loadData(), ANTES de qualquer coisa no boot que possa
+  // mudar `data` (horario sugerido do convite, initMonthState/ensureMonth...).
+  // Retorna uma Promise que o bootApp() (app.js) aguarda com await antes de
+  // continuar — isso garante que a comparacao local-vs-servidor usa o
+  // timestamp local genuino, carregado do localStorage, nunca um que o
+  // proprio boot acabou de carimbar. Ver o comentario grande acima de
+  // `initialSyncDone` pra entender por que isso importa.
+  function resolveInitialSync(){
     syncStatusEl = document.getElementById("syncStatus");
     syncIconEl = document.getElementById("syncIcon");
     syncLabelEl = document.getElementById("syncLabel");
@@ -261,21 +272,29 @@
       });
     }
     setSyncStatus("syncing", "Verificando dados do servidor...");
-    fetchRemoteState().then(function(remote){
+    var localTimeAtBoot = data.updatedAt ? new Date(data.updatedAt).getTime() : 0;
+    return fetchRemoteState().then(function(remote){
       initialSyncDone = true;
       var remoteData = remote && remote.data;
       if(remoteData && typeof remoteData === "object"){
         var remoteTime = remoteData.updatedAt ? new Date(remoteData.updatedAt).getTime() : 0;
-        var localTime = data.updatedAt ? new Date(data.updatedAt).getTime() : 0;
-        if(remoteTime > localTime){
+        if(remoteTime > localTimeAtBoot){
           data = remoteData;
           try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
-          renderMonthSelect(); renderGrid(); renderVip();
-        } else if(localTime > remoteTime){
+          // Nao renderiza aqui: nesse ponto do boot a grade/mes ainda nem
+          // foram inicializados (initMonthState roda so depois deste await
+          // terminar, la no bootApp). O resto do boot renderiza normalmente
+          // ja em cima destes dados (do servidor).
+        } else if(localTimeAtBoot > remoteTime){
+          // Dados daqui sao genuinamente mais novos (ex: mudanca feita
+          // offline) — envia pro servidor. Seguro: e o `data` recem-carregado
+          // do localStorage, ainda intocado pelo resto do boot.
           pushRemoteState();
         }
       } else {
-        // nada salvo no servidor ainda: envia o que temos aqui
+        // nada salvo no servidor ainda (conta nova de verdade, sem risco de
+        // apagar dado de ninguem): envia o que temos aqui pra ja criar a
+        // linha no servidor.
         pushRemoteState();
       }
       setSyncStatus("ok", "Sincronizado com o servidor");
@@ -285,6 +304,13 @@
       console.warn("Falha ao buscar dados do servidor:", err);
     });
   }
+
+  // Mantida por compatibilidade/clareza de nome no restante do app: a
+  // resolucao de verdade (fetch + decidir local-vs-servidor) ja aconteceu bem
+  // antes, em resolveInitialSync() (aguardada no bootApp antes de qualquer
+  // outra coisa mexer em `data`). Quando chegamos aqui o sync inicial ja
+  // terminou; nao ha mais nada pendente pra fazer.
+  function initSync(){}
 
   function pad2(n){ return (n < 10 ? "0" : "") + n; }
 

@@ -50,7 +50,7 @@ function applyRoleVisibility(){
 // Uma conta de academia (dono) nao tem ponto proprio pra bater — ela so ve o
 // painel com a equipe (ver company.js). Uma conta profissional continua
 // exatamente como sempre foi.
-function bootApp(){
+async function bootApp(){
   hideAuthScreen();
   var mainHeader = document.getElementById("mainHeader");
   var mainDashboard = document.getElementById("mainDashboard");
@@ -67,13 +67,21 @@ function bootApp(){
     maybeShowOnboarding(isPartner() ? "socio" : "empresa");
     return;
   }
-  if(mainHeader) mainHeader.style.display = "";
-  if(mainDashboard) mainDashboard.style.display = "";
   if(companyDashboard) companyDashboard.style.display = "none";
   document.body.classList.remove("brand-view");
 
   STORAGE_KEY = "pontoOverallData_v1_" + currentUser.id;
   data = loadData();
+  // Resolve local-vs-servidor ANTES de qualquer coisa (abaixo) que possa
+  // chamar saveData() e carimbar data.updatedAt com "agora" — inclusive
+  // aplicar o horario sugerido do convite e o initMonthState()/ensureMonth()
+  // logo mais. Ver o comentario grande em resolveInitialSync() (state.js).
+  // Por isso mainHeader/mainDashboard so ficam visiveis DEPOIS desse await,
+  // ja com tudo renderizado: do contrario a tela apareceria em branco por um
+  // instante (ou, pior, o tutorial inicial podia abrir por cima de um clique
+  // em andamento) enquanto espera a rede — principalmente relevante com o
+  // Render gratuito, que pode demorar pra "acordar".
+  await resolveInitialSync();
   // Se a academia ja definiu o horario de trabalho dessa pessoa no convite
   // (ver company.js/auth.js), aplica antes de qualquer coisa usar getTimeSlots()
   // — assim ela ja abre com a escala certa, sem precisar configurar nada.
@@ -94,6 +102,8 @@ function bootApp(){
   renderGrid();
   renderVip();
   renderQuickValuesUI();
+  if(mainHeader) mainHeader.style.display = "";
+  if(mainDashboard) mainDashboard.style.display = "";
   initSync();
   startReminderLoop();
   // Coordenador(a) tambem bate ponto normalmente (por isso continua aqui, na
