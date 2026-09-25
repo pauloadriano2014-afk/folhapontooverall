@@ -54,6 +54,7 @@ function loadScheduleMonth(monthKey){
     scheduleData = r.body;
     renderScheduleCalendar();
     renderScheduleWeekendReport();
+    renderScheduleStaffEditList();
   }).catch(function(err){
     if(err && err.message === "auth_expired") return;
     console.warn("Falha ao carregar escala da equipe:", err);
@@ -159,6 +160,101 @@ function renderScheduleWeekendReport(){
     valueEl.textContent = r.count + "x";
     row.appendChild(valueEl);
     el.appendChild(row);
+  });
+}
+
+// Horário fixo (segunda a sexta) de cada profissional/coordenador(a) da
+// equipe — só gerente e coordenador(a) editam (scheduleData.canEditStaffSchedule).
+// Dono e sócio(a) veem esse mesmo painel só de leitura (canManage segue
+// controlando a escala de fim de semana acima, é um flag diferente) — Paulo
+// preferiu assim pra eles não correrem o risco de mudar algo sem querer e
+// pra confiarem esse trabalho pra equipe deles.
+var staffScheduleEditActiveId = null;
+
+function renderScheduleStaffEditList(){
+  var section = document.getElementById("scheduleStaffEditSection");
+  var el = document.getElementById("scheduleStaffEditList");
+  if(!section || !el || !scheduleData) return;
+  section.style.display = "";
+  el.innerHTML = "";
+  var canEdit = !!scheduleData.canEditStaffSchedule;
+  var staff = scheduleData.staff || [];
+  if(staff.length === 0){
+    el.innerHTML = "<p style='font-size:12px;color:var(--text-dim);margin:4px 0;'>Sem profissionais na equipe ainda.</p>";
+    return;
+  }
+  staff.forEach(function(s){
+    var row = document.createElement("div");
+    row.className = "client-row";
+    var info = document.createElement("div");
+    info.className = "client-info";
+    var name = document.createElement("strong");
+    name.textContent = s.name;
+    var meta = document.createElement("span");
+    meta.className = "client-meta";
+    meta.textContent = (s.shiftStart && s.shiftEnd)
+      ? (s.shiftStart + "–" + s.shiftEnd + (s.weekendShiftEnabled ? " · também fim de semana" : ""))
+      : "Horário ainda não definido";
+    info.appendChild(name); info.appendChild(meta);
+    row.appendChild(info);
+    if(canEdit){
+      var editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "small";
+      editBtn.textContent = "Editar horário";
+      editBtn.addEventListener("click", (function(staffMember){ return function(){ openStaffScheduleEditModal(staffMember); }; })(s));
+      row.appendChild(editBtn);
+    }
+    el.appendChild(row);
+  });
+}
+
+function openStaffScheduleEditModal(staffMember){
+  staffScheduleEditActiveId = staffMember.id;
+  var titleEl = document.getElementById("staffScheduleEditTitle");
+  if(titleEl) titleEl.textContent = "Editar horário — " + staffMember.name;
+  var startInput = document.getElementById("staffScheduleShiftStart");
+  var endInput = document.getElementById("staffScheduleShiftEnd");
+  var weekendInput = document.getElementById("staffScheduleWeekendShift");
+  if(startInput) startInput.value = staffMember.shiftStart || "";
+  if(endInput) endInput.value = staffMember.shiftEnd || "";
+  if(weekendInput) weekendInput.checked = !!staffMember.weekendShiftEnabled;
+  var errEl = document.getElementById("staffScheduleEditError");
+  if(errEl) errEl.textContent = "";
+  document.getElementById("staffScheduleEditOverlay").classList.add("open");
+}
+
+var btnStaffScheduleEditSaveEl = document.getElementById("btnStaffScheduleEditSave");
+if(btnStaffScheduleEditSaveEl){
+  btnStaffScheduleEditSaveEl.addEventListener("click", function(){
+    var errEl = document.getElementById("staffScheduleEditError");
+    errEl.textContent = "";
+    if(!staffScheduleEditActiveId) return;
+    var shiftStart = document.getElementById("staffScheduleShiftStart").value;
+    var shiftEnd = document.getElementById("staffScheduleShiftEnd").value;
+    var weekendShift = document.getElementById("staffScheduleWeekendShift").checked;
+    if(!shiftStart || !shiftEnd){ errEl.textContent = "Informe o horário de início e fim."; return; }
+    var btn = btnStaffScheduleEditSaveEl;
+    btn.disabled = true; btn.textContent = "Salvando...";
+    authFetch("/api/company/staff/" + staffScheduleEditActiveId + "/schedule", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shiftStart: shiftStart, shiftEnd: shiftEnd, weekendShift: weekendShift })
+    }).then(function(res){
+      if(res.status === 401){ handleAuthExpired(); throw new Error("auth_expired"); }
+      return res.json().then(function(body){ return { ok: res.ok, body: body }; });
+    }).then(function(r){
+      btn.disabled = false; btn.textContent = "Salvar";
+      if(!r.ok){ errEl.textContent = (r.body && r.body.message) || "Não consegui salvar."; return; }
+      showToast("Horário atualizado");
+      closeOverlays();
+      loadScheduleMonth(scheduleMonthKey);
+    }).catch(function(err){
+      if(err && err.message === "auth_expired") return;
+      btn.disabled = false; btn.textContent = "Salvar";
+      errEl.textContent = "Sem conexão com o servidor.";
+      console.warn("Falha ao salvar horário do profissional:", err);
+    });
   });
 }
 

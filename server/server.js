@@ -637,6 +637,67 @@ app.delete("/api/company/invite/:id", auth, async (req, res) => {
   }
 });
 
+// Editar o horario de trabalho (grade de segunda a sexta + turno de fim de
+// semana) de um profissional ja vinculado — depois do convite, so gerente e
+// coordenador(a) mexem nisso (quem toca a operacao no dia a dia). Dono e
+// socio(a) so acompanham esse dado (na lista da equipe), sem editar, de
+// proposito — pra nao correr o risco de mudar horario de alguem sem querer;
+// isCompanyManager (dono+gerente) e usado pra convidar/gerenciar QUEM entra
+// na equipe, mas editar O HORARIO de quem ja entrou e mais restrito ainda.
+function isStaffScheduleEditor(role) {
+  return role === "manager" || role === "coordinator";
+}
+app.put("/api/company/staff/:id/schedule", auth, async (req, res) => {
+  try {
+    var me = await pool.query("SELECT company_id, company_role FROM users WHERE id = $1", [req.userId]);
+    if (me.rows.length === 0) return res.status(404).json({ error: "not_found" });
+    if (!isStaffScheduleEditor(me.rows[0].company_role) || !me.rows[0].company_id) {
+      return res.status(403).json({ error: "not_allowed", message: "Só gerente ou coordenador(a) podem editar o horário da equipe." });
+    }
+    var companyId = me.rows[0].company_id;
+    var targetId = parseInt(req.params.id, 10);
+    if (isNaN(targetId)) return res.status(400).json({ error: "invalid_input" });
+    var target = await pool.query("SELECT id, company_id, company_role FROM users WHERE id = $1", [targetId]);
+    if (target.rows.length === 0 || target.rows[0].company_id !== companyId) {
+      return res.status(404).json({ error: "not_found" });
+    }
+    if (target.rows[0].company_role && target.rows[0].company_role !== "coordinator") {
+      return res.status(400).json({ error: "invalid_target", message: "Esse acesso não tem horário de grade pra editar." });
+    }
+    var body = req.body || {};
+    var shiftStart = String(body.shiftStart || "").trim();
+    var shiftEnd = String(body.shiftEnd || "").trim();
+    var weekendShift = !!body.weekendShift;
+    var suggested = buildSuggestedSchedule(shiftStart, shiftEnd, weekendShift);
+    if (!suggested) {
+      return res.status(400).json({ error: "invalid_input", message: "Informe um horário de início e fim válidos." });
+    }
+    var stateRes = await pool.query("SELECT data FROM user_state WHERE user_id = $1", [targetId]);
+    var targetData = (stateRes.rows[0] && stateRes.rows[0].data) || null;
+    if (!targetData || typeof targetData !== "object") {
+      return res.status(400).json({ error: "no_data", message: "Esse profissional ainda não abriu o app pela primeira vez." });
+    }
+    if (!targetData.settings || typeof targetData.settings !== "object") targetData.settings = {};
+    targetData.settings.timeSlots = suggested.timeSlots;
+    targetData.settings.weekendShiftEnabled = suggested.weekendShiftEnabled;
+    // Carimba como "agora" de proposito: essa mudanca deve vencer qualquer
+    // dado mais antigo que o aparelho do profissional ainda tenha guardado,
+    // e a resolucao de sincronizacao (ver state.js/resolveInitialSync) ja
+    // trata "servidor mais novo" corretamente.
+    targetData.updatedAt = new Date().toISOString();
+    await pool.query(
+      `INSERT INTO user_state (user_id, data, updated_at)
+       VALUES ($1, $2, now())
+       ON CONFLICT (user_id) DO UPDATE SET data = $2, updated_at = now()`,
+      [targetId, targetData]
+    );
+    res.json({ ok: true, timeSlots: suggested.timeSlots, weekendShiftEnabled: suggested.weekendShiftEnabled });
+  } catch (err) {
+    console.error("Erro no PUT /api/company/staff/:id/schedule:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
 // Escala da equipe (pensada sobretudo pra fim de semana/feriado, onde a
 // escala muda toda semana): quem trabalhou, faltou ou foi coberto em cada
 // dia. Dono e coordenador(a) editam; socio(a) so acompanha (leitura).
@@ -654,9 +715,11 @@ app.get("/api/company/schedule", auth, async (req, res) => {
       return res.status(400).json({ error: "invalid_month" });
     }
     var staffRes = await pool.query(
-      `SELECT id, name, role, company_role FROM users
-       WHERE company_id = $1 AND (company_role IS NULL OR company_role = 'coordinator')
-       ORDER BY name ASC`,
+      `SELECT u.id, u.name, u.role, u.company_role, us.data AS state_data
+       FROM users u
+       LEFT JOIN user_state us ON us.user_id = u.id
+       WHERE u.company_id = $1 AND (u.company_role IS NULL OR u.company_role = 'coordinator')
+       ORDER BY u.name ASC`,
       [companyId]
     );
     var entriesRes = await pool.query(
@@ -667,7 +730,30 @@ app.get("/api/company/schedule", auth, async (req, res) => {
     );
     res.json({
       canManage: isScheduleManager(role),
-      staff: staffRes.rows.map((row) => ({ id: row.id, name: row.name, role: row.role || "", companyRole: row.company_role || null })),
+      // Distinto de canManage: gerente/coordenador editam o horario semanal
+      // fixo de cada profissional (grade), enquanto dono/socio(a) so
+      // acompanham essa parte pra nao correr o risco de mudar sem querer —
+      // eles continuam podendo lancar/editar a escala de fim de semana acima.
+      canEditStaffSchedule: isStaffScheduleEditor(role),
+      staff: staffRes.rows.map((row) => {
+        var settings = (row.state_data && row.state_data.settings) || {};
+        var timeSlots = Array.isArray(settings.timeSlots) ? settings.timeSlots : [];
+        var shiftStart = null;
+        var shiftEnd = null;
+        if (timeSlots.length) {
+          shiftStart = String(timeSlots[0]).split("–")[0] || null;
+          shiftEnd = String(timeSlots[timeSlots.length - 1]).split("–")[1] || null;
+        }
+        return {
+          id: row.id,
+          name: row.name,
+          role: row.role || "",
+          companyRole: row.company_role || null,
+          shiftStart: shiftStart,
+          shiftEnd: shiftEnd,
+          weekendShiftEnabled: !!settings.weekendShiftEnabled,
+        };
+      }),
       entries: entriesRes.rows.map((row) => ({
         id: row.id,
         userId: row.user_id,

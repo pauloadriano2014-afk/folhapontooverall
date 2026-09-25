@@ -57,7 +57,15 @@ function onboardingSteps(kind){
       "Seus dados sincronizam sozinhos entre o celular e o computador — o ícone no topo mostra o status da sincronização."
     ];
   }
-  // estagiario/professor/funcao desconhecida: grade de horas + VIP
+  if(kind === "professor"){
+    // Professor nao atende aluno VIP (isso e so do estagiario) — so grade de horas.
+    return [
+      "Toque em um dia na grade pra lançar as horas trabalhadas naquele dia.",
+      "Os \"valores rápidos\" (ex: 10, 15) são atalhos pro valor da hora/aula — edite em \"Valores rápidos\" a qualquer momento.",
+      "Seus dados sincronizam sozinhos entre o celular e o computador — o ícone no topo mostra o status da sincronização."
+    ];
+  }
+  // estagiario/funcao desconhecida: grade de horas + VIP
   return [
     "Toque em um dia na grade pra lançar as horas trabalhadas naquele dia.",
     "Os \"valores rápidos\" (ex: 10, 15) são atalhos pro valor da hora/aula — edite em \"Valores rápidos\" a qualquer momento.",

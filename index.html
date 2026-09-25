@@ -290,6 +290,13 @@
       </div>
       <h3 style="margin:20px 0 6px;font-size:13px;color:var(--text-dim);">Quem ainda não trabalhou fim de semana/feriado este mês</h3>
       <div id="scheduleWeekendReport"></div>
+      <div id="scheduleStaffEditSection" style="display:none;">
+        <h3 style="margin:20px 0 6px;font-size:13px;color:var(--text-dim);">Horário de trabalho da equipe (segunda a sexta)</h3>
+        <p class="account-section-hint" style="margin:-4px 0 10px;">
+          Gerente e coordenador(a) editam o horário de cada profissional aqui.
+        </p>
+        <div id="scheduleStaffEditList"></div>
+      </div>
     </div>
 
     <div class="card">
@@ -347,7 +354,7 @@
       </div>
     </div>
 
-    <div class="account-section">
+    <div class="account-section" id="ownScheduleEditSection">
       <h3>Horários da grade (segunda a sexta)</h3>
       <p class="account-section-hint">Os horários que aparecem na grade principal de segunda a sexta. Escolha início e fim de cada um pelos seletores, sem precisar digitar. Pode adicionar, remover e ter mais ou menos que 6.</p>
       <div id="timeSlotsList" class="time-slots-list"></div>
@@ -372,13 +379,18 @@
       <p class="account-section-hint">Funciona enquanto o app estiver aberto no aparelho (o navegador precisa de permissão pra notificação).</p>
     </div>
 
-    <div class="account-section">
+    <div class="account-section" id="ownWeekendShiftSection">
       <h3>Horário de fim de semana</h3>
       <label class="reminder-toggle">
         <input type="checkbox" id="weekendShiftEnabled" />
         Sábado/domingo têm turno de sala (5h) em vez da grade da semana
       </label>
       <p class="account-section-hint">Liga isso se sábado e domingo funcionam num turno único de 08:00–13:00 ou 13:00–18:00 (você escolhe qual, dia a dia), em vez dos horários fixos da semana. Não tem alunos VIP no fim de semana.</p>
+    </div>
+
+    <div class="account-section" id="companyManagesScheduleHint" style="display:none;">
+      <h3>Horário de trabalho</h3>
+      <p class="account-section-hint">Seu horário de trabalho (segunda a sexta e fim de semana) é definido pelo(a) gerente ou coordenador(a) da sua academia. Fale com eles se precisar mudar. Seus alunos particulares continuam só com você.</p>
     </div>
     </div>
 
@@ -578,6 +590,27 @@
       <div class="auth-error" id="scheduleError"></div>
       <button type="button" class="small primary" id="btnScheduleSave">Salvar</button>
     </div>
+  </div>
+</div>
+
+<!-- Editar horario de trabalho de um profissional (gerente/coordenador) -->
+<div class="overlay" id="staffScheduleEditOverlay">
+  <div class="sheet">
+    <button class="close ghost small" data-close>Fechar</button>
+    <h3 id="staffScheduleEditTitle">Editar horário</h3>
+    <label>Horário de trabalho (segunda a sexta)
+      <div class="time-slot-row">
+        <input type="time" id="staffScheduleShiftStart" step="3600" />
+        <span class="ts-sep">–</span>
+        <input type="time" id="staffScheduleShiftEnd" step="3600" />
+      </div>
+    </label>
+    <label class="reminder-toggle">
+      <input type="checkbox" id="staffScheduleWeekendShift" />
+      Também trabalha fim de semana/feriado (turno de sala)
+    </label>
+    <div class="auth-error" id="staffScheduleEditError"></div>
+    <button type="button" class="small primary" id="btnStaffScheduleEditSave">Salvar</button>
   </div>
 </div>
 

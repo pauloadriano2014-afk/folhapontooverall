@@ -45,6 +45,20 @@ function applyRoleVisibility(){
   if(resumoCard) resumoCard.style.display = showGrade ? "" : "none";
   if(clientScheduleWrap) clientScheduleWrap.style.display = showSchedule ? "" : "none";
   if(gradeAccountSections) gradeAccountSections.style.display = showGrade ? "" : "none";
+
+  // Quem está ligado a uma academia (companyId) tem o horário de trabalho
+  // (grade de segunda a sexta e turno de fim de semana) definido pelo
+  // gerente/coordenador(a) de lá, não mais pela própria pessoa — ela mantém
+  // controle só do que é dela mesma (alunos particulares, valores rápidos,
+  // lembrete). Sem academia (freelancer), continua editando o próprio horário.
+  var isCompanyLinked = !!(currentUser && currentUser.companyId);
+  var showOwnScheduleEdit = showGrade && !isCompanyLinked;
+  var ownScheduleEditSection = document.getElementById("ownScheduleEditSection");
+  var ownWeekendShiftSection = document.getElementById("ownWeekendShiftSection");
+  var companyManagesScheduleHint = document.getElementById("companyManagesScheduleHint");
+  if(ownScheduleEditSection) ownScheduleEditSection.style.display = showOwnScheduleEdit ? "" : "none";
+  if(ownWeekendShiftSection) ownWeekendShiftSection.style.display = showOwnScheduleEdit ? "" : "none";
+  if(companyManagesScheduleHint) companyManagesScheduleHint.style.display = (showGrade && isCompanyLinked) ? "" : "none";
 }
 
 // Uma conta de academia (dono) nao tem ponto proprio pra bater — ela so ve o
