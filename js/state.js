@@ -289,6 +289,7 @@
     renderVip();
     renderQuickValuesUI();
     if(typeof renderClients === "function") renderClients();
+    if(typeof applySavedColorForCurrentUser === "function") applySavedColorForCurrentUser(); // cor escolhida em outro aparelho
   }
 
   // Mescla "o que eu mudei aqui" com "o que mudou la no servidor", desde a

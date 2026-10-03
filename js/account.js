@@ -15,16 +15,14 @@ function updateThemeColorMeta(){
 function applyTheme(theme){
   document.documentElement.setAttribute("data-theme", theme);
   updateThemeColorMeta();
-  var btn = document.getElementById("btnTheme");
-  if(btn){
-    var ico = btn.querySelector(".nav-ico");
-    var themeIcon = theme === "light" ? "🌙" : "☀️";
-    if(ico) ico.textContent = themeIcon; else btn.textContent = themeIcon;
-    btn.title = theme === "light" ? "Mudar para tema escuro" : "Mudar para tema claro";
+  var modeBtns = document.querySelectorAll("#modeSwitch .mode-btn");
+  for(var i = 0; i < modeBtns.length; i++){
+    modeBtns[i].classList.toggle("active", modeBtns[i].getAttribute("data-mode") === theme);
   }
   try{ localStorage.setItem(THEME_KEY, theme); }catch(e){}
 }
 
+// "Tema" no menu abre a janela Tema e cores (modo claro/escuro + combinacao de cores).
 function initTheme(){
   var saved = "dark";
   try{ saved = localStorage.getItem(THEME_KEY) || "dark"; }catch(e){}
@@ -32,49 +30,92 @@ function initTheme(){
   var btn = document.getElementById("btnTheme");
   if(btn){
     btn.addEventListener("click", function(){
-      var current = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
-      applyTheme(current === "light" ? "dark" : "light");
+      applyColorPolicyForCurrentUser(); // mostra ou trava as cores conforme o cargo
+      applyTheme(document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark");
+      applyColor(currentSavedColor(), false);
+      document.getElementById("themeOverlay").classList.add("open");
     });
+  }
+  var modeBtns = document.querySelectorAll("#modeSwitch .mode-btn");
+  for(var i = 0; i < modeBtns.length; i++){
+    modeBtns[i].addEventListener("click", function(){ applyTheme(this.getAttribute("data-mode")); });
   }
 }
 
-// Tema de cor (independente de claro/escuro): roxo é o padrão original;
-// azul/vermelho/verde/rosa/amarelo são a mesma paleta com o matiz rotacionado,
-// preservando saturação/luminosidade (ver blocos :root[data-color="..."] no CSS).
-// É uma preferência do aparelho (como claro/escuro), não fica salva por conta.
+// Combinacao de cores (independente de claro/escuro). O padrao de todos e a
+// "overall" (azul, vermelho e branco); professor e estagiario podem trocar.
+// A escolha fica guardada no aparelho (por conta) e tambem nos dados da conta,
+// para acompanhar a pessoa entre aparelhos. "roxo" e a paleta base do CSS; as
+// outras sao a mesma paleta com o matiz rotacionado (blocos :root[data-color]).
 var COLOR_KEY = "pontoOverallColor_v1";
-var VALID_COLORS = ["roxo","azul","vermelho","verde","rosa","amarelo"];
+var VALID_COLORS = ["overall","roxo","azul","vermelho","verde","rosa","amarelo"];
+var COLOR_NAMES = { overall: "Overall (azul, vermelho e branco)", roxo: "Roxo", azul: "Azul-petróleo", vermelho: "Vermelho", verde: "Verde", rosa: "Rosa", amarelo: "Amarelo" };
 
-function applyColor(color){
-  if(VALID_COLORS.indexOf(color) < 0) color = "roxo";
+function colorKeyForUser(){
+  return COLOR_KEY + (currentUser ? "_" + currentUser.id : "");
+}
+
+// persist = true so quando a pessoa escolhe (clique), nunca no carregamento.
+function applyColor(color, persist){
+  if(VALID_COLORS.indexOf(color) < 0) color = "overall";
   if(color === "roxo"){
     document.documentElement.removeAttribute("data-color");
   } else {
     document.documentElement.setAttribute("data-color", color);
   }
-  try{ localStorage.setItem(COLOR_KEY, color); }catch(e){}
+  if(persist){
+    try{ localStorage.setItem(colorKeyForUser(), color); }catch(e){}
+    if(currentUser && STORAGE_KEY && typeof data !== "undefined" && data && data.settings){
+      data.settings.themeColor = color; // vai junto com os dados da conta (sincroniza)
+      saveData();
+    }
+  }
   updateThemeColorMeta();
   var swatches = document.querySelectorAll("#colorSwatches .color-swatch");
   for(var i = 0; i < swatches.length; i++){
     swatches[i].classList.toggle("active", swatches[i].getAttribute("data-color-choice") === color);
   }
+  var nameEl = document.getElementById("colorName");
+  if(nameEl) nameEl.textContent = "Combinação atual: " + (COLOR_NAMES[color] || color);
 }
 
+// Ordem: escolha guardada na conta, depois a do aparelho (por conta), depois a
+// de antes desta versao (global do aparelho) e, por fim, o padrao Overall.
 function currentSavedColor(){
-  var saved = "roxo";
-  try{ saved = localStorage.getItem(COLOR_KEY) || "roxo"; }catch(e){}
-  return saved;
+  if(currentUser && typeof data !== "undefined" && data && data.settings && data.settings.themeColor &&
+     VALID_COLORS.indexOf(data.settings.themeColor) >= 0 && STORAGE_KEY){
+    return data.settings.themeColor;
+  }
+  var saved = null;
+  try{
+    saved = localStorage.getItem(colorKeyForUser());
+    if(!saved) saved = localStorage.getItem(COLOR_KEY); // escolha antiga do aparelho (ex.: roxo)
+  }catch(e){}
+  return (saved && VALID_COLORS.indexOf(saved) >= 0) ? saved : "overall";
+}
+
+// Depois do login/carregamento dos dados: aplica a cor da pessoa (se nao for
+// um cargo travado na identidade da Overall) e guarda a escolha na conta se
+// ela veio so do aparelho, para sincronizar.
+function applySavedColorForCurrentUser(){
+  if(currentUser && isBrandColorLockedRole()) return;
+  var color = currentSavedColor();
+  applyColor(color, false);
+  if(currentUser && STORAGE_KEY && typeof data !== "undefined" && data && data.settings && !data.settings.themeColor && color !== "overall"){
+    data.settings.themeColor = color;
+    saveData();
+  }
 }
 
 function initColor(){
-  applyColor(currentSavedColor());
+  applyColor(currentSavedColor(), false);
   var wrap = document.getElementById("colorSwatches");
   if(wrap){
     wrap.addEventListener("click", function(e){
       if(typeof isBrandColorLockedRole === "function" && isBrandColorLockedRole()) return; // travado, ver applyColorPolicyForCurrentUser()
       var btn = e.target.closest ? e.target.closest(".color-swatch") : null;
       if(!btn) return;
-      applyColor(btn.getAttribute("data-color-choice"));
+      applyColor(btn.getAttribute("data-color-choice"), true);
     });
   }
 }
@@ -102,8 +143,10 @@ function applyColorPolicyForCurrentUser(){
   var locked = !!(currentUser && isBrandColorLockedRole());
   document.body.classList.toggle("brand-view", locked);
   var swatchesEl = document.getElementById("colorSwatches");
+  var nameEl = document.getElementById("colorName");
   var hintEl = document.getElementById("brandColorLockedHint");
   if(swatchesEl) swatchesEl.style.display = locked ? "none" : "";
+  if(nameEl) nameEl.style.display = locked ? "none" : "";
   if(hintEl) hintEl.style.display = locked ? "" : "none";
 }
 

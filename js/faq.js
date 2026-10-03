@@ -88,6 +88,9 @@ function faqGroupsFor(kind){
   }
 
   groups.push({ title: "Conta e aparelhos", items: [
+    ["Como troco o tema e as cores?", (admin || kind === "coordenador")
+      ? "Toque em \"Tema e cores\" no menu. Você escolhe entre o modo claro e o escuro. As cores da sua conta seguem o padrão da Overall (azul, vermelho e branco) e não mudam; só professores e estagiários trocam a combinação."
+      : "Toque em \"Tema e cores\" no menu. Escolha o modo claro ou escuro e a combinação de cores. O padrão são as cores da Overall (azul, vermelho e branco), mas você pode usar roxo, verde, rosa ou outra, e a escolha acompanha a sua conta em outros aparelhos."],
     ["Posso usar no celular e no computador ao mesmo tempo?", "Pode. Os dados sincronizam sozinhos. O indicador no topo mostra: 🟢 Sincronizado (tudo salvo no servidor), 🔄 Sincronizando, ou 🟡 Sem conexão (está salvando só neste aparelho e envia assim que a internet voltar)."],
     ["Mexi em dois aparelhos e perdi alguma coisa?", "O app junta as mudanças dos dois. Se o mesmo mês foi alterado nos dois, vale a versão que chegou primeiro ao servidor e a outra fica guardada em backup neste aparelho. Você é avisado na tela quando isso acontece."],
     ["Esqueci minha senha. E agora?", "Na tela de entrada, toque em \"Esqueci minha senha\" e siga o link enviado ao seu e-mail. Já logado, você troca a senha em Minha conta."],

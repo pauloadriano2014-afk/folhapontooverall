@@ -189,6 +189,7 @@ async function bootApp(){
   // equipe) — fica travado na cor de identidade da Overall igual
   // dono/sócio(a)/gerente. Os demais escolhem a cor livremente.
   if(typeof applyColorPolicyForCurrentUser === "function") applyColorPolicyForCurrentUser();
+  applySavedColorForCurrentUser(); // padrao Overall; professor/estagiario podem ter outra combinacao
   initMonthState();
   renderMonthSelect();
   renderGrid();

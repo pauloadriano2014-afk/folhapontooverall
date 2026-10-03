@@ -92,6 +92,19 @@
     --weekend:#fcf3e7; --noschedule:#f9f3ea; --slot-filled-bg:#fbf2e1;
   }
 
+  /* Combinacao "Overall" (azul, vermelho e branco): padrao de todos; dono, socio,
+     gerente e coordenador ficam travados nela, professor e estagiario podem trocar. */
+  :root[data-color="overall"]{
+    --bg:#0b0d10; --bg-panel:#14171c; --bg-panel-2:#1c2127; --border:#2a2f37;
+    --text:#f3f4f6; --text-dim:#9aa3af; --accent:#3b82f6; --accent-2:#ef4444;
+    --good:#3b82f6; --warn:#ef4444; --weekend:#16213a; --noschedule:#1c2127; --slot-filled-bg:#1d3a8a;
+  }
+  :root[data-color="overall"][data-theme="light"]{
+    --bg:#ffffff; --bg-panel:#ffffff; --bg-panel-2:#f3f4f6; --border:#d9dee6;
+    --text:#10151f; --text-dim:#5b6472; --accent:#1d4ed8; --accent-2:#dc2626;
+    --good:#1d4ed8; --warn:#dc2626; --weekend:#eef2ff; --noschedule:#f3f4f6; --slot-filled-bg:#dbe6ff;
+  }
+
   /* ---------- identidade da marca Overall (painel da gerência/coordenação) ----------
      Essa area fica fixa em azul/vermelho/preto/branco (a cor da logo da
      academia), sem o seletor de cor pessoal do profissional — so claro/escuro,
@@ -302,6 +315,7 @@
   .legend-item-btn{
     background:none; border:1px dashed var(--border); border-radius:8px; padding:3px 8px 3px 4px;
     font:inherit; color:inherit; cursor:pointer;
+    max-width:100%; white-space:normal; text-align:left; line-height:1.3; /* quebra de linha no celular, sem vazar da tela */
   }
   .legend-item-btn:hover{ border-color:var(--accent); }
 
@@ -537,3 +551,8 @@
     .print-sheet .ps-total td{ font-weight:800; background:#eee !important; }
     .print-sheet .ps-foot{ margin-top:12px; font-size:11px; color:#777; }
   }
+
+  /* ---------- janela Tema e cores ---------- */
+  .mode-switch{ display:flex; gap:8px; }
+  .mode-btn{ flex:1; padding:10px; border-radius:10px; font-size:14px; font-weight:600; }
+  .mode-btn.active{ background:var(--accent); border-color:var(--accent); color:#1c0a33; }

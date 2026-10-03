@@ -109,7 +109,7 @@
     <button type="button" class="nav-item" data-view="convites" hidden><span class="nav-ico" aria-hidden="true">✉️</span><span class="nav-label"><span class="l-long">Convites</span><span class="l-short">Convites</span></span></button>
     <button type="button" class="nav-item" data-view="exportacao" hidden><span class="nav-ico" aria-hidden="true">📤</span><span class="nav-label"><span class="l-long">Exportação</span><span class="l-short">Exportar</span></span></button>
     <button type="button" class="nav-item" data-view="duvidas" hidden><span class="nav-ico" aria-hidden="true">❓</span><span class="nav-label"><span class="l-long">Dúvidas</span><span class="l-short">Dúvidas</span></span></button>
-    <button type="button" class="nav-item nav-sep" id="btnTheme" title="Alternar tema claro/escuro"><span class="nav-ico" aria-hidden="true">🌙</span><span class="nav-label"><span class="l-long">Tema claro/escuro</span><span class="l-short">Tema</span></span></button>
+    <button type="button" class="nav-item nav-sep" id="btnTheme" title="Modo claro/escuro e combinação de cores"><span class="nav-ico" aria-hidden="true">🎨</span><span class="nav-label"><span class="l-long">Tema e cores</span><span class="l-short">Tema</span></span></button>
     <button type="button" class="nav-item" id="btnAccount" title="Senha, cor do tema, horários e lembrete"><span class="nav-ico" aria-hidden="true">👤</span><span class="nav-label"><span class="l-long">Minha conta</span><span class="l-short">Conta</span><small id="accountLabel"></small></span></button>
     <button type="button" class="nav-item" id="btnNavLogout"><span class="nav-ico" aria-hidden="true">🚪</span><span class="nav-label">Sair</span></button>
   </div>
@@ -392,6 +392,36 @@
 
 <footer>Ponto Overall · Overall Gym</footer>
 
+<!-- Tema e cores -->
+<div class="overlay" id="themeOverlay">
+  <div class="sheet">
+    <button class="close ghost small" data-close>Fechar</button>
+    <h3>Tema e cores</h3>
+    <p class="sub">Vale para este aparelho e acompanha a sua conta.</p>
+    <div class="account-section">
+      <h3>Modo</h3>
+      <div class="mode-switch" id="modeSwitch">
+        <button type="button" class="mode-btn" data-mode="dark">🌙 Escuro</button>
+        <button type="button" class="mode-btn" data-mode="light">☀️ Claro</button>
+      </div>
+    </div>
+    <div class="account-section" id="colorSection">
+      <h3>Combinação de cores</h3>
+      <p class="account-section-hint" id="brandColorLockedHint" style="display:none;">Sua conta usa as cores da Overall (azul, vermelho e branco). Só professores e estagiários podem trocar a combinação.</p>
+      <div class="color-swatches" id="colorSwatches">
+        <button type="button" class="color-swatch" data-color-choice="overall" title="Overall (azul, vermelho e branco)" style="background:linear-gradient(135deg,#3b82f6 0 50%,#ef4444 50% 100%);"></button>
+        <button type="button" class="color-swatch" data-color-choice="roxo" title="Roxo" style="background:#a855f7;"></button>
+        <button type="button" class="color-swatch" data-color-choice="azul" title="Azul-petróleo" style="background:#3d8ff5;"></button>
+        <button type="button" class="color-swatch" data-color-choice="vermelho" title="Vermelho" style="background:#f5424f;"></button>
+        <button type="button" class="color-swatch" data-color-choice="verde" title="Verde" style="background:#2fd97e;"></button>
+        <button type="button" class="color-swatch" data-color-choice="rosa" title="Rosa" style="background:#f542a8;"></button>
+        <button type="button" class="color-swatch" data-color-choice="amarelo" title="Amarelo" style="background:#f0b93a;"></button>
+      </div>
+      <p class="account-section-hint" id="colorName" style="margin-top:8px;"></p>
+    </div>
+  </div>
+</div>
+
 <!-- Account modal -->
 <div class="overlay" id="accountOverlay">
   <div class="sheet">
@@ -410,20 +440,6 @@
       <div class="auth-success" id="pwSuccess"></div>
       <button type="submit" class="small" id="pwSubmit">Trocar senha</button>
     </form>
-
-    <div class="account-section">
-      <h3>Aparência</h3>
-      <p class="account-section-hint">Cor do tema (funciona junto com o botão de claro/escuro no topo da tela).</p>
-      <p class="account-section-hint" id="brandColorLockedHint" style="display:none;">Sua conta usa a cor de identidade da Overall — só profissionais (professor/estagiário) escolhem a cor.</p>
-      <div class="color-swatches" id="colorSwatches">
-        <button type="button" class="color-swatch" data-color-choice="roxo" title="Roxo" style="background:#a855f7;"></button>
-        <button type="button" class="color-swatch" data-color-choice="azul" title="Azul" style="background:#3d8ff5;"></button>
-        <button type="button" class="color-swatch" data-color-choice="vermelho" title="Vermelho" style="background:#f5424f;"></button>
-        <button type="button" class="color-swatch" data-color-choice="verde" title="Verde" style="background:#2fd97e;"></button>
-        <button type="button" class="color-swatch" data-color-choice="rosa" title="Rosa" style="background:#f542a8;"></button>
-        <button type="button" class="color-swatch" data-color-choice="amarelo" title="Amarelo" style="background:#f0b93a;"></button>
-      </div>
-    </div>
 
     <div class="account-section" id="personalModuleSection" style="display:none;">
       <h3>Alunos particulares</h3>

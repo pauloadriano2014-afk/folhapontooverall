@@ -98,6 +98,7 @@ function logout(){
   // visual de dono/sócio(a)/gerente/coordenador(a) pro próximo login nesse
   // mesmo aparelho, seja lá quem for.
   if(typeof applyColorPolicyForCurrentUser === "function") applyColorPolicyForCurrentUser();
+  if(typeof applyColor === "function") applyColor(currentSavedColor(), false); // tela de login volta a cor padrao do aparelho
   try{
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
