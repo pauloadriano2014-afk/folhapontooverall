@@ -318,7 +318,7 @@
     <div class="card" id="companyStaffCard" data-view="equipe">
       <h2>Equipe e valores — <span id="companyMonthLabel"></span></h2>
       <p class="account-section-hint" style="margin:-4px 0 10px;">
-        Quanto cada profissional tem a receber neste mês pelas horas de sala (grade + auxílio − consumo). Alunos particulares são renda pessoal e não aparecem aqui. Personal trainers também não entram nesta lista.
+        Quanto cada profissional tem a receber neste mês pelas horas de sala (grade + auxílio − consumo). Alunos particulares são renda pessoal e não aparecem aqui.
       </p>
       <div id="companyStaffList"></div>
       <div class="stat" style="margin-top:14px;max-width:280px;">
@@ -766,12 +766,22 @@
 
 <!-- Tutorial inicial -->
 <div class="overlay" id="onboardingOverlay">
-  <div class="sheet">
-    <button class="close ghost small" data-close>Fechar</button>
+  <div class="sheet ob-sheet" role="dialog" aria-labelledby="onboardingTitle">
+    <button class="close ghost small" id="obClose" data-close>Pular</button>
+    <div class="ob-badge" id="obBadge" aria-hidden="true">👋</div>
     <h3 id="onboardingTitle">Como funciona</h3>
-    <div id="onboardingSteps"></div>
-    <div class="row-actions" style="margin-top:14px;">
-      <button class="small primary" id="btnOnboardingGotIt" data-close>Entendi</button>
+    <p class="sub" id="onboardingSub"></p>
+    <div class="ob-card" id="obCard">
+      <div class="ob-ico" id="obIco" aria-hidden="true"></div>
+      <div class="ob-body">
+        <h4 id="obStepTitle"></h4>
+        <p id="obStepText"></p>
+      </div>
+    </div>
+    <div class="ob-meta"><div class="ob-dots" id="obDots"></div><span class="ob-count" id="obCount"></span></div>
+    <div class="ob-actions">
+      <button type="button" class="ghost" id="obBack">Voltar</button>
+      <button type="button" class="primary" id="obNext">Próximo</button>
     </div>
   </div>
 </div>

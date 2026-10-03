@@ -556,3 +556,34 @@
   .mode-switch{ display:flex; gap:8px; }
   .mode-btn{ flex:1; padding:10px; border-radius:10px; font-size:14px; font-weight:600; }
   .mode-btn.active{ background:var(--accent); border-color:var(--accent); color:#1c0a33; }
+
+  /* ---------- tutorial inicial em passos ---------- */
+  .ob-sheet{ max-width:440px; padding:22px 20px 18px; }
+  .ob-badge{
+    width:56px; height:56px; border-radius:16px; display:grid; place-items:center; font-size:28px; margin-bottom:12px;
+    background:linear-gradient(135deg, var(--accent), var(--accent-2));
+  }
+  .ob-sheet h3{ font-size:20px; line-height:1.2; margin:0 0 4px; text-wrap:balance; }
+  .ob-sheet .sub{ font-size:13px; margin-bottom:0; }
+  .ob-card{
+    display:flex; gap:14px; align-items:flex-start; min-height:150px; margin:16px 0 12px; padding:16px;
+    background:var(--bg-panel-2); border:1px solid var(--border); border-radius:14px;
+  }
+  .ob-card.anim{ animation:obIn .22s ease-out; }
+  @keyframes obIn{ from{ opacity:0; transform:translateX(14px); } to{ opacity:1; transform:translateX(0); } }
+  @media (prefers-reduced-motion:reduce){ .ob-card.anim{ animation:none; } }
+  .ob-ico{
+    flex:0 0 46px; height:46px; border-radius:12px; display:grid; place-items:center; font-size:23px;
+    background:var(--bg-panel); border:1px solid var(--border);
+  }
+  .ob-body{ min-width:0; }
+  .ob-card h4{ margin:0 0 6px; font-size:17px; line-height:1.25; }
+  .ob-card p{ margin:0; font-size:14px; line-height:1.55; color:var(--text-dim); }
+  .ob-meta{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; }
+  .ob-dots{ display:flex; gap:6px; align-items:center; }
+  .ob-dot{ width:8px; height:8px; padding:0; border:0; border-radius:50%; background:var(--border); cursor:pointer; transition:width .2s; }
+  .ob-dot.active{ width:22px; border-radius:4px; background:var(--accent); }
+  .ob-count{ font-size:12px; color:var(--text-dim); }
+  .ob-actions{ display:flex; justify-content:space-between; gap:8px; }
+  .ob-actions button{ padding:10px 20px; font-size:14px; }
+  .ob-actions .primary{ min-width:120px; }

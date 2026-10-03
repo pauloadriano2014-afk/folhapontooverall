@@ -46,7 +46,12 @@ function showView(view){
     });
   }
   document.querySelectorAll("#appNav .nav-item[data-view]").forEach(function(btn){
-    btn.classList.toggle("active", btn.getAttribute("data-view") === view);
+    var isActive = btn.getAttribute("data-view") === view;
+    btn.classList.toggle("active", isActive);
+    // no celular o menu rola de lado: deixa o item ativo inteiro a vista
+    if(isActive && window.innerWidth < 900 && btn.scrollIntoView){
+      try{ btn.scrollIntoView({ inline: "center", block: "nearest" }); }catch(e){}
+    }
   });
   document.body.setAttribute("data-view", view);
   if(view === "gestao" && typeof loadTeamAudit === "function") loadTeamAudit();

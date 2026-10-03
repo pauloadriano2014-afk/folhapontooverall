@@ -139,6 +139,12 @@ function applyCompanyReadOnlyUI(readOnly){
   if(inviteCard) inviteCard.style.display = readOnly ? "none" : "";
 }
 
+function isRedundantCompanyName(name){
+  var n = String(name || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/\b(gym|academia|academy|fitness)\b/g, "").replace(/\s+/g, " ").trim();
+  return n === "" || n === "overall";
+}
+
 function loadCompanyOverview(){
   var listEl = document.getElementById("companyStaffList");
   var monthKey = monthKeyNow();
@@ -155,7 +161,10 @@ function loadCompanyOverview(){
       return;
     }
     companyOverviewData = r.body;
-    document.getElementById("companyNameLabel").textContent = r.body.company.name;
+    var nameLabel = document.getElementById("companyNameLabel");
+    nameLabel.textContent = r.body.company.name;
+    // a logo ja diz "Overall Gym": so mostra o nome se ele acrescentar algo (ex.: "Overall Centro")
+    nameLabel.style.display = isRedundantCompanyName(r.body.company.name) ? "none" : "";
     document.getElementById("companyInviteCodeDisplay").value = r.body.company.inviteCode;
     renderCompanyStaffList(r.body.staff, monthKey);
     if(typeof renderTeamManage === "function") renderTeamManage();

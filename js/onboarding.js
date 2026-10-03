@@ -1,99 +1,129 @@
-// onboarding.js — tutorial curto mostrado uma vez pra cada conta (dono de
-// academia ou profissional), explicando o que fazer e pra que serve cada
-// parte. Reaproveita o mesmo overlay/sheet do resto do app, e o botão "❓" no
-// topo reabre a qualquer momento. Guardado só no aparelho (localStorage) —
-// é uma dica de uso, não precisa sincronizar entre aparelhos.
+// onboarding.js — tutorial curto mostrado uma vez pra cada conta, em passos
+// (um cartao por vez, com icone, titulo curto e progresso). Reaproveita o
+// overlay do resto do app; a categoria "Duvidas" reabre quando a pessoa quiser.
+// Guardado so no aparelho (localStorage): e uma dica de uso, nao sincroniza.
 "use strict";
 
 var ONBOARDING_SEEN_PREFIX = "pontoOverallOnboardingSeen_v1_";
 
-function onboardingTitle(kind){
-  if(kind === "empresa") return "Como funciona o painel da academia";
-  if(kind === "socio") return "Como funciona pra sócio(a)";
-  if(kind === "gerente") return "Como funciona pra gerente";
-  if(kind === "coordenador") return "Como funciona pra coordenador(a)";
-  return "Como funciona a grade de horas";
-}
+var ONBOARDING_INTRO = {
+  empresa:     { icon: "🏢", title: "Bem-vindo ao painel da academia", sub: "Veja em 1 minuto como acompanhar sua equipe." },
+  socio:       { icon: "👀", title: "Bem-vindo(a), sócio(a)", sub: "Seu acesso é de acompanhamento. Veja o que aparece pra você." },
+  gerente:     { icon: "🧭", title: "Bem-vindo(a), gerente", sub: "Veja em 1 minuto o que você pode fazer por aqui." },
+  coordenador: { icon: "📋", title: "Bem-vindo(a), coordenador(a)", sub: "Você bate ponto e também cuida da escala da equipe." },
+  professor:   { icon: "💪", title: "Bem-vindo(a) ao Ponto Overall", sub: "Veja em 1 minuto como lançar suas horas." },
+  estagiario:  { icon: "💪", title: "Bem-vindo(a) ao Ponto Overall", sub: "Veja em 1 minuto como lançar suas horas." }
+};
 
 function onboardingSteps(kind){
   if(kind === "empresa"){
     return [
-      "Compartilhe o código de convite (ou use \"Convidar profissional por e-mail\") com cada professor ou estagiário da academia.",
-      "Ao se cadastrar com o código ou o link, o profissional já aparece automaticamente na sua lista de equipe, ligado à sua academia.",
-      "Neste painel você acompanha quanto cada profissional tem a receber no mês pelas horas de sala, calculado a partir do que cada um já lançou. Aluno particular é renda pessoal e nunca aparece aqui.",
-      "Em \"Gestão da equipe\" você troca a função ou o nível de acesso de quem já entrou, remove quem saiu e define o salário mensal fixo de cada gerente (ele aparece em \"Equipe e valores\"). Em \"Convites\" dá para gerar um novo código se ele vazar.",
-      "Se você já sabe o horário de trabalho de alguém, defina ele no convite por e-mail — a pessoa já entra com a escala certa, sem precisar configurar nada.",
-      "No convite, escolha o \"Nível de acesso\": Profissional (padrão), Coordenador(a) (também gerencia a escala de fim de semana/feriado), Gerente (gerencia equipe, convites e escala, sem bater ponto) ou Sócio(a) (só acompanha, sem editar nada)."
+      { icon: "👥", title: "Monte sua equipe", text: "Compartilhe o código de convite ou convide por e-mail. Quem entra já fica ligado à sua academia." },
+      { icon: "💰", title: "Acompanhe os valores", text: "Em Equipe e valores você vê quanto cada profissional tem a receber no mês pelas horas de sala. Aluno particular é renda pessoal e nunca aparece aqui." },
+      { icon: "🛠️", title: "Cuide de quem entra e sai", text: "Em Gestão da equipe você troca a função ou o nível de acesso, remove quem saiu e define o salário fixo de cada gerente." },
+      { icon: "✉️", title: "Convites completos", text: "No convite escolha o nível: Profissional, Coordenador(a), Gerente ou Sócio(a), e já informe o horário de trabalho. Se o código vazar, gere um novo em Convites." },
+      { icon: "📅", title: "Escala de fim de semana", text: "Veja e lance quem trabalhou, faltou ou foi coberto, e confira se a escala está equilibrada entre a equipe." }
     ];
   }
   if(kind === "socio"){
     return [
-      "Você vê o mesmo painel do dono da academia — equipe, quanto cada um tem a receber no mês pelas horas de sala e a escala de fim de semana/feriado.",
-      "É um acesso só de acompanhamento: você não convida profissionais nem edita a escala — quem faz isso é o dono, o(a) gerente ou o(a) coordenador(a) (só a escala, no caso dele).",
-      "O relatório \"Quem ainda não trabalhou fim de semana/feriado\" ajuda a enxergar rápido se a escala está equilibrada entre a equipe."
+      { icon: "💰", title: "Equipe e valores", text: "Você vê quanto cada profissional tem a receber no mês pelas horas de sala, e o salário fixo dos gerentes." },
+      { icon: "📅", title: "Escala da equipe", text: "Acompanhe quem trabalhou fim de semana e feriado e se a escala está equilibrada." },
+      { icon: "🔒", title: "Só acompanhamento", text: "Você não convida pessoas nem edita nada. Quem faz isso é o dono ou o(a) gerente. Alunos particulares nunca aparecem pra você." }
     ];
   }
   if(kind === "gerente"){
     return [
-      "Você gerencia a equipe quase igual ao dono da academia (em \"Gestão da equipe\" você altera e remove profissionais e coordenadores): convida profissionais e coordenadores(as) por e-mail ou pelo código de convite, e também edita a escala de fim de semana/feriado.",
-      "Você vê só o valor das horas de sala, pago pela academia. Aluno particular é renda pessoal de cada profissional e não aparece pra ninguém da academia.",
-      "O relatório \"Quem ainda não trabalhou fim de semana/feriado\" ajuda a enxergar rápido se a escala está equilibrada entre a equipe.",
-      "Você não bate ponto nem tem grade própria: seu valor na academia é um salário mensal fixo, definido pelo dono, e você vê só o seu.",
-      "Se você também atende alunos particulares, ligue \"Também atendo alunos particulares\" em Minha conta. A tela de alunos particulares aparece no menu e é só sua: o dono e os sócios nunca veem esses dados."
+      { icon: "🛠️", title: "Gerencie a equipe", text: "Em Gestão da equipe você altera e remove profissionais e coordenadores. Em Convites você chama gente nova por e-mail ou pelo código." },
+      { icon: "📅", title: "Cuide da escala", text: "Lance a escala de fim de semana e feriado e ajuste o horário de cada profissional." },
+      { icon: "💼", title: "Seu salário", text: "Você não bate ponto: seu valor é um salário mensal fixo, definido pelo dono. Você vê só o seu." },
+      { icon: "🔒", title: "Privacidade dos alunos", text: "Você vê só o valor das horas de sala. Aluno particular é renda pessoal e não aparece pra ninguém da academia." },
+      { icon: "🏋️", title: "Atende alunos particulares?", text: "Ligue \"Também atendo alunos particulares\" em Minha conta. A tela aparece no menu e é só sua: o dono e os sócios nunca veem esses dados." }
     ];
   }
   if(kind === "coordenador"){
     return [
-      "Você bate ponto normalmente, como qualquer profissional — sua grade de horas funciona igual à de todo mundo.",
-      "Além disso, você tem o card \"Escala da equipe\": toque num dia pra lançar quem trabalhou, faltou ou foi coberto (com motivo, se quiser anotar).",
-      "O relatório \"Quem ainda não trabalhou fim de semana/feriado\" mostra rapidinho se algum profissional está ficando de fora da escala.",
-      "Você não vê os valores financeiros da equipe (salário de cada um) — isso continua só com o dono/sócio(a) da academia."
+      { icon: "⏱️", title: "Bate ponto como todo mundo", text: "Sua grade de horas funciona igual à dos outros profissionais." },
+      { icon: "📅", title: "Escala da equipe", text: "Toque num dia para lançar quem trabalhou, faltou ou foi coberto, com motivo se quiser anotar." },
+      { icon: "🔍", title: "Quem ficou de fora", text: "O relatório mostra quem ainda não trabalhou fim de semana ou feriado no mês." },
+      { icon: "🔒", title: "Valores só com a gestão", text: "Você não vê o salário da equipe. Isso fica com o dono e os sócios. Atende alunos particulares? Ligue o módulo em Minha conta." }
     ];
   }
-  if(kind === "professor"){
-    // Professor nao atende aluno VIP (isso e so do estagiario) — so grade de horas.
+  if(kind === "estagiario"){
     return [
-      "Toque em um dia na grade pra lançar as horas trabalhadas naquele dia.",
-      "Os \"valores rápidos\" (ex: 10, 15) são atalhos pro valor da hora/aula — edite em \"Valores rápidos\" a qualquer momento.",
-      "Atende alunos particulares? Ligue \"Também atendo alunos particulares\" em Minha conta. A tela de alunos particulares aparece no menu e é só sua: a academia nunca vê esses dados.",
-      "Seus dados sincronizam sozinhos entre o celular e o computador — o ícone no topo mostra o status da sincronização."
+      { icon: "✍️", title: "Lance suas horas", text: "Toque no número de um dia na grade e escolha o valor de cada horário." },
+      { icon: "⚡", title: "Valores rápidos", text: "Atalhos como 10 e 15 para não digitar toda vez. Você edita quando quiser." },
+      { icon: "⭐", title: "Alunos VIP", text: "A agenda semanal fixa fica separada da grade. Marque presença ou falta ali." },
+      { icon: "🔄", title: "Tudo sincronizado", text: "Seus dados acompanham você no celular e no computador. O indicador no topo mostra se está tudo salvo." }
     ];
   }
-  // estagiario/funcao desconhecida: grade de horas + VIP
+  // professor (e qualquer outra funcao)
   return [
-    "Toque em um dia na grade pra lançar as horas trabalhadas naquele dia.",
-    "Os \"valores rápidos\" (ex: 10, 15) são atalhos pro valor da hora/aula — edite em \"Valores rápidos\" a qualquer momento.",
-    "Alunos VIP têm agenda semanal fixa, separada da grade — marque presença/falta ali quando precisar.",
-    "Seus dados sincronizam sozinhos entre o celular e o computador — o ícone no topo mostra o status da sincronização."
+    { icon: "✍️", title: "Lance suas horas", text: "Toque no número de um dia na grade e escolha o valor de cada horário." },
+    { icon: "⚡", title: "Valores rápidos", text: "Atalhos como 10 e 15 para não digitar toda vez. Você edita quando quiser." },
+    { icon: "🏋️", title: "Atende alunos particulares?", text: "Ligue \"Também atendo alunos particulares\" em Minha conta. A tela aparece no menu e é só sua: a academia nunca vê esses dados." },
+    { icon: "🔄", title: "Tudo sincronizado", text: "Seus dados acompanham você no celular e no computador. O indicador no topo mostra se está tudo salvo." }
   ];
 }
 
+var obSteps = [];
+var obIndex = 0;
+
+function renderOnboardingStep(animate){
+  var step = obSteps[obIndex];
+  if(!step) return;
+  var last = obIndex === obSteps.length - 1;
+  document.getElementById("obIco").textContent = step.icon;
+  document.getElementById("obStepTitle").textContent = step.title;
+  document.getElementById("obStepText").textContent = step.text;
+  document.getElementById("obBack").style.visibility = obIndex === 0 ? "hidden" : "visible";
+  document.getElementById("obNext").textContent = last ? "Começar" : "Próximo";
+  document.getElementById("obClose").textContent = last ? "Fechar" : "Pular";
+  var dots = document.getElementById("obDots").children;
+  for(var i = 0; i < dots.length; i++) dots[i].classList.toggle("active", i === obIndex);
+  document.getElementById("obCount").textContent = "Passo " + (obIndex + 1) + " de " + obSteps.length;
+  var card = document.getElementById("obCard");
+  card.classList.remove("anim");
+  if(animate){ void card.offsetWidth; card.classList.add("anim"); }
+}
+
 function showOnboarding(kind){
-  var titleEl = document.getElementById("onboardingTitle");
-  var stepsEl = document.getElementById("onboardingSteps");
-  if(!titleEl || !stepsEl) return;
-  titleEl.textContent = onboardingTitle(kind);
-  stepsEl.innerHTML = "";
-  onboardingSteps(kind).forEach(function(text, i){
-    var row = document.createElement("div");
-    row.className = "slot-row";
-    var num = document.createElement("span");
-    num.className = "time";
-    num.textContent = (i + 1) + ".";
-    var desc = document.createElement("span");
-    desc.className = "current";
-    desc.style.fontWeight = "400";
-    desc.textContent = text;
-    row.appendChild(num);
-    row.appendChild(desc);
-    stepsEl.appendChild(row);
+  var intro = ONBOARDING_INTRO[kind] || ONBOARDING_INTRO.professor;
+  obSteps = onboardingSteps(kind);
+  obIndex = 0;
+  document.getElementById("obBadge").textContent = intro.icon;
+  document.getElementById("onboardingTitle").textContent = intro.title;
+  document.getElementById("onboardingSub").textContent = intro.sub;
+  var dotsEl = document.getElementById("obDots");
+  dotsEl.innerHTML = "";
+  obSteps.forEach(function(s, i){
+    var d = document.createElement("button");
+    d.type = "button";
+    d.className = "ob-dot";
+    d.setAttribute("aria-label", "Ir para o passo " + (i + 1));
+    d.addEventListener("click", function(){ obIndex = i; renderOnboardingStep(true); });
+    dotsEl.appendChild(d);
   });
+  renderOnboardingStep(false);
   document.getElementById("onboardingOverlay").classList.add("open");
 }
 
+document.getElementById("obNext").addEventListener("click", function(){
+  if(obIndex >= obSteps.length - 1){ closeOverlays(); return; }
+  obIndex++; renderOnboardingStep(true);
+});
+document.getElementById("obBack").addEventListener("click", function(){
+  if(obIndex > 0){ obIndex--; renderOnboardingStep(true); }
+});
+document.addEventListener("keydown", function(e){
+  if(!document.getElementById("onboardingOverlay").classList.contains("open")) return;
+  if(e.key === "ArrowRight") document.getElementById("obNext").click();
+  if(e.key === "ArrowLeft") document.getElementById("obBack").click();
+});
+
 // Mostra so na primeira vez que essa conta loga neste aparelho (marcado por
-// usuario, nao por conta — se a pessoa usar outro aparelho, ve de novo uma
-// vez, o que e um efeito colateral aceitavel pra algo que e so uma dica).
+// usuario — se a pessoa usar outro aparelho, ve de novo uma vez, o que e um
+// efeito colateral aceitavel pra algo que e so uma dica).
 function maybeShowOnboarding(kind){
   if(!currentUser) return;
   var key = ONBOARDING_SEEN_PREFIX + currentUser.id;
@@ -102,20 +132,4 @@ function maybeShowOnboarding(kind){
   if(seen) return;
   try{ localStorage.setItem(key, "1"); }catch(e){}
   showOnboarding(kind);
-}
-
-var btnHelpIndividual = document.getElementById("btnHelpIndividual");
-if(btnHelpIndividual){
-  btnHelpIndividual.addEventListener("click", function(){
-    showOnboarding(typeof isCoordinator === "function" && isCoordinator() ? "coordenador" : roleCategory());
-  });
-}
-var btnHelpCompany = document.getElementById("btnHelpCompany");
-if(btnHelpCompany){
-  btnHelpCompany.addEventListener("click", function(){
-    var kind = (typeof isPartner === "function" && isPartner()) ? "socio"
-      : (typeof isGerente === "function" && isGerente()) ? "gerente"
-      : "empresa";
-    showOnboarding(kind);
-  });
 }
