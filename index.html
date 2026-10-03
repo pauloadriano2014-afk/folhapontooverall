@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#150f2b" />
 <meta name="description" content="Controle de horas, salário mensal e agenda de alunos VIP - Overall" />
 <meta name="mobile-web-app-capable" content="yes" />
@@ -51,12 +51,11 @@
         <input type="text" id="regName" required autocomplete="name" />
       </label>
       <label id="regRoleWrap">Função
-        <input type="text" id="regRole" list="roleOptions" placeholder="Ex: Estagiário" autocomplete="off" />
-        <datalist id="roleOptions">
-          <option value="Estagiário"></option>
-          <option value="Professor"></option>
-          <option value="Personal Trainer"></option>
-        </datalist>
+        <select id="regRole">
+          <option value="">Selecione sua função…</option>
+          <option value="Estagiário">Estagiário</option>
+          <option value="Professor">Professor</option>
+        </select>
       </label>
       <label id="regCompanyNameWrap" style="display:none;">Nome da academia
         <input type="text" id="regCompanyName" autocomplete="organization" />
@@ -93,23 +92,37 @@
       <button type="button" class="auth-link" id="btnBackToLoginFromReset">Voltar para o login</button>
     </form>
 
-    <p class="auth-hint" id="authHint">Cada pessoa tem sua própria conta — seus dados não aparecem pra ninguém.</p>
+    <p class="auth-hint" id="authHint">Cada pessoa tem sua própria conta. Seus alunos particulares só você vê — a academia enxerga apenas as suas horas de sala.</p>
   </div>
 </div>
+
+
+<nav id="appNav" class="no-print" aria-label="Menu principal" style="display:none;">
+  <div class="nav-items">
+    <button type="button" class="nav-item" data-view="resumo" hidden><span class="nav-ico" aria-hidden="true">📊</span><span class="nav-label"><span class="l-long">Resumo do mês</span><span class="l-short">Resumo</span></span></button>
+    <button type="button" class="nav-item" data-view="grade" hidden><span class="nav-ico" aria-hidden="true">🗓️</span><span class="nav-label"><span class="l-long">Grade de horários</span><span class="l-short">Grade</span></span></button>
+    <button type="button" class="nav-item" data-view="vip" hidden><span class="nav-ico" aria-hidden="true">⭐</span><span class="nav-label"><span class="l-long">Alunos VIP</span><span class="l-short">VIP</span></span></button>
+    <button type="button" class="nav-item" data-view="clientes" hidden><span class="nav-ico" aria-hidden="true">🏋️</span><span class="nav-label"><span class="l-long">Alunos particulares</span><span class="l-short">Particulares</span></span></button>
+    <button type="button" class="nav-item" data-view="equipe" hidden><span class="nav-ico" aria-hidden="true">💰</span><span class="nav-label"><span class="l-long">Equipe e valores</span><span class="l-short">Equipe</span></span></button>
+    <button type="button" class="nav-item" data-view="gestao" hidden><span class="nav-ico" aria-hidden="true">🛠️</span><span class="nav-label"><span class="l-long">Gestão da equipe</span><span class="l-short">Gestão</span></span></button>
+    <button type="button" class="nav-item" data-view="escala" hidden><span class="nav-ico" aria-hidden="true">📅</span><span class="nav-label"><span class="l-long">Escala da equipe</span><span class="l-short">Escala</span></span></button>
+    <button type="button" class="nav-item" data-view="convites" hidden><span class="nav-ico" aria-hidden="true">✉️</span><span class="nav-label"><span class="l-long">Convites</span><span class="l-short">Convites</span></span></button>
+    <button type="button" class="nav-item" data-view="exportacao" hidden><span class="nav-ico" aria-hidden="true">📤</span><span class="nav-label"><span class="l-long">Exportação</span><span class="l-short">Exportar</span></span></button>
+    <button type="button" class="nav-item" data-view="duvidas" hidden><span class="nav-ico" aria-hidden="true">❓</span><span class="nav-label"><span class="l-long">Dúvidas</span><span class="l-short">Dúvidas</span></span></button>
+    <button type="button" class="nav-item nav-sep" id="btnTheme" title="Alternar tema claro/escuro"><span class="nav-ico" aria-hidden="true">🌙</span><span class="nav-label"><span class="l-long">Tema claro/escuro</span><span class="l-short">Tema</span></span></button>
+    <button type="button" class="nav-item" id="btnAccount" title="Senha, cor do tema, horários e lembrete"><span class="nav-ico" aria-hidden="true">👤</span><span class="nav-label"><span class="l-long">Minha conta</span><span class="l-short">Conta</span><small id="accountLabel"></small></span></button>
+    <button type="button" class="nav-item" id="btnNavLogout"><span class="nav-ico" aria-hidden="true">🚪</span><span class="nav-label">Sair</span></button>
+  </div>
+</nav>
 
 <header id="mainHeader">
   <h1><img class="brand-logo" src="icons/overall-logo.png" alt="Ponto Overall - Overall Gym" /></h1>
   <div class="print-title" id="printTitle"></div>
   <div class="month-bar">
-    <select id="monthSelect"></select>
-    <button class="small" id="btnToday" title="Ir para hoje e lançar o horário">Hoje</button>
-    <button class="small" id="btnNewMonth">+ Novo mês</button>
-    <button class="small" id="btnApplyHolidays" title="Marcar automaticamente os feriados nacionais e de Curitiba/PR neste mês">Feriados</button>
-    <button class="small" id="btnExportCsv">Excel</button>
-    <button class="small" id="btnExportPdf">PDF</button>
-    <button class="small no-print" id="btnTheme" title="Alternar tema claro/escuro">🌙</button>
-    <button class="small no-print" id="btnHelpIndividual" title="Como funciona">❓</button>
-    <button class="small no-print" id="btnAccount" title="Conta">👤 <span id="accountLabel">Conta</span></button>
+    <select id="monthSelect" class="month-only" aria-label="Mês"></select>
+    <button class="small month-only" id="btnToday" title="Ir para hoje e lançar o horário">Hoje</button>
+    <button class="small month-only" id="btnNewMonth" title="Criar a grade de um mês novo">+ Novo mês</button>
+    <button class="small month-only" id="btnApplyHolidays" title="Marcar automaticamente os feriados nacionais e de Curitiba/PR neste mês">Marcar feriados</button>
     <span id="syncStatus" class="sync-status no-print" title="Sincronizando..."><span class="icon" id="syncIcon">🔄</span><span id="syncLabel">Sincronizando</span></span>
   </div>
 </header>
@@ -121,42 +134,44 @@
 
 <main id="mainDashboard">
 
-  <div class="card" id="resumoCard">
+  <div class="card" id="resumoCard" data-view="resumo">
     <h2>Resumo do mês</h2>
+    <p class="account-section-hint" style="margin:-4px 0 10px;">Salário do mês = total lançado na grade + auxílio − consumo. Tudo em reais (R$).</p>
     <div class="summary-grid">
       <div class="stat total">
-        <label>Total horas (mês)</label>
+        <label>Total lançado na grade (R$)</label>
         <div class="value" id="statTotal">0</div>
       </div>
       <div class="stat">
-        <label>Auxílio</label>
+        <label>Auxílio (R$) — somado</label>
         <input type="number" id="inputAuxilio" inputmode="decimal" />
       </div>
       <div class="stat">
-        <label>Consumo Overall</label>
+        <label>Consumo Overall (R$) — descontado</label>
         <input type="number" id="inputConsumo" inputmode="decimal" />
       </div>
       <div class="stat salario">
-        <label>Salário mensal</label>
+        <label>Salário do mês (R$)</label>
         <div class="value" id="statSalario">0</div>
         <label class="paid-toggle">
           <input type="checkbox" id="inputPaid" />
-          Pago
+          Marcar como pago
         </label>
       </div>
     </div>
   </div>
 
-  <div class="card" id="gradeCard">
-    <h2>Grade de horários — toque num dia para lançar</h2>
+  <div class="card" id="gradeCard" data-view="grade">
+    <h2>Grade de horários</h2>
+    <p class="account-section-hint" style="margin:-4px 0 10px;">Toque no número de um dia para lançar o valor de cada horário. Em telas pequenas, arraste a tabela para o lado para ver os outros dias.</p>
     <div class="legend">
       <button type="button" class="legend-item legend-item-btn no-print" id="btnQuickValuesChip" title="Toque para adicionar, alterar ou remover">
-        <span class="swatch swatch-filled" id="quickValuesChipSwatch">15</span> Valores rápidos (toque p/ editar) ✏️
+        <span class="swatch swatch-filled" id="quickValuesChipSwatch">15</span> Valores rápidos: atalhos de valor da aula (toque para editar) ✏️
       </button>
       <span class="legend-item print-only"><span class="swatch swatch-filled" id="quickValuesChipSwatchPrint">15</span> Valor da aula (R$)</span>
       <span class="legend-item"><span class="swatch swatch-feriado">FER</span> Feriado</span>
-      <span class="legend-item"><span class="swatch swatch-sem">s/e</span> Sem escala</span>
-      <span class="legend-item"><span class="swatch swatch-none">–</span> Sem horário nesse dia</span>
+      <span class="legend-item"><span class="swatch swatch-sem">s/e</span> Sem escala (você não trabalha)</span>
+      <span class="legend-item"><span class="swatch swatch-none">–</span> Ainda não lançado</span>
       <span class="legend-item"><span class="swatch swatch-weekend"></span> Fim de semana</span>
     </div>
     <div class="table-wrap" id="gridWrapMain">
@@ -171,13 +186,14 @@
     <div id="printGridSplit" class="print-only"></div>
   </div>
 
-  <div class="card">
+  <div class="card" id="obsCard" data-view="grade">
     <h2>Observações do mês</h2>
     <textarea id="obs" placeholder="Anotações, trocas de horário, combinados..."></textarea>
   </div>
 
-  <div class="card vip-wrap" id="vipCard">
+  <div class="card vip-wrap" id="vipCard" data-view="vip">
     <h2>Alunos VIP — agenda semanal fixa</h2>
+    <p class="account-section-hint" style="margin:-4px 0 10px;">Os alunos VIP atendidos por você, por dia da semana e horário. Toque numa célula para escolher o aluno e marcar presença ou falta.</p>
     <div class="table-wrap">
       <table id="vipTable">
         <thead><tr id="vipHead"></tr></thead>
@@ -186,7 +202,7 @@
     </div>
   </div>
 
-  <div class="card no-print" id="clientsCard">
+  <div class="card no-print" id="clientsCard" data-view="clientes">
     <h2>Alunos particulares — personal/avulso, com valor por aluno</h2>
     <p class="account-section-hint" style="margin:-4px 0 10px;">
       Cadastre aqui os alunos que você atende de forma particular, com os dias da semana e o valor por sessão. O app calcula sozinho quanto isso deve dar no mês — separado do salário da grade de horas.
@@ -220,8 +236,40 @@
     </div>
   </div>
 
-  <div class="card no-print">
-    <h2>Backup dos dados</h2>
+  <div class="card no-print" id="exportCard" data-view="exportacao">
+    <h2 id="exportTitle">Exportação</h2>
+    <p class="account-section-hint" style="margin:-4px 0 12px;">Baixe ou imprima o mês de <strong id="exportMonthLabel"></strong>. Para trocar o mês, use o seletor no topo da tela.</p>
+    <div id="exportGradeGroup">
+      <h3 class="export-group-title">Horas e salário</h3>
+      <div class="export-options">
+        <div class="export-option">
+          <strong>Planilha Excel (.xlsx)</strong>
+          <span id="exportExcelDesc">Arquivo com a grade, o resumo e as observações do mês, pronto para abrir no Excel.</span>
+          <button class="small primary" id="btnExportCsv">Baixar Excel</button>
+        </div>
+        <div class="export-option" id="exportPdfOption">
+          <strong>PDF / imprimir</strong>
+          <span>Abre a tela de impressão do navegador. Escolha "Salvar como PDF" para guardar o arquivo.</span>
+          <button class="small primary" id="btnExportPdf">Gerar PDF</button>
+        </div>
+      </div>
+    </div>
+    <div id="exportClientsGroup" style="display:none;">
+      <h3 class="export-group-title">Alunos particulares</h3>
+      <div class="export-options">
+        <div class="export-option">
+          <strong>Planilha Excel (.xlsx)</strong>
+          <span>Cada aluno com dias, horário, valor combinado, sessões do mês e o total, mais o total geral.</span>
+          <button class="small primary" id="btnExportClientsXlsx">Baixar Excel</button>
+        </div>
+        <div class="export-option">
+          <strong>PDF / imprimir</strong>
+          <span>Folha com a lista de alunos e os valores do mês. Escolha "Salvar como PDF" na impressão.</span>
+          <button class="small primary" id="btnExportClientsPdf">Gerar PDF</button>
+        </div>
+      </div>
+    </div>
+    <h3 style="margin:20px 0 6px;font-size:13px;color:var(--text-dim);">Backup dos dados</h3>
     <p style="font-size:12px;color:var(--text-dim);margin:0 0 10px;">
       Os dados já sincronizam automaticamente entre seus aparelhos. Mesmo assim, exportar um backup de vez em quando é uma segurança extra.
     </p>
@@ -232,6 +280,11 @@
     </div>
   </div>
 
+  <div class="card no-print faq-card" data-view="duvidas">
+    <h2>Dúvidas</h2>
+    <div class="faq-body"></div>
+  </div>
+
 </main>
 
 <div id="companyDashboard" class="no-print" style="display:none;">
@@ -239,13 +292,11 @@
     <h1><img class="brand-logo" src="icons/overall-logo.png" alt="Ponto Overall - Overall Gym" /></h1>
     <div class="month-bar">
       <span id="companyNameLabel" style="font-weight:800;font-size:15px;"></span>
-      <button class="small no-print" id="btnHelpCompany" title="Como funciona">❓</button>
-      <button class="small bad" id="btnCompanyLogout">Sair da conta</button>
     </div>
   </header>
 
   <main>
-    <div class="card" id="companyInviteCard">
+    <div class="card" id="companyInviteCard" data-view="convites">
       <h2>Convide sua equipe</h2>
       <p class="account-section-hint" style="margin:-4px 0 10px;">
         Compartilhe este código com cada profissional — eles colam ele no campo "Código de convite" na hora de criar a conta deles, e ficam automaticamente ligados à sua academia. Ou use o botão abaixo pra mandar um convite já com o horário de trabalho preenchido.
@@ -253,6 +304,7 @@
       <div class="custom-input" style="max-width:320px;">
         <input type="text" id="companyInviteCodeDisplay" readonly style="font-weight:800;letter-spacing:2px;text-align:center;" />
         <button class="small" id="btnCopyInviteCode">Copiar código</button>
+        <button class="small ghost" id="btnRotateInviteCode" title="O código atual deixa de valer">Gerar novo código</button>
       </div>
       <div class="row-actions">
         <button class="small primary" id="btnOpenInvite">+ Convidar profissional por e-mail</button>
@@ -263,10 +315,10 @@
       </div>
     </div>
 
-    <div class="card">
-      <h2>Equipe — <span id="companyMonthLabel"></span></h2>
+    <div class="card" id="companyStaffCard" data-view="equipe">
+      <h2>Equipe e valores — <span id="companyMonthLabel"></span></h2>
       <p class="account-section-hint" style="margin:-4px 0 10px;">
-        Quanto cada profissional tem a receber neste mês, calculado automaticamente a partir do que cada um já lançou na própria conta.
+        Quanto cada profissional tem a receber neste mês pelas horas de sala (grade + auxílio − consumo). Alunos particulares são renda pessoal e não aparecem aqui. Personal trainers também não entram nesta lista.
       </p>
       <div id="companyStaffList"></div>
       <div class="stat" style="margin-top:14px;max-width:280px;">
@@ -275,7 +327,21 @@
       </div>
     </div>
 
-    <div class="card no-print" id="scheduleCard" style="display:none;">
+    <div class="card no-print" id="companyManageCard" data-view="gestao">
+      <h2>Gestão da equipe</h2>
+      <p class="account-section-hint" style="margin:-4px 0 10px;">
+        Troque a função ou o nível de acesso de quem já está na academia, ou remova quem saiu. Ao remover, a pessoa sai da equipe, dos valores e da escala; a conta e os dados pessoais dela (horas e alunos particulares) continuam dela.
+      </p>
+      <div id="teamManageList"></div>
+    </div>
+
+    <div class="card no-print" id="companyAuditCard" data-view="gestao">
+      <h2>Histórico de alterações</h2>
+      <p class="account-section-hint" style="margin:-4px 0 10px;">Quem alterou a equipe, o quê e quando (últimas 50 ações).</p>
+      <div id="teamAuditList"></div>
+    </div>
+
+    <div class="card no-print" id="scheduleCard" data-view="escala" style="display:none;">
       <h2>Escala da equipe — fim de semana/feriado</h2>
       <p class="account-section-hint" style="margin:-4px 0 10px;">
         Quem trabalhou, faltou ou foi coberto em cada fim de semana/feriado. Toque num dia pra ver ou lançar.
@@ -299,18 +365,32 @@
       </div>
     </div>
 
-    <div class="card">
-      <h2>Em breve</h2>
-      <p class="account-section-hint" style="margin:0;">
-        Fechamento do mês, exportação consolidada pra pagamento e liberação de pagamento direto por aqui — essas telas ainda estão a caminho.
-      </p>
+    <div class="card no-print" id="companyExportCard" data-view="exportacao">
+      <h2 id="companyExportTitle">Exportação</h2>
+      <p class="account-section-hint" style="margin:-4px 0 12px;">Baixe ou imprima a equipe de <strong id="companyExportMonthLabel"></strong> com o valor a pagar de cada profissional (horas de sala, e o salário fixo dos gerentes).</p>
+      <div class="export-options">
+        <div class="export-option">
+          <strong>Planilha Excel (.xlsx)</strong>
+          <span>Nome, função e valor do mês de cada pessoa, mais o total.</span>
+          <button class="small primary" id="btnCompanyExport">Baixar Excel</button>
+        </div>
+        <div class="export-option">
+          <strong>PDF / imprimir</strong>
+          <span>Folha com a equipe e os valores do mês. Escolha "Salvar como PDF" na impressão.</span>
+          <button class="small primary" id="btnCompanyExportPdf">Gerar PDF</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card no-print faq-card" data-view="duvidas">
+      <h2>Dúvidas</h2>
+      <div class="faq-body"></div>
     </div>
   </main>
 
-  <footer>Ponto Overall · PA TEAM ELITE · painel da academia</footer>
 </div>
 
-<footer>Ponto Overall · PA TEAM ELITE · cada conta vê só os próprios dados</footer>
+<footer>Ponto Overall · Overall Gym</footer>
 
 <!-- Account modal -->
 <div class="overlay" id="accountOverlay">
@@ -343,6 +423,15 @@
         <button type="button" class="color-swatch" data-color-choice="rosa" title="Rosa" style="background:#f542a8;"></button>
         <button type="button" class="color-swatch" data-color-choice="amarelo" title="Amarelo" style="background:#f0b93a;"></button>
       </div>
+    </div>
+
+    <div class="account-section" id="personalModuleSection" style="display:none;">
+      <h3>Alunos particulares</h3>
+      <label class="reminder-toggle">
+        <input type="checkbox" id="personalModuleToggle" />
+        Também atendo alunos particulares (personal)
+      </label>
+      <p class="account-section-hint">Liga o módulo de alunos particulares no seu menu, com exportação em Excel e PDF. Esses dados são só seus: a academia nunca vê nomes, valores nem totais.</p>
     </div>
 
     <div id="gradeAccountSections">
@@ -514,6 +603,40 @@
   </div>
 </div>
 
+<!-- Editar pessoa da equipe (academia) -->
+<div class="overlay" id="staffEditOverlay">
+  <div class="sheet">
+    <button class="close ghost small" data-close>Fechar</button>
+    <h3 id="staffEditTitle">Editar</h3>
+    <p class="sub" id="staffEditSub"></p>
+    <form id="staffEditForm" class="auth-form">
+      <label id="staffEditAccessWrap">Nível de acesso
+        <div class="client-days-grid" id="staffEditAccessGrid"></div>
+      </label>
+      <label id="staffEditRoleWrap">Função
+        <select id="staffEditRole">
+          <option value="">Sem função definida</option>
+          <option value="Estagiário">Estagiário</option>
+          <option value="Professor">Professor</option>
+        </select>
+      </label>
+      <label id="staffEditSalaryWrap" style="display:none;">Salário mensal fixo (R$)
+        <input type="number" id="staffEditSalary" inputmode="decimal" min="0" step="0.01" placeholder="Ex: 3500" />
+        <span class="account-section-hint" style="margin:0;">O dono e os sócios veem o salário do gerente. Um gerente vê só o próprio.</span>
+      </label>
+      <div class="auth-error" id="staffEditError"></div>
+      <button type="submit" class="primary" id="staffEditSave">Salvar alterações</button>
+    </form>
+    <div class="account-section">
+      <h3>Remover da academia</h3>
+      <p class="account-section-hint">A pessoa sai da equipe, dos valores e da escala. A conta e os dados pessoais dela continuam dela; você só deixa de ver.</p>
+      <div class="row-actions">
+        <button class="small bad" id="btnStaffRemove" type="button">Remover da academia</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Convidar profissional (academia) -->
 <div class="overlay" id="inviteOverlay">
   <div class="sheet">
@@ -536,7 +659,15 @@
         </div>
       </label>
       <label id="inviteRoleWrap">Função
-        <input type="text" id="inviteRole" list="roleOptions" placeholder="Ex: Estagiário" autocomplete="off" />
+        <select id="inviteRole">
+          <option value="">Selecione a função…</option>
+          <option value="Estagiário">Estagiário</option>
+          <option value="Professor">Professor</option>
+        </select>
+      </label>
+      <label id="inviteSalaryWrap" style="display:none;">Salário mensal fixo (R$) — opcional
+        <input type="number" id="inviteSalary" inputmode="decimal" min="0" step="0.01" placeholder="Ex: 3500" />
+        <span class="account-section-hint" style="margin:0;">Só o dono define. O dono e os sócios veem o salário do gerente; um gerente vê só o próprio.</span>
       </label>
       <div id="inviteScheduleWrap">
         <label>Horário de trabalho (opcional — a pessoa já entra com a escala pronta)
@@ -570,7 +701,7 @@
     <button class="close ghost small" data-close>Fechar</button>
     <h3 id="scheduleDayTitle">Dia</h3>
     <div id="scheduleDayList"></div>
-    <div class="account-section" id="scheduleDayAddWrap">
+    <div class="account-section auth-form" id="scheduleDayAddWrap">
       <h3>Lançar</h3>
       <label>Profissional
         <select id="scheduleUserSelect"></select>
@@ -599,6 +730,7 @@
   <div class="sheet">
     <button class="close ghost small" data-close>Fechar</button>
     <h3 id="staffScheduleEditTitle">Editar horário</h3>
+    <div class="auth-form" style="margin-top:10px;">
     <label>Horário de trabalho (segunda a sexta)
       <div class="time-slot-row">
         <input type="time" id="staffScheduleShiftStart" step="3600" />
@@ -612,6 +744,7 @@
     </label>
     <div class="auth-error" id="staffScheduleEditError"></div>
     <button type="button" class="small primary" id="btnStaffScheduleEditSave">Salvar</button>
+    </div>
   </div>
 </div>
 
@@ -630,6 +763,9 @@
 <div id="toast"></div>
 
 
+<div id="clientsPrintSheet" class="print-sheet"></div>
+<div id="teamPrintSheet" class="print-sheet"></div>
+
 <script src="js/state.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/account.js"></script>
@@ -641,6 +777,9 @@
 <script src="js/onboarding.js"></script>
 <script src="js/schedule.js"></script>
 <script src="js/export.js"></script>
+<script src="js/faq.js"></script>
+<script src="js/team.js"></script>
+<script src="js/nav.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

@@ -234,7 +234,9 @@
 
     var total = monthTotal(monthObj);
     var salario = total + (Number(monthObj.auxilio) || 0) - (Number(monthObj.consumo) || 0);
-    statTotal.textContent = total;
+    statTotal.textContent = fmtMoney(total);
+    var exportMonthEl = document.getElementById("exportMonthLabel");
+    if(exportMonthEl) exportMonthEl.textContent = monthLabel(currentMonthKey);
     statSalario.textContent = fmtMoney(salario);
     printTitle.textContent = "Folha de Ponto Overall — " + monthLabel(currentMonthKey);
     renderClients();

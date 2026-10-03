@@ -12,6 +12,7 @@ var authToken = null;
 var currentUser = null;
 var pendingResetToken = null; // token de "esqueci minha senha" vindo da URL (ver checkResetLink)
 var pendingInviteToken = null; // token de convite por e-mail vindo da URL (ver checkInviteLink)
+var pendingInviteAccessRole = null; // nivel do convite aberto (coordenador pode ficar sem funcao de professor)
 var pendingSuggestedSchedule = null; // horario que a academia ja definiu no convite, aplicado no 1o boot (ver app.js/bootApp)
 
 function authFetch(path, options){
@@ -87,7 +88,9 @@ function onAuthSuccess(user, token){
 function logout(){
   authToken = null;
   currentUser = null;
-  clearTimeout(syncTimer);
+  resetSyncState();
+  STORAGE_KEY = null;
+  if(typeof teardownNav === "function") teardownNav();
   clearInterval(reminderTimer);
   lastReminderShownKey = null;
   // Restaura a cor salva do aparelho (currentUser já é null aqui, então
@@ -151,6 +154,18 @@ function showAuthView(view){
 // Mostra os campos certos pro tipo de conta escolhido no cadastro: um
 // profissional preenche função + (opcionalmente) o código de convite da
 // academia; uma academia preenche o nome dela em vez disso.
+// Seleciona uma funcao na lista; se o convite trouxe uma funcao antiga que nao
+// esta na lista, acrescenta ela em vez de perder o valor.
+function setRoleSelectValue(sel, value){
+  value = value || "";
+  if(value && !Array.prototype.some.call(sel.options, function(o){ return o.value === value; })){
+    var opt = document.createElement("option");
+    opt.value = value; opt.textContent = value;
+    sel.appendChild(opt);
+  }
+  sel.value = value;
+}
+
 function applyRegAccountTypeUI(type){
   var isCompany = type === "empresa";
   document.getElementById("regRoleWrap").style.display = isCompany ? "none" : "";
@@ -185,7 +200,9 @@ function applyInviteToForm(inviteInfo){
   if(accountTypeWrap) accountTypeWrap.style.display = "none";
   if(inviteCodeWrap) inviteCodeWrap.style.display = "none";
   document.getElementById("regName").value = inviteInfo.name || "";
-  document.getElementById("regRole").value = inviteInfo.role || "";
+  setRoleSelectValue(document.getElementById("regRole"), inviteInfo.role || "");
+  pendingInviteAccessRole = inviteInfo.accessRole || "staff";
+  if(typeof syncRoleOptionsForAccess === "function") syncRoleOptionsForAccess(document.getElementById("regRole"), pendingInviteAccessRole);
   document.getElementById("regEmail").value = inviteInfo.email || "";
 }
 
@@ -266,6 +283,10 @@ function initAuthForms(){
     var btn = document.getElementById("registerSubmit");
     if(accountType === "empresa" && !companyName){
       errEl.textContent = "Informe o nome da academia.";
+      return;
+    }
+    if(accountType !== "empresa" && !role && pendingInviteAccessRole !== "coordinator"){
+      errEl.textContent = "Escolha a sua função.";
       return;
     }
     btn.disabled = true; btn.textContent = "Criando...";
@@ -388,6 +409,35 @@ function initAuthForms(){
   });
 }
 
+// Confere no servidor se o papel/academia da pessoa mudou (ex: o dono alterou o
+// acesso dela ou a removeu da academia). Se mudou, guarda o novo e devolve true.
+function refreshCurrentUser(){
+  if(!authToken) return Promise.resolve(false);
+  return authFetch("/api/me").then(function(res){
+    if(res.status === 401){ handleAuthExpired(); return null; }
+    if(!res.ok) return null;
+    return res.json();
+  }).then(function(body){
+    if(!body || !body.user || !currentUser) return false;
+    var u = body.user;
+    var changed = u.companyId !== currentUser.companyId || u.companyRole !== currentUser.companyRole ||
+      u.role !== currentUser.role || u.name !== currentUser.name || !!u.personalModule !== !!currentUser.personalModule;
+    if(changed){
+      currentUser = u;
+      try{ localStorage.setItem(USER_KEY, JSON.stringify(u)); }catch(e){}
+    }
+    return changed;
+  }).catch(function(){ return false; });
+}
+
+var lastUserCheck = 0;
+document.addEventListener("visibilitychange", function(){
+  if(document.hidden || !authToken || !currentUser) return;
+  if(Date.now() - lastUserCheck < 120000) return;
+  lastUserCheck = Date.now();
+  refreshCurrentUser().then(function(changed){ if(changed) window.location.reload(); });
+});
+
 function resumeSession(){
   var token = null, user = null;
   try{
@@ -399,6 +449,8 @@ function resumeSession(){
     authToken = token;
     currentUser = user;
     bootApp();
+    lastUserCheck = Date.now();
+    refreshCurrentUser().then(function(changed){ if(changed) window.location.reload(); });
   } else {
     showAuthScreen();
   }

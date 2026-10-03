@@ -176,6 +176,9 @@
   .auth-form{ display:flex; flex-direction:column; gap:12px; text-align:left; }
   .auth-form label{ display:flex; flex-direction:column; gap:5px; font-size:12px; color:var(--text-dim); }
   .auth-form input{ width:100%; }
+  .auth-form select{ flex:none; width:100%; }
+  .auth-form label.reminder-toggle{ flex-direction:row; align-items:center; gap:8px; }
+  .auth-form label.reminder-toggle input{ width:auto; }
   .auth-form button{ margin-top:4px; width:100%; padding:10px; }
   .auth-error{ color:var(--bad); font-size:12px; min-height:1px; }
   .auth-success{ color:var(--good); font-size:12px; min-height:1px; }
@@ -459,4 +462,78 @@
     .print-only table{ font-size:10px; }
     .print-only .daycell .slot{ width:auto; min-width:22px; padding:0 2px; }
     @page{ size:portrait; margin:12mm; }
+  }
+
+  /* ---------- menu de navegacao (barra lateral no computador, barra inferior no celular) ---------- */
+  .role-off, .view-off{ display:none !important; }
+  #appNav{ position:fixed; z-index:40; background:var(--bg-panel); border:0 solid var(--border); }
+  .nav-items{ display:flex; }
+  .nav-item{
+    display:flex; align-items:center; gap:10px; background:transparent; border:none;
+    color:var(--text-dim); padding:10px 12px; border-radius:10px; font-size:14px; font-weight:600;
+    text-align:left; font-family:inherit;
+  }
+  .nav-item[hidden]{ display:none !important; }
+  .nav-item .nav-ico{ font-size:18px; width:24px; text-align:center; flex-shrink:0; }
+  .nav-item .nav-label small{ display:block; font-size:11px; font-weight:400; opacity:.8; }
+  .nav-item:hover{ background:var(--bg-panel-2); color:var(--text); }
+  .nav-item.active{ background:var(--accent); color:#1c0a33; }
+  body.hide-month .month-only{ display:none !important; }
+  .nav-label .l-short{ display:none; }
+  body.brand-view .client-value{ color:var(--text); }
+
+  @media(max-width:899px){
+    #appNav{ left:0; right:0; bottom:0; border-top-width:1px; padding:6px 6px calc(6px + env(safe-area-inset-bottom, 0px)); }
+    .nav-items{ overflow-x:auto; gap:2px; }
+    .nav-item{ flex:0 0 auto; flex-direction:column; gap:2px; padding:6px 8px; font-size:10px; min-width:56px; text-align:center; }
+    .nav-item .nav-label small{ display:none; }
+    .nav-label .l-long{ display:none; }
+    .nav-label .l-short{ display:inline; }
+    body.has-nav{ padding-bottom:calc(90px + env(safe-area-inset-bottom, 0px)); }
+    body.has-nav #toast{ bottom:calc(86px + env(safe-area-inset-bottom, 0px)); }
+  }
+  @media(min-width:900px){
+    #appNav{ top:0; bottom:0; left:0; width:240px; border-right-width:1px; padding:24px 12px; overflow-y:auto; }
+    .nav-items{ flex-direction:column; gap:4px; }
+    .nav-item.nav-sep{ margin-top:14px; }
+    body.has-nav{ padding-left:240px; }
+    body.has-nav main{ max-width:960px; }
+  }
+
+  /* ---------- exportacao e duvidas ---------- */
+  .export-options{ display:grid; gap:10px; }
+  .export-option{
+    display:flex; flex-direction:column; align-items:flex-start; gap:6px; padding:12px;
+    border:1px solid var(--border); border-radius:10px; background:var(--bg-panel-2);
+  }
+  .export-option span{ font-size:12px; color:var(--text-dim); }
+  .export-group-title{ margin:18px 0 8px; font-size:13px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.5px; }
+  #exportGradeGroup .export-group-title:first-child{ margin-top:0; }
+  .print-sheet{ display:none; }
+  @media(min-width:700px){ .export-options{ grid-template-columns:1fr 1fr; } }
+  .faq-body h3{ margin:18px 0 8px; font-size:13px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.5px; }
+  .faq-body h3:first-child{ margin-top:0; }
+  .faq-body details{ border:1px solid var(--border); border-radius:10px; margin-bottom:8px; background:var(--bg-panel-2); }
+  .faq-body summary{ cursor:pointer; padding:10px 12px; font-weight:700; font-size:14px; }
+  .faq-body details p{ margin:0; padding:0 12px 12px; font-size:13px; color:var(--text-dim); line-height:1.5; }
+
+  /* calendario da escala: os 7 dias cabem na tela do celular */
+  .schedule-calendar th.timecol{ min-width:0; position:static; text-align:center; padding:6px 2px; }
+
+  @media print{
+    #appNav{ display:none !important; }
+    body.has-nav{ padding:0 !important; }
+    /* imprimir sempre o mes inteiro (resumo, grade, observacoes, VIP), mesmo estando em outra tela do menu */
+    .card.view-off:not(.role-off):not(.no-print){ display:block !important; }
+    /* PDF dos alunos particulares / da equipe: imprime so a folha propria */
+    body.print-clients > *:not(#clientsPrintSheet), body.print-team > *:not(#teamPrintSheet){ display:none !important; }
+    body.print-clients #clientsPrintSheet, body.print-team #teamPrintSheet{ display:block !important; padding:0; color:#111; background:#fff; }
+    .print-sheet h1{ font-size:20px; margin:0 0 4px; color:#111; }
+    .print-sheet .ps-sub{ margin:0 0 14px; font-size:12px; color:#555; }
+    .print-sheet table{ width:100%; min-width:0; border-collapse:collapse; font-size:12px; }
+    .print-sheet th, .print-sheet td{ border:1px solid #bbb; padding:6px 8px; text-align:left; color:#111; background:#fff !important; white-space:normal; }
+    .print-sheet th{ background:#eee !important; }
+    .print-sheet .num{ text-align:right; }
+    .print-sheet .ps-total td{ font-weight:800; background:#eee !important; }
+    .print-sheet .ps-foot{ margin-top:12px; font-size:11px; color:#777; }
   }

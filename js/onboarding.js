@@ -12,33 +12,34 @@ function onboardingTitle(kind){
   if(kind === "socio") return "Como funciona pra sócio(a)";
   if(kind === "gerente") return "Como funciona pra gerente";
   if(kind === "coordenador") return "Como funciona pra coordenador(a)";
-  if(kind === "personal") return "Como funciona pra personal/particular";
   return "Como funciona a grade de horas";
 }
 
 function onboardingSteps(kind){
   if(kind === "empresa"){
     return [
-      "Compartilhe o código de convite (ou use \"Convidar profissional por e-mail\") com cada professor, estagiário ou personal da academia.",
+      "Compartilhe o código de convite (ou use \"Convidar profissional por e-mail\") com cada professor ou estagiário da academia.",
       "Ao se cadastrar com o código ou o link, o profissional já aparece automaticamente na sua lista de equipe, ligado à sua academia.",
-      "Neste painel você acompanha quanto cada profissional tem a receber no mês, calculado a partir do que cada um já lançou na própria conta.",
+      "Neste painel você acompanha quanto cada profissional tem a receber no mês pelas horas de sala, calculado a partir do que cada um já lançou. Aluno particular é renda pessoal e nunca aparece aqui.",
+      "Em \"Gestão da equipe\" você troca a função ou o nível de acesso de quem já entrou, remove quem saiu e define o salário mensal fixo de cada gerente (ele aparece em \"Equipe e valores\"). Em \"Convites\" dá para gerar um novo código se ele vazar.",
       "Se você já sabe o horário de trabalho de alguém, defina ele no convite por e-mail — a pessoa já entra com a escala certa, sem precisar configurar nada.",
-      "No convite, escolha o \"Nível de acesso\": Profissional (padrão), Coordenador(a) (também gerencia a escala de fim de semana/feriado), Gerente (gerencia tudo igual a você, exceto valor de aluno particular da equipe) ou Sócio(a) (só acompanha, sem editar nada)."
+      "No convite, escolha o \"Nível de acesso\": Profissional (padrão), Coordenador(a) (também gerencia a escala de fim de semana/feriado), Gerente (gerencia equipe, convites e escala, sem bater ponto) ou Sócio(a) (só acompanha, sem editar nada)."
     ];
   }
   if(kind === "socio"){
     return [
-      "Você vê o mesmo painel do dono da academia — equipe, quanto cada um tem a receber no mês e a escala de fim de semana/feriado.",
+      "Você vê o mesmo painel do dono da academia — equipe, quanto cada um tem a receber no mês pelas horas de sala e a escala de fim de semana/feriado.",
       "É um acesso só de acompanhamento: você não convida profissionais nem edita a escala — quem faz isso é o dono, o(a) gerente ou o(a) coordenador(a) (só a escala, no caso dele).",
       "O relatório \"Quem ainda não trabalhou fim de semana/feriado\" ajuda a enxergar rápido se a escala está equilibrada entre a equipe."
     ];
   }
   if(kind === "gerente"){
     return [
-      "Você gerencia a equipe igual ao dono da academia: convida profissionais e coordenadores(as) por e-mail ou pelo código de convite, e também edita a escala de fim de semana/feriado.",
-      "A diferença: você não vê o valor que um profissional ganha com aluno particular (isso é renda pessoal dele) — só o valor de quando ele trabalha na grade/sala, pago pela academia.",
+      "Você gerencia a equipe quase igual ao dono da academia (em \"Gestão da equipe\" você altera e remove profissionais e coordenadores): convida profissionais e coordenadores(as) por e-mail ou pelo código de convite, e também edita a escala de fim de semana/feriado.",
+      "Você vê só o valor das horas de sala, pago pela academia. Aluno particular é renda pessoal de cada profissional e não aparece pra ninguém da academia.",
       "O relatório \"Quem ainda não trabalhou fim de semana/feriado\" ajuda a enxergar rápido se a escala está equilibrada entre a equipe.",
-      "Você não bate ponto nem tem grade própria — seu acesso é só o painel de gestão da academia."
+      "Você não bate ponto nem tem grade própria: seu valor na academia é um salário mensal fixo, definido pelo dono, e você vê só o seu.",
+      "Se você também atende alunos particulares, ligue \"Também atendo alunos particulares\" em Minha conta. A tela de alunos particulares aparece no menu e é só sua: o dono e os sócios nunca veem esses dados."
     ];
   }
   if(kind === "coordenador"){
@@ -49,19 +50,12 @@ function onboardingSteps(kind){
       "Você não vê os valores financeiros da equipe (salário de cada um) — isso continua só com o dono/sócio(a) da academia."
     ];
   }
-  if(kind === "personal"){
-    return [
-      "Cadastre cada aluno particular em \"+ Novo aluno particular\", com o valor por sessão (ou mensal fixo) e os dias da semana.",
-      "Toque em um horário na grade pra ver, editar ou adicionar rapidamente um aluno naquele dia e horário.",
-      "O total esperado do mês é calculado sozinho, a partir dos alunos e dias cadastrados.",
-      "Seus dados sincronizam sozinhos entre o celular e o computador — o ícone no topo mostra o status da sincronização."
-    ];
-  }
   if(kind === "professor"){
     // Professor nao atende aluno VIP (isso e so do estagiario) — so grade de horas.
     return [
       "Toque em um dia na grade pra lançar as horas trabalhadas naquele dia.",
       "Os \"valores rápidos\" (ex: 10, 15) são atalhos pro valor da hora/aula — edite em \"Valores rápidos\" a qualquer momento.",
+      "Atende alunos particulares? Ligue \"Também atendo alunos particulares\" em Minha conta. A tela de alunos particulares aparece no menu e é só sua: a academia nunca vê esses dados.",
       "Seus dados sincronizam sozinhos entre o celular e o computador — o ícone no topo mostra o status da sincronização."
     ];
   }
