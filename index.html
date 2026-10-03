@@ -664,7 +664,7 @@
     <button class="close ghost small" data-close>Fechar</button>
     <h3 id="scheduleDayTitle">Dia</h3>
     <div id="scheduleDayList"></div>
-    <div class="account-section" id="scheduleDayAddWrap">
+    <div class="account-section auth-form" id="scheduleDayAddWrap">
       <h3>Lançar</h3>
       <label>Profissional
         <select id="scheduleUserSelect"></select>
@@ -693,6 +693,7 @@
   <div class="sheet">
     <button class="close ghost small" data-close>Fechar</button>
     <h3 id="staffScheduleEditTitle">Editar horário</h3>
+    <div class="auth-form" style="margin-top:10px;">
     <label>Horário de trabalho (segunda a sexta)
       <div class="time-slot-row">
         <input type="time" id="staffScheduleShiftStart" step="3600" />
@@ -706,6 +707,7 @@
     </label>
     <div class="auth-error" id="staffScheduleEditError"></div>
     <button type="button" class="small primary" id="btnStaffScheduleEditSave">Salvar</button>
+    </div>
   </div>
 </div>
 

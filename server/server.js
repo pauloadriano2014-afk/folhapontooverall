@@ -347,6 +347,12 @@ function assignableAccessRoles(actorRole) {
   if (actorRole === "manager") return ["staff", "coordinator"];
   return [];
 }
+// Nomes em portugues dos niveis de acesso (usados no historico, que a pessoa le).
+var ACCESS_LABELS_PT = { owner: "Dono", manager: "Gerente", coordinator: "Coordenador(a)", partner: "Sócio(a)", staff: "Profissional" };
+function accessLabelPt(role) {
+  return ACCESS_LABELS_PT[role || "staff"] || String(role);
+}
+
 function accessRoleToDb(accessRole) {
   return accessRole === "staff" ? null : accessRole;
 }
@@ -673,7 +679,7 @@ app.post("/api/company/invite", auth, limitInvite, async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [companyId, token, name, role, email, shiftStart || null, shiftEnd || null, weekendShift, accessRole]
     );
-    await audit(companyId, req.userId, "invite_created", null, name, accessRole + (role ? " · " + role : "") + " · " + email);
+    await audit(companyId, req.userId, "invite_created", null, name, accessLabelPt(accessRole) + (role ? " · " + role : "") + " · " + email);
     var link = APP_URL.replace(/\/+$/, "") + "/?invite=" + token;
     var emailSent = false;
     if (mailer) {
@@ -805,7 +811,7 @@ app.put("/api/company/staff/:id/access", auth, async (req, res) => {
     }
     if (newAccess !== null && accessRoleToDb(newAccess) !== (t.company_role || null)) {
       await pool.query("UPDATE users SET company_role = $1 WHERE id = $2", [accessRoleToDb(newAccess), targetId]);
-      changes.push("acesso: " + (t.company_role || "staff") + " → " + newAccess);
+      changes.push("acesso: " + accessLabelPt(t.company_role) + " → " + accessLabelPt(newAccess));
     }
     if (changes.length) await audit(actor.company_id, actor.id, "member_updated", targetId, t.name, changes.join("; "));
     res.json({ ok: true, changed: changes.length > 0 });
@@ -837,7 +843,7 @@ app.delete("/api/company/staff/:id", auth, async (req, res) => {
       return res.status(403).json({ error: "not_allowed", message: "Você não tem permissão para remover essa pessoa." });
     }
     await pool.query("UPDATE users SET company_id = NULL, company_role = NULL WHERE id = $1", [targetId]);
-    await audit(actor.company_id, actor.id, "member_removed", targetId, t.name, "acesso que tinha: " + (t.company_role || "staff"));
+    await audit(actor.company_id, actor.id, "member_removed", targetId, t.name, "acesso que tinha: " + accessLabelPt(t.company_role));
     res.json({ ok: true });
   } catch (err) {
     console.error("Erro no DELETE /api/company/staff/:id:", err);

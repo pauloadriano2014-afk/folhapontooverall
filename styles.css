@@ -177,6 +177,8 @@
   .auth-form label{ display:flex; flex-direction:column; gap:5px; font-size:12px; color:var(--text-dim); }
   .auth-form input{ width:100%; }
   .auth-form select{ flex:none; width:100%; }
+  .auth-form label.reminder-toggle{ flex-direction:row; align-items:center; gap:8px; }
+  .auth-form label.reminder-toggle input{ width:auto; }
   .auth-form button{ margin-top:4px; width:100%; padding:10px; }
   .auth-error{ color:var(--bad); font-size:12px; min-height:1px; }
   .auth-success{ color:var(--good); font-size:12px; min-height:1px; }
