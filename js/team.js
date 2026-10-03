@@ -100,6 +100,7 @@ function openStaffEdit(member){
   });
 
   setRoleSelectValue(document.getElementById("staffEditRole"), member.role || "");
+  document.getElementById("staffEditSalary").value = typeof member.monthlySalary === "number" ? member.monthlySalary : "";
   updateStaffEditRoleVisibility();
   document.getElementById("staffEditOverlay").classList.add("open");
 }
@@ -109,6 +110,8 @@ function updateStaffEditRoleVisibility(){
   var checked = document.querySelector('input[name="staffEditAccess"]:checked');
   var key = checked ? checked.value : (editingMember ? memberAccessKey(editingMember) : "staff");
   document.getElementById("staffEditRoleWrap").style.display = (key === "manager" || key === "partner") ? "none" : "";
+  // so o dono define o salario fixo do gerente
+  document.getElementById("staffEditSalaryWrap").style.display = (key === "manager" && viewerCompanyRole() === "owner") ? "" : "none";
 }
 
 document.getElementById("staffEditForm").addEventListener("submit", function(e){
@@ -121,6 +124,10 @@ document.getElementById("staffEditForm").addEventListener("submit", function(e){
   var roleHidden = accessKey === "manager" || accessKey === "partner";
   var body = { accessRole: accessKey };
   if(!roleHidden) body.role = document.getElementById("staffEditRole").value;
+  if(accessKey === "manager" && viewerCompanyRole() === "owner"){
+    var salaryRaw = document.getElementById("staffEditSalary").value.trim();
+    body.monthlySalary = salaryRaw === "" ? null : Number(salaryRaw.replace(",", "."));
+  }
   var btn = document.getElementById("staffEditSave");
   btn.disabled = true; btn.textContent = "Salvando...";
   authFetch("/api/company/staff/" + editingMember.id + "/access", {

@@ -8,6 +8,8 @@ var STORAGE_KEY = null; // definido depois do login, por conta (ver bootApp)
 var THEME_KEY = "pontoOverallTheme_v1";
 
 function roleCategory(){
+  // Gerente com o modulo de alunos particulares ligado usa so a parte de particulares
+  if(typeof isGerente === "function" && isGerente()) return "personal";
   var raw = (currentUser && currentUser.role) ? currentUser.role : "";
   var norm = raw.toLowerCase()
     .normalize("NFD").replace(/[̀-ͯ]/g, ""); // remove acentos
@@ -51,6 +53,14 @@ function applyRoleVisibility(){
   setCardVisible(gradeCard, showGrade);
   setCardVisible(resumoCard, showGrade);
   setCardVisible(obsCard, showGrade);
+  var holidaysBtn = document.getElementById("btnApplyHolidays");
+  if(holidaysBtn) holidaysBtn.style.display = showGrade ? "" : "none"; // feriados marcam a grade de horarios
+  var excelDesc = document.getElementById("exportExcelDesc");
+  if(excelDesc) excelDesc.textContent = showGrade
+    ? "Arquivo com a grade, o resumo e as observações do mês, pronto para abrir no Excel."
+    : "Planilha com os seus alunos particulares e o valor de cada um no mês, pronta para abrir no Excel.";
+  var pdfOption = document.getElementById("exportPdfOption");
+  if(pdfOption) pdfOption.style.display = showGrade ? "" : "none"; // o PDF imprime a grade; sem grade, nao ha o que imprimir
   if(clientScheduleWrap) clientScheduleWrap.style.display = showSchedule ? "" : "none";
   if(gradeAccountSections) gradeAccountSections.style.display = showGrade ? "" : "none";
 
@@ -75,6 +85,31 @@ function applyRoleVisibility(){
   if(ownScheduleEditSection) ownScheduleEditSection.style.display = showOwnScheduleEdit ? "" : "none";
   if(ownWeekendShiftSection) ownWeekendShiftSection.style.display = showOwnScheduleEdit ? "" : "none";
   if(companyManagesScheduleHint) companyManagesScheduleHint.style.display = (showGrade && isCompanyLinked && !selfManagesSchedule) ? "" : "none";
+}
+
+// Gerente que ligou o "modulo de alunos particulares": alem do painel da
+// academia, ele ganha a tela de alunos particulares (so dele). Os dados dele
+// carregam e sincronizam como os de qualquer profissional, e os cartoes
+// necessarios sao movidos para dentro do painel da academia.
+async function bootPersonalModule(){
+  STORAGE_KEY = "pontoOverallData_v1_" + currentUser.id;
+  data = loadData();
+  await resolveInitialSync();
+  applyRoleVisibility();
+  initMonthState();
+  renderMonthSelect();
+  renderGrid();
+  var companyMain = document.querySelector("#companyDashboard main");
+  var companyHeader = document.querySelector("#companyDashboard header");
+  var clientsCard = document.getElementById("clientsCard");
+  var exportCard = document.getElementById("exportCard");
+  var monthBar = document.querySelector("#mainHeader .month-bar");
+  if(companyMain && clientsCard) companyMain.appendChild(clientsCard);
+  if(companyMain && exportCard) companyMain.appendChild(exportCard);
+  if(companyHeader && monthBar) companyHeader.appendChild(monthBar); // seletor de mes e status de sincronizacao
+  var t1 = document.getElementById("exportTitle"); if(t1) t1.textContent = "Exportação — alunos particulares";
+  var t2 = document.getElementById("companyExportTitle"); if(t2) t2.textContent = "Exportação — equipe";
+  document.body.classList.add("has-personal-module");
 }
 
 // Uma conta de academia (dono) nao tem ponto proprio pra bater — ela so ve o
@@ -102,6 +137,11 @@ async function bootApp(){
     if(typeof mountScheduleCard === "function") mountScheduleCard(companyDashboard.querySelector("main"));
     loadCompanyOverview();
     if(typeof loadScheduleMonth === "function") loadScheduleMonth(currentScheduleMonthKey());
+    var moduleSection = document.getElementById("personalModuleSection");
+    if(moduleSection) moduleSection.style.display = isGerente() ? "" : "none";
+    var moduleToggle = document.getElementById("personalModuleToggle");
+    if(moduleToggle) moduleToggle.checked = !!currentUser.personalModule;
+    if(isGerente() && currentUser.personalModule) await bootPersonalModule();
     renderFaq();
     setupNav();
     maybeShowOnboarding(isPartner() ? "socio" : (isGerente() ? "gerente" : "empresa"));

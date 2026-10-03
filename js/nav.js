@@ -15,6 +15,7 @@ function navItemsForCurrentUser(){
   if(typeof isCompanyAdminView === "function" && isCompanyAdminView()){
     var items = ["equipe", "escala"];
     if(!isPartner()) items.push("gestao", "convites");
+    if(isGerente() && currentUser.personalModule) items.push("clientes");
     items.push("exportacao", "duvidas");
     return items;
   }

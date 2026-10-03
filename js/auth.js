@@ -88,6 +88,7 @@ function logout(){
   authToken = null;
   currentUser = null;
   resetSyncState();
+  STORAGE_KEY = null;
   if(typeof teardownNav === "function") teardownNav();
   clearInterval(reminderTimer);
   lastReminderShownKey = null;
@@ -417,7 +418,7 @@ function refreshCurrentUser(){
     if(!body || !body.user || !currentUser) return false;
     var u = body.user;
     var changed = u.companyId !== currentUser.companyId || u.companyRole !== currentUser.companyRole ||
-      u.role !== currentUser.role || u.name !== currentUser.name;
+      u.role !== currentUser.role || u.name !== currentUser.name || !!u.personalModule !== !!currentUser.personalModule;
     if(changed){
       currentUser = u;
       try{ localStorage.setItem(USER_KEY, JSON.stringify(u)); }catch(e){}

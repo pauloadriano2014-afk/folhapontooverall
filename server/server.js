@@ -198,6 +198,12 @@ async function ensureTables() {
   // Sessoes: trocar/redefinir a senha incrementa token_version e derruba os
   // tokens antigos (o JWT carrega a versao com que foi emitido).
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version integer NOT NULL DEFAULT 0;`);
+  // Salario mensal fixo de quem e 100% administrativo e nao bate ponto (gerente):
+  // definido so pelo dono; dono e socio veem. Nao e usado para mais ninguem.
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS monthly_salary numeric(12,2);`);
+  // "Modulo de alunos particulares" do gerente: ele mesmo liga se tambem atende
+  // aluno particular. Os dados ficam so na conta dele (a academia nunca ve).
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS personal_module boolean NOT NULL DEFAULT false;`);
   // Historico das alteracoes de equipe (quem fez o que, e quando) — base para
   // qualquer necessidade futura de auditoria.
   await pool.query(`
@@ -419,6 +425,7 @@ function publicUser(row) {
     email: row.email,
     companyId: row.company_id || null,
     companyRole: row.company_role || null,
+    personalModule: !!row.personal_module,
   };
 }
 
@@ -574,11 +581,28 @@ app.post("/api/login", limitLoginIp, limitLogin, async (req, res) => {
 
 app.get("/api/me", auth, async (req, res) => {
   try {
-    var result = await pool.query("SELECT id, name, role, email, company_id, company_role FROM users WHERE id = $1", [req.userId]);
+    var result = await pool.query("SELECT id, name, role, email, company_id, company_role, personal_module FROM users WHERE id = $1", [req.userId]);
     if (result.rows.length === 0) return res.status(404).json({ error: "not_found" });
     res.json({ user: publicUser(result.rows[0]) });
   } catch (err) {
     console.error("Erro no /api/me:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// O gerente liga/desliga, para si mesmo, o modulo de alunos particulares.
+app.put("/api/me/personal-module", auth, async (req, res) => {
+  try {
+    var enabled = !!(req.body && req.body.enabled);
+    var me = await pool.query("SELECT company_role FROM users WHERE id = $1", [req.userId]);
+    if (me.rows.length === 0) return res.status(404).json({ error: "not_found" });
+    if (me.rows[0].company_role !== "manager") {
+      return res.status(403).json({ error: "not_allowed", message: "Esse módulo é só para gerentes." });
+    }
+    await pool.query("UPDATE users SET personal_module = $1 WHERE id = $2", [enabled, req.userId]);
+    res.json({ ok: true, personalModule: enabled });
+  } catch (err) {
+    console.error("Erro no PUT /api/me/personal-module:", err);
     res.status(500).json({ error: "internal_error" });
   }
 });
@@ -608,7 +632,7 @@ app.get("/api/company/overview", auth, async (req, res) => {
     if (company.rows.length === 0) return res.status(404).json({ error: "not_found" });
 
     var staff = await pool.query(
-      `SELECT u.id, u.name, u.role, u.email, u.company_role, s.data
+      `SELECT u.id, u.name, u.role, u.email, u.company_role, u.monthly_salary, s.data
        FROM users u
        LEFT JOIN user_state s ON s.user_id = u.id
        WHERE u.company_id = $1 AND ${NOT_PERSONAL_SQL}
@@ -633,6 +657,11 @@ app.get("/api/company/overview", auth, async (req, res) => {
           email: row.email,
           isOwner: row.company_role === "owner",
           companyRole: row.company_role || null,
+          // Salario fixo do gerente: dono e socio(a) veem o de todos os gerentes;
+          // um gerente so ve o proprio (nunca o de outro gerente).
+          monthlySalary: row.company_role === "manager" && row.monthly_salary !== null &&
+            (myRole === "owner" || myRole === "partner" || row.id === req.userId)
+            ? Number(row.monthly_salary) : null,
           data: staffData,
         };
       }),
@@ -800,6 +829,18 @@ app.put("/api/company/staff/:id/access", auth, async (req, res) => {
     var body = req.body || {};
     var newRole = typeof body.role === "string" ? body.role.trim() : null;
     var newAccess = typeof body.accessRole === "string" ? body.accessRole.trim() : null;
+    var hasSalary = Object.prototype.hasOwnProperty.call(body, "monthlySalary");
+    var newSalary = null;
+    if (hasSalary && body.monthlySalary !== null && body.monthlySalary !== "") {
+      newSalary = Number(body.monthlySalary);
+      if (!isFinite(newSalary) || newSalary < 0 || newSalary > 9999999) {
+        return res.status(400).json({ error: "invalid_input", message: "Salário inválido." });
+      }
+      newSalary = Math.round(newSalary * 100) / 100;
+    }
+    if (hasSalary && actor.company_role !== "owner") {
+      return res.status(403).json({ error: "not_allowed", message: "Só o dono define o salário do gerente." });
+    }
     if (newRole !== null && newRole.length > 60) return res.status(400).json({ error: "invalid_input", message: "Função muito longa." });
     if (newAccess !== null && assignableAccessRoles(actor.company_role).indexOf(newAccess) === -1) {
       return res.status(403).json({ error: "not_allowed", message: "Você não pode atribuir esse nível de acesso." });
@@ -812,6 +853,19 @@ app.put("/api/company/staff/:id/access", auth, async (req, res) => {
     if (newAccess !== null && accessRoleToDb(newAccess) !== (t.company_role || null)) {
       await pool.query("UPDATE users SET company_role = $1 WHERE id = $2", [accessRoleToDb(newAccess), targetId]);
       changes.push("acesso: " + accessLabelPt(t.company_role) + " → " + accessLabelPt(newAccess));
+    }
+    var resultingRole = newAccess !== null ? accessRoleToDb(newAccess) : (t.company_role || null);
+    if (resultingRole !== "manager") {
+      // quem deixa de ser gerente perde o salario fixo
+      await pool.query("UPDATE users SET monthly_salary = NULL WHERE id = $1 AND monthly_salary IS NOT NULL", [targetId]);
+    } else if (hasSalary) {
+      var salaryBefore = await pool.query("SELECT monthly_salary FROM users WHERE id = $1", [targetId]);
+      var before = salaryBefore.rows[0].monthly_salary === null ? null : Number(salaryBefore.rows[0].monthly_salary);
+      if (before !== newSalary) {
+        await pool.query("UPDATE users SET monthly_salary = $1 WHERE id = $2", [newSalary, targetId]);
+        // o historico e lido por gerente/socio: registra que mudou, sem o valor
+        changes.push("salário mensal alterado");
+      }
     }
     if (changes.length) await audit(actor.company_id, actor.id, "member_updated", targetId, t.name, changes.join("; "));
     res.json({ ok: true, changed: changes.length > 0 });

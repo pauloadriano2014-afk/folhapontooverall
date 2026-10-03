@@ -408,6 +408,37 @@ function initAccountModal(){
     logout();
   });
 
+  // Gerente liga/desliga, para si mesmo, o modulo de alunos particulares.
+  var moduleToggle = document.getElementById("personalModuleToggle");
+  if(moduleToggle){
+    moduleToggle.addEventListener("change", function(){
+      var enabled = moduleToggle.checked;
+      moduleToggle.disabled = true;
+      authFetch("/api/me/personal-module", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: enabled })
+      }).then(function(res){
+        return res.json().then(function(body){ return { ok: res.ok, body: body }; });
+      }).then(function(r){
+        moduleToggle.disabled = false;
+        if(!r.ok){
+          moduleToggle.checked = !enabled;
+          showToast(authErrorMessage(r.body, "Não consegui salvar."));
+          return;
+        }
+        currentUser.personalModule = !!r.body.personalModule;
+        try{ localStorage.setItem(USER_KEY, JSON.stringify(currentUser)); }catch(e){}
+        // recarrega para montar (ou tirar) a tela de alunos particulares do menu
+        window.location.reload();
+      }).catch(function(){
+        moduleToggle.disabled = false;
+        moduleToggle.checked = !enabled;
+        showToast("Sem conexão com o servidor.");
+      });
+    });
+  }
+
   // Zera os dados da conta atual (mantido pra corrigir contas que vieram com
   // dados de outra pessoa por causa do antigo esquema de migracao local, e
   // como opcao de "recomecar do zero" pra qualquer conta).

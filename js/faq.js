@@ -19,10 +19,14 @@ function faqGroupsFor(kind){
   if(admin){
     var team = [
       ["O que aparece em \"Equipe e valores\"?", "Cada professor, estagiário e coordenador(a) da academia, com o valor a receber no mês pelas horas de sala (grade + auxílio − consumo), calculado a partir do que cada um lançou. O total da equipe aparece embaixo da lista."],
+      ["Como o salário do gerente aparece?", "O gerente não bate ponto, então o valor dele é um salário mensal fixo, definido pelo dono em \"Gestão da equipe\" (Editar, no gerente). Dono e sócios veem esse valor em \"Equipe e valores\" e ele entra no total da equipe. Um gerente vê só o próprio salário, nunca o de outro gerente."],
       ["Os alunos particulares aparecem aqui?", "Nunca. Aula particular é renda pessoal do profissional, então nome do aluno, valor e total ficam só com ele. Isso vale para todos os níveis de acesso, inclusive para quem é coordenador(a) e também dá aula particular."],
       ["Por que um personal trainer não aparece na lista?", "Personal trainer atende só aluno particular, sem relação com as horas de sala da academia. Por isso ele não entra na equipe, nos valores nem na escala."],
       ["Por que alguém da equipe não aparece?", "Ainda não criou a conta com o código ou o link de convite, ou é personal trainer. Em \"Convites\" você vê quem ainda está pendente."]
     ];
+    if(kind === "gerente"){
+      team.push(["Atendo alunos particulares também. Como faço?", "Em Minha conta, ligue \"Também atendo alunos particulares\". O menu ganha a categoria \"Alunos particulares\", só sua. O dono e os sócios nunca veem nomes, valores nem totais desses alunos, e você pode desligar quando quiser (os dados continuam guardados)."]);
+    }
     groups.push({ title: "Equipe e valores", items: team });
     var sched = [
       ["Como funciona a escala da equipe?", "Em \"Escala da equipe\", toque num dia do calendário para ver ou lançar quem trabalhou, faltou ou foi coberto, com observação se quiser. O relatório abaixo do calendário mostra quem ainda não trabalhou fim de semana/feriado no mês."],

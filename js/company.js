@@ -67,7 +67,26 @@ function companyRoleLabel(member){
 }
 
 function companyRoleCountsFinancially(member){
-  return member.companyRole !== "owner" && member.companyRole !== "partner" && member.companyRole !== "manager";
+  // gerente conta pelo salario fixo (definido pelo dono); dono e socio(a) nao entram nos valores
+  return member.companyRole !== "owner" && member.companyRole !== "partner";
+}
+
+// Valor do mes de um item da lista: horas de sala (grade + auxilio - consumo) ou,
+// para gerente, o salario mensal fixo. null = nao se aplica / nao visivel.
+function memberMonthValue(member, monthKey){
+  if(member.companyRole === "manager") return typeof member.monthlySalary === "number" ? member.monthlySalary : null;
+  return computeStaffMonthlyTotal(member.data, monthKey);
+}
+
+// Texto no lugar do valor quando nao ha um numero para mostrar.
+function memberNoValueText(member){
+  if(member.companyRole === "manager"){
+    var viewer = companyOverviewData && companyOverviewData.viewerRole;
+    var isMe = currentUser && member.id === currentUser.id;
+    if(viewer === "manager" && !isMe) return "—"; // um gerente nao ve o salario de outro
+    return "Salário não definido";
+  }
+  return "—";
 }
 
 function renderCompanyStaffList(staff, monthKey){
@@ -82,8 +101,8 @@ function renderCompanyStaffList(staff, monthKey){
   var total = 0;
   staff.forEach(function(member){
     var countsFinancially = companyRoleCountsFinancially(member);
-    var value = countsFinancially ? computeStaffMonthlyTotal(member.data, monthKey) : 0;
-    if(countsFinancially) total += value;
+    var value = countsFinancially ? memberMonthValue(member, monthKey) : null;
+    if(typeof value === "number") total += value;
     var isYou = currentUser && member.id === currentUser.id;
 
     var row = document.createElement("div");
@@ -101,7 +120,8 @@ function renderCompanyStaffList(staff, monthKey){
 
     var valueEl = document.createElement("div");
     valueEl.className = "client-value";
-    valueEl.textContent = countsFinancially ? fmtMoney(value) : "—";
+    valueEl.textContent = typeof value === "number" ? fmtMoney(value) : memberNoValueText(member);
+    if(typeof value !== "number" && member.companyRole === "manager" && memberNoValueText(member) !== "—") valueEl.style.fontSize = "12px";
 
     row.appendChild(info);
     row.appendChild(valueEl);
@@ -368,9 +388,9 @@ function exportCompanyTeamCsv(){
   var total = 0;
   companyOverviewData.staff.forEach(function(member){
     if(!companyRoleCountsFinancially(member)) return;
-    var value = computeStaffMonthlyTotal(member.data, monthKey);
-    total += value;
-    rows.push([member.name, companyRoleLabel(member), value.toFixed(2).replace(".", ",")]);
+    var value = memberMonthValue(member, monthKey);
+    if(typeof value === "number") total += value;
+    rows.push([member.name, companyRoleLabel(member), typeof value === "number" ? value.toFixed(2).replace(".", ",") : "sem salário definido"]);
   });
   rows.push(["", "TOTAL", total.toFixed(2).replace(".", ",")]);
   // ponto e virgula + BOM: o Excel em portugues abre com as colunas e acentos certos

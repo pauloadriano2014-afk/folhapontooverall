@@ -238,15 +238,15 @@
   </div>
 
   <div class="card no-print" id="exportCard" data-view="exportacao">
-    <h2>Exportação</h2>
+    <h2 id="exportTitle">Exportação</h2>
     <p class="account-section-hint" style="margin:-4px 0 12px;">Baixe ou imprima o mês de <strong id="exportMonthLabel"></strong>. Para trocar o mês, use o seletor no topo da tela.</p>
     <div class="export-options">
       <div class="export-option">
         <strong>Planilha Excel (.xlsx)</strong>
-        <span>Arquivo com a grade, o resumo e as observações do mês, pronto para abrir no Excel.</span>
+        <span id="exportExcelDesc">Arquivo com a grade, o resumo e as observações do mês, pronto para abrir no Excel.</span>
         <button class="small primary" id="btnExportCsv">Baixar Excel</button>
       </div>
-      <div class="export-option">
+      <div class="export-option" id="exportPdfOption">
         <strong>PDF / imprimir</strong>
         <span>Abre a tela de impressão do navegador. Escolha "Salvar como PDF" para guardar o arquivo.</span>
         <button class="small primary" id="btnExportPdf">Gerar PDF</button>
@@ -349,7 +349,7 @@
     </div>
 
     <div class="card no-print" id="companyExportCard" data-view="exportacao">
-      <h2>Exportação</h2>
+      <h2 id="companyExportTitle">Exportação</h2>
       <p class="account-section-hint" style="margin:-4px 0 12px;">Baixe a planilha da equipe de <strong id="companyExportMonthLabel"></strong> com o valor a pagar de cada profissional (horas de sala).</p>
       <div class="export-options">
         <div class="export-option">
@@ -401,6 +401,15 @@
         <button type="button" class="color-swatch" data-color-choice="rosa" title="Rosa" style="background:#f542a8;"></button>
         <button type="button" class="color-swatch" data-color-choice="amarelo" title="Amarelo" style="background:#f0b93a;"></button>
       </div>
+    </div>
+
+    <div class="account-section" id="personalModuleSection" style="display:none;">
+      <h3>Alunos particulares</h3>
+      <label class="reminder-toggle">
+        <input type="checkbox" id="personalModuleToggle" />
+        Também atendo alunos particulares (personal)
+      </label>
+      <p class="account-section-hint">Liga o módulo de alunos particulares no seu menu. Esses dados são só seus: o dono e os sócios nunca veem nomes, valores nem totais.</p>
     </div>
 
     <div id="gradeAccountSections">
@@ -589,6 +598,10 @@
           <option value="Professor">Professor</option>
           <option value="Personal Trainer">Personal Trainer</option>
         </select>
+      </label>
+      <label id="staffEditSalaryWrap" style="display:none;">Salário mensal fixo (R$)
+        <input type="number" id="staffEditSalary" inputmode="decimal" min="0" step="0.01" placeholder="Ex: 3500" />
+        <span class="account-section-hint" style="margin:0;">O dono e os sócios veem o salário do gerente. Um gerente vê só o próprio.</span>
       </label>
       <div class="auth-error" id="staffEditError"></div>
       <button type="submit" class="primary" id="staffEditSave">Salvar alterações</button>

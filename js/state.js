@@ -139,34 +139,41 @@
 
   var data = defaultData();
 
+  // Completa com valores padrao o que faltar num conjunto de dados (backup antigo,
+  // dados vindos do servidor de outra versao do app ou alterados la).
+  function normalizeLoaded(parsed){
+    var d = defaultData();
+    if(!parsed || typeof parsed !== "object") return d;
+    d.settings = Object.assign(d.settings, parsed.settings || {});
+    if(!Array.isArray(d.settings.timeSlots) || d.settings.timeSlots.length === 0){
+      d.settings.timeSlots = DEFAULT_TIME_SLOTS.slice();
+    }
+    d.months = parsed.months || {};
+    Object.keys(d.months).forEach(function(k){ normalizeMonth(d.months[k]); });
+    d.updatedAt = parsed.updatedAt || null;
+    if(parsed.vip && Array.isArray(parsed.vip.slots)){
+      d.vip = parsed.vip;
+      if(!d.vip.attendance) d.vip.attendance = {};
+    }
+    d.clients = Array.isArray(parsed.clients) ? parsed.clients : [];
+    d.clients.forEach(function(c){
+      if(!c.days) c.days = blankClientDays();
+      if(!c.adjustments) c.adjustments = {};
+      delete c.attendance; // mecanismo de falta/extra removido a pedido do Paulo
+      if(c.billingType !== "monthly") c.billingType = "session";
+      if(typeof c.flatMonthlyValue === "undefined" || c.flatMonthlyValue === null) c.flatMonthlyValue = 0;
+      if(!c.id) c.id = newClientId();
+    });
+    return d;
+  }
+
   function loadData(){
     try{
       var raw = localStorage.getItem(STORAGE_KEY);
       if(!raw) return defaultData();
       var parsed = JSON.parse(raw);
       if(!parsed || typeof parsed !== "object") return defaultData();
-      var d = defaultData();
-      d.settings = Object.assign(d.settings, parsed.settings || {});
-      if(!Array.isArray(d.settings.timeSlots) || d.settings.timeSlots.length === 0){
-        d.settings.timeSlots = DEFAULT_TIME_SLOTS.slice();
-      }
-      d.months = parsed.months || {};
-      Object.keys(d.months).forEach(function(k){ normalizeMonth(d.months[k]); });
-      d.updatedAt = parsed.updatedAt || null;
-      if(parsed.vip && Array.isArray(parsed.vip.slots)){
-        d.vip = parsed.vip;
-        if(!d.vip.attendance) d.vip.attendance = {};
-      }
-      d.clients = Array.isArray(parsed.clients) ? parsed.clients : [];
-      d.clients.forEach(function(c){
-        if(!c.days) c.days = blankClientDays();
-        if(!c.adjustments) c.adjustments = {};
-        delete c.attendance; // mecanismo de falta/extra removido a pedido do Paulo
-        if(c.billingType !== "monthly") c.billingType = "session";
-        if(typeof c.flatMonthlyValue === "undefined" || c.flatMonthlyValue === null) c.flatMonthlyValue = 0;
-        if(!c.id) c.id = newClientId();
-      });
-      return d;
+      return normalizeLoaded(parsed);
     }catch(e){
       console.warn("Falha ao carregar dados, iniciando vazio.", e);
       return defaultData();
@@ -265,7 +272,7 @@
   }
 
   function adoptServerData(remoteData, version){
-    data = remoteData;
+    data = normalizeLoaded(remoteData);
     serverVersion = version || null;
     syncedSnapshot = JSON.stringify(data);
     try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
@@ -335,7 +342,7 @@
     if(!merged || merged.conflict) backupLocalData();
     var result = merged ? merged.data : remoteData;
     adoptServerData(result, body.updated_at);
-    syncedSnapshot = JSON.stringify(remoteData); // base = o que o servidor tem de fato
+    syncedSnapshot = JSON.stringify(normalizeLoaded(remoteData)); // base = o que o servidor tem de fato
     if(merged && !merged.conflict) scheduleSync(); // reenvia ja com tudo junto
     refreshUIFromData();
     showToast(merged && !merged.conflict
@@ -402,7 +409,7 @@
         adoptServerData(remoteData, serverVersion);
         return true;
       }
-      syncedSnapshot = JSON.stringify(remoteData);
+      syncedSnapshot = JSON.stringify(normalizeLoaded(remoteData));
       if(localTime > remoteTime) scheduleSync(); // mudanca feita offline: envia
       return false;
     }
