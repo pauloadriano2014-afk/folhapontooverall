@@ -7,34 +7,39 @@
 var STORAGE_KEY = null; // definido depois do login, por conta (ver bootApp)
 var THEME_KEY = "pontoOverallTheme_v1";
 
+// Categorias de quem usa o app: "estagiario" (grade + VIP), "professor" (grade;
+// inclui coordenador, que e um professor com a escala da equipe) e "gerente"
+// (so o painel da academia). "Personal" nao e categoria: e o modulo de alunos
+// particulares (personalModuleOn) que professor, coordenador e gerente ligam
+// para si mesmos.
 function roleCategory(){
-  // Gerente com o modulo de alunos particulares ligado usa so a parte de particulares
-  if(typeof isGerente === "function" && isGerente()) return "personal";
+  if(typeof isGerente === "function" && isGerente()) return "gerente";
   var raw = (currentUser && currentUser.role) ? currentUser.role : "";
   var norm = raw.toLowerCase()
     .normalize("NFD").replace(/[̀-ͯ]/g, ""); // remove acentos
-  if(norm.indexOf("personal") >= 0) return "personal";
-  if(norm.indexOf("professor") >= 0) return "professor";
   if(norm.indexOf("estagi") >= 0) return "estagiario";
-  return null;
+  return "professor";
 }
 
-// Nem todo mundo usa o app do mesmo jeito: estagiario tem grade + VIP mas nao
-// atende aluno particular; professor e personal nao tem alunos VIP (so o
-// estagiario atende os VIP da sala) — professor e personal usam a parte de
-// alunos particulares. So escondemos quando temos certeza da funcao —
-// funcao desconhecida/em branco mostra tudo.
-// Personal trainer nao bate ponto nem trabalha em escala fixa (ele mesmo
-// pediu pra tirar isso) — pra ele some a grade, o resumo do mes (horas,
-// auxilio, consumo) e tudo que so faz sentido pra quem tem escala (lembrete
-// de ponto, horario de fim de semana). Fica so o controle de alunos
-// particulares: aluno, horario e valor, sem conceito de falta.
+function personalModuleOn(){
+  return !!(currentUser && currentUser.personalModule) && roleCategory() !== "estagiario";
+}
+
+// Quem pode ligar o modulo de alunos particulares (o servidor tambem confere).
+function canUsePersonalModule(){
+  if(typeof isCompanyOwner === "function" && (isCompanyOwner() || isPartner())) return false;
+  return roleCategory() !== "estagiario";
+}
+
+// Aluno VIP so o estagiario atende. A grade de horas e do estagiario e do
+// professor (e coordenador); o gerente nao bate ponto. Alunos particulares
+// aparecem so para quem ligou o modulo.
 function applyRoleVisibility(){
   var cat = roleCategory();
-  var showVip = cat === "estagiario"; // aluno VIP so o estagiario atende
-  var showClients = cat !== "estagiario";
-  var showGrade = cat !== "personal";
-  var showSchedule = cat === "personal";
+  var showVip = cat === "estagiario";
+  var showClients = personalModuleOn();
+  var showGrade = cat !== "gerente";
+  var showSchedule = showClients; // grade semanal dos alunos particulares
   var vipCard = document.getElementById("vipCard");
   var clientsCard = document.getElementById("clientsCard");
   var gradeCard = document.getElementById("gradeCard");
@@ -55,12 +60,10 @@ function applyRoleVisibility(){
   setCardVisible(obsCard, showGrade);
   var holidaysBtn = document.getElementById("btnApplyHolidays");
   if(holidaysBtn) holidaysBtn.style.display = showGrade ? "" : "none"; // feriados marcam a grade de horarios
-  var excelDesc = document.getElementById("exportExcelDesc");
-  if(excelDesc) excelDesc.textContent = showGrade
-    ? "Arquivo com a grade, o resumo e as observações do mês, pronto para abrir no Excel."
-    : "Planilha com os seus alunos particulares e o valor de cada um no mês, pronta para abrir no Excel.";
-  var pdfOption = document.getElementById("exportPdfOption");
-  if(pdfOption) pdfOption.style.display = showGrade ? "" : "none"; // o PDF imprime a grade; sem grade, nao ha o que imprimir
+  var gradeExport = document.getElementById("exportGradeGroup");
+  if(gradeExport) gradeExport.style.display = showGrade ? "" : "none";
+  var clientsExport = document.getElementById("exportClientsGroup");
+  if(clientsExport) clientsExport.style.display = showClients ? "" : "none";
   if(clientScheduleWrap) clientScheduleWrap.style.display = showSchedule ? "" : "none";
   if(gradeAccountSections) gradeAccountSections.style.display = showGrade ? "" : "none";
 
@@ -112,6 +115,14 @@ async function bootPersonalModule(){
   document.body.classList.add("has-personal-module");
 }
 
+// Mostra (ou nao) a opcao "Tambem atendo alunos particulares" em Minha conta.
+function updatePersonalModuleUI(){
+  var section = document.getElementById("personalModuleSection");
+  if(section) section.style.display = canUsePersonalModule() ? "" : "none";
+  var toggle = document.getElementById("personalModuleToggle");
+  if(toggle) toggle.checked = !!(currentUser && currentUser.personalModule);
+}
+
 // Uma conta de academia (dono) nao tem ponto proprio pra bater — ela so ve o
 // painel com a equipe (ver company.js). Uma conta profissional continua
 // exatamente como sempre foi.
@@ -137,10 +148,7 @@ async function bootApp(){
     if(typeof mountScheduleCard === "function") mountScheduleCard(companyDashboard.querySelector("main"));
     loadCompanyOverview();
     if(typeof loadScheduleMonth === "function") loadScheduleMonth(currentScheduleMonthKey());
-    var moduleSection = document.getElementById("personalModuleSection");
-    if(moduleSection) moduleSection.style.display = isGerente() ? "" : "none";
-    var moduleToggle = document.getElementById("personalModuleToggle");
-    if(moduleToggle) moduleToggle.checked = !!currentUser.personalModule;
+    updatePersonalModuleUI();
     if(isGerente() && currentUser.personalModule) await bootPersonalModule();
     renderFaq();
     setupNav();
@@ -175,6 +183,7 @@ async function bootApp(){
     saveData();
   }
   setAccountLabel();
+  updatePersonalModuleUI();
   applyRoleVisibility();
   // Coordenador(a) também representa a academia (gerencia a escala da
   // equipe) — fica travado na cor de identidade da Overall igual

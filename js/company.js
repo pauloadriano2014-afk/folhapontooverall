@@ -167,11 +167,6 @@ function loadCompanyOverview(){
 }
 
 // ---------- convidar profissional por e-mail (com horario ja preenchido) ----------
-function roleTextIsPersonal(text){
-  var norm = String(text || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-  return norm.indexOf("personal") >= 0;
-}
-
 function selectedInviteAccessRole(){
   var checked = document.querySelector('input[name="inviteAccessRole"]:checked');
   return checked ? checked.value : "staff";
@@ -190,7 +185,10 @@ function updateInviteScheduleVisibility(){
   var accessRole = selectedInviteAccessRole();
   var isAdminInvite = isAdminAccessRole(accessRole);
   if(roleWrap) roleWrap.style.display = isAdminInvite ? "none" : "";
-  if(wrap) wrap.style.display = (isAdminInvite || roleTextIsPersonal(roleInput.value)) ? "none" : "";
+  if(wrap) wrap.style.display = isAdminInvite ? "none" : "";
+  // so o dono combina o salario fixo do gerente
+  var salaryWrap = document.getElementById("inviteSalaryWrap");
+  if(salaryWrap) salaryWrap.style.display = (accessRole === "manager" && companyOverviewData && companyOverviewData.viewerRole === "owner") ? "" : "none";
 }
 
 document.getElementById("btnOpenInvite").addEventListener("click", function(){
@@ -200,6 +198,12 @@ document.getElementById("btnOpenInvite").addEventListener("click", function(){
   });
   document.getElementById("inviteError").textContent = "";
   document.getElementById("inviteResult").style.display = "none";
+  // Um gerente so convida profissional ou coordenador(a); gerente e socio(a) so o dono convida.
+  var viewerIsManager = companyOverviewData && companyOverviewData.viewerRole === "manager";
+  ["manager", "partner"].forEach(function(v){
+    var chip = document.querySelector('input[name="inviteAccessRole"][value="' + v + '"]');
+    if(chip) chip.closest(".client-day-chip").style.display = viewerIsManager ? "none" : "";
+  });
   updateInviteScheduleVisibility();
   document.getElementById("inviteOverlay").classList.add("open");
 });
@@ -223,10 +227,13 @@ document.getElementById("inviteForm").addEventListener("submit", function(e){
   var accessRole = selectedInviteAccessRole();
   var isAdminInvite = isAdminAccessRole(accessRole);
   var role = isAdminInvite ? "" : document.getElementById("inviteRole").value.trim();
-  var applySchedule = !isAdminInvite && !roleTextIsPersonal(role);
+  var applySchedule = !isAdminInvite;
   var shiftStart = applySchedule ? document.getElementById("inviteShiftStart").value : "";
   var shiftEnd = applySchedule ? document.getElementById("inviteShiftEnd").value : "";
   var weekendShift = applySchedule ? document.getElementById("inviteWeekendShift").checked : false;
+  var inviteBody = { name: name, email: email, role: role, accessRole: accessRole, shiftStart: shiftStart, shiftEnd: shiftEnd, weekendShift: weekendShift };
+  var salaryRaw = document.getElementById("inviteSalary").value.trim();
+  if(accessRole === "manager" && salaryRaw !== "") inviteBody.monthlySalary = Number(salaryRaw.replace(",", "."));
   if(!name || !email){ errEl.textContent = "Informe nome e e-mail."; return; }
   if(!isAdminInvite && !role){ errEl.textContent = "Escolha a função do profissional."; return; }
   var btn = document.getElementById("inviteSubmit");
@@ -234,7 +241,7 @@ document.getElementById("inviteForm").addEventListener("submit", function(e){
   authFetch("/api/company/invite", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: name, email: email, role: role, accessRole: accessRole, shiftStart: shiftStart, shiftEnd: shiftEnd, weekendShift: weekendShift })
+    body: JSON.stringify(inviteBody)
   }).then(function(res){
     if(res.status === 401){ handleAuthExpired(); throw new Error("auth_expired"); }
     return res.json().then(function(body){ return { ok: res.ok, body: body }; });
@@ -372,33 +379,76 @@ document.getElementById("btnCopyInviteCode").addEventListener("click", function(
   }
 });
 
-// ---------- exportacao: planilha da equipe (valor a pagar de cada profissional) ----------
-function csvCell(v){
-  var t = String(v == null ? "" : v);
-  return /[;"\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+// ---------- exportacao da equipe: Excel (.xlsx) e PDF ----------
+function teamExportData(){
+  var monthKey = monthKeyNow();
+  var rows = [], total = 0;
+  ((companyOverviewData && companyOverviewData.staff) || []).forEach(function(member){
+    if(!companyRoleCountsFinancially(member)) return;
+    var value = memberMonthValue(member, monthKey);
+    if(typeof value === "number") total += value;
+    rows.push({ name: member.name, role: companyRoleLabel(member), value: typeof value === "number" ? value : null });
+  });
+  return { monthKey: monthKey, rows: rows, total: total };
 }
 
-function exportCompanyTeamCsv(){
+function exportCompanyTeamXlsx(){
   if(!companyOverviewData || !companyOverviewData.staff){
     showToast("A equipe ainda não carregou. Tente de novo em instantes.");
     return;
   }
-  var monthKey = monthKeyNow();
-  var rows = [["Nome", "Função", "Valor do mês (R$)"]];
-  var total = 0;
-  companyOverviewData.staff.forEach(function(member){
-    if(!companyRoleCountsFinancially(member)) return;
-    var value = memberMonthValue(member, monthKey);
-    if(typeof value === "number") total += value;
-    rows.push([member.name, companyRoleLabel(member), typeof value === "number" ? value.toFixed(2).replace(".", ",") : "sem salário definido"]);
+  var d = teamExportData();
+  showToast("Gerando Excel...");
+  loadExcelJs(function(){
+    var wb = new window.ExcelJS.Workbook();
+    var ws = wb.addWorksheet("Equipe");
+    ws.getColumn(1).width = 32; ws.getColumn(2).width = 28; ws.getColumn(3).width = 20;
+    ws.mergeCells(1, 1, 1, 3);
+    var t = ws.getCell(1, 1);
+    t.value = "EQUIPE — " + monthLabel(d.monthKey).toUpperCase();
+    t.font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } };
+    t.fill = fill(FILL_TITLE);
+    ws.getRow(1).height = 26;
+    ws.mergeCells(2, 1, 2, 3);
+    ws.getCell(2, 1).value = (companyOverviewData.company ? companyOverviewData.company.name : "") + " · gerado em " + new Date().toLocaleDateString("pt-BR");
+    ws.getCell(2, 1).font = { size: 9, color: { argb: "FF666666" } };
+    ["Nome", "Função", "Valor do mês (R$)"].forEach(function(h, i){
+      var c = ws.getCell(4, i + 1);
+      c.value = h; c.font = { bold: true, color: { argb: "FF3B0764" } }; c.fill = fill(FILL_HEADER); c.border = THIN_BOX;
+      if(i === 2) c.alignment = { horizontal: "right" };
+    });
+    var r = 5, money = '"R$" #,##0.00';
+    d.rows.forEach(function(row){
+      ws.getCell(r, 1).value = row.name; ws.getCell(r, 2).value = row.role;
+      var vc = ws.getCell(r, 3);
+      if(row.value === null){ vc.value = "sem salário definido"; vc.font = { italic: true, color: { argb: "FF888888" } }; }
+      else { vc.value = row.value; vc.numFmt = money; }
+      vc.alignment = { horizontal: "right" };
+      [1, 2, 3].forEach(function(col){ ws.getCell(r, col).border = THIN_BOX; });
+      r++;
+    });
+    ws.mergeCells(r, 1, r, 2);
+    var tl = ws.getCell(r, 1); tl.value = "TOTAL"; tl.font = { bold: true }; tl.alignment = { horizontal: "right" }; tl.fill = fill(FILL_TOTAL);
+    var tv = ws.getCell(r, 3); tv.value = d.total; tv.numFmt = money; tv.font = { bold: true, color: { argb: "FF059669" } }; tv.alignment = { horizontal: "right" }; tv.fill = fill(FILL_TOTAL); tv.border = THIN_BOX;
+    downloadWorkbook(wb, "equipe-overall-" + d.monthKey + ".xlsx").catch(function(err){
+      console.error("Falha ao gerar Excel:", err);
+      showToast("Não consegui gerar o Excel.");
+    });
   });
-  rows.push(["", "TOTAL", total.toFixed(2).replace(".", ",")]);
-  // ponto e virgula + BOM: o Excel em portugues abre com as colunas e acentos certos
-  var csv = "\uFEFF" + rows.map(function(r){ return r.map(csvCell).join(";"); }).join("\r\n");
-  var blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  var a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "equipe-overall-" + monthKey + ".csv";
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
-document.getElementById("btnCompanyExport").addEventListener("click", exportCompanyTeamCsv);
+
+function exportCompanyTeamPdf(){
+  if(!companyOverviewData || !companyOverviewData.staff){
+    showToast("A equipe ainda não carregou. Tente de novo em instantes.");
+    return;
+  }
+  var d = teamExportData();
+  var rows = d.rows.map(function(row){ return [row.name, row.role, row.value === null ? "sem salário definido" : fmtMoney(row.value)]; });
+  renderSheetTable(document.getElementById("teamPrintSheet"),
+    "Equipe — " + monthLabel(d.monthKey),
+    companyOverviewData.company ? companyOverviewData.company.name : "",
+    ["Nome", "Função", "Valor do mês"], rows, "Total da equipe", fmtMoney(d.total));
+  printSheet("team");
+}
+document.getElementById("btnCompanyExport").addEventListener("click", exportCompanyTeamXlsx);
+document.getElementById("btnCompanyExportPdf").addEventListener("click", exportCompanyTeamPdf);

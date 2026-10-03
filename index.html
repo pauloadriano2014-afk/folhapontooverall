@@ -55,7 +55,6 @@
           <option value="">Selecione sua função…</option>
           <option value="Estagiário">Estagiário</option>
           <option value="Professor">Professor</option>
-          <option value="Personal Trainer">Personal Trainer</option>
         </select>
       </label>
       <label id="regCompanyNameWrap" style="display:none;">Nome da academia
@@ -240,16 +239,34 @@
   <div class="card no-print" id="exportCard" data-view="exportacao">
     <h2 id="exportTitle">Exportação</h2>
     <p class="account-section-hint" style="margin:-4px 0 12px;">Baixe ou imprima o mês de <strong id="exportMonthLabel"></strong>. Para trocar o mês, use o seletor no topo da tela.</p>
-    <div class="export-options">
-      <div class="export-option">
-        <strong>Planilha Excel (.xlsx)</strong>
-        <span id="exportExcelDesc">Arquivo com a grade, o resumo e as observações do mês, pronto para abrir no Excel.</span>
-        <button class="small primary" id="btnExportCsv">Baixar Excel</button>
+    <div id="exportGradeGroup">
+      <h3 class="export-group-title">Horas e salário</h3>
+      <div class="export-options">
+        <div class="export-option">
+          <strong>Planilha Excel (.xlsx)</strong>
+          <span id="exportExcelDesc">Arquivo com a grade, o resumo e as observações do mês, pronto para abrir no Excel.</span>
+          <button class="small primary" id="btnExportCsv">Baixar Excel</button>
+        </div>
+        <div class="export-option" id="exportPdfOption">
+          <strong>PDF / imprimir</strong>
+          <span>Abre a tela de impressão do navegador. Escolha "Salvar como PDF" para guardar o arquivo.</span>
+          <button class="small primary" id="btnExportPdf">Gerar PDF</button>
+        </div>
       </div>
-      <div class="export-option" id="exportPdfOption">
-        <strong>PDF / imprimir</strong>
-        <span>Abre a tela de impressão do navegador. Escolha "Salvar como PDF" para guardar o arquivo.</span>
-        <button class="small primary" id="btnExportPdf">Gerar PDF</button>
+    </div>
+    <div id="exportClientsGroup" style="display:none;">
+      <h3 class="export-group-title">Alunos particulares</h3>
+      <div class="export-options">
+        <div class="export-option">
+          <strong>Planilha Excel (.xlsx)</strong>
+          <span>Cada aluno com dias, horário, valor combinado, sessões do mês e o total, mais o total geral.</span>
+          <button class="small primary" id="btnExportClientsXlsx">Baixar Excel</button>
+        </div>
+        <div class="export-option">
+          <strong>PDF / imprimir</strong>
+          <span>Folha com a lista de alunos e os valores do mês. Escolha "Salvar como PDF" na impressão.</span>
+          <button class="small primary" id="btnExportClientsPdf">Gerar PDF</button>
+        </div>
       </div>
     </div>
     <h3 style="margin:20px 0 6px;font-size:13px;color:var(--text-dim);">Backup dos dados</h3>
@@ -350,12 +367,17 @@
 
     <div class="card no-print" id="companyExportCard" data-view="exportacao">
       <h2 id="companyExportTitle">Exportação</h2>
-      <p class="account-section-hint" style="margin:-4px 0 12px;">Baixe a planilha da equipe de <strong id="companyExportMonthLabel"></strong> com o valor a pagar de cada profissional (horas de sala).</p>
+      <p class="account-section-hint" style="margin:-4px 0 12px;">Baixe ou imprima a equipe de <strong id="companyExportMonthLabel"></strong> com o valor a pagar de cada profissional (horas de sala, e o salário fixo dos gerentes).</p>
       <div class="export-options">
         <div class="export-option">
-          <strong>Planilha da equipe (Excel)</strong>
-          <span>Nome, função e valor do mês de cada profissional, mais o total. Abre direto no Excel.</span>
-          <button class="small primary" id="btnCompanyExport">Baixar planilha</button>
+          <strong>Planilha Excel (.xlsx)</strong>
+          <span>Nome, função e valor do mês de cada pessoa, mais o total.</span>
+          <button class="small primary" id="btnCompanyExport">Baixar Excel</button>
+        </div>
+        <div class="export-option">
+          <strong>PDF / imprimir</strong>
+          <span>Folha com a equipe e os valores do mês. Escolha "Salvar como PDF" na impressão.</span>
+          <button class="small primary" id="btnCompanyExportPdf">Gerar PDF</button>
         </div>
       </div>
     </div>
@@ -409,7 +431,7 @@
         <input type="checkbox" id="personalModuleToggle" />
         Também atendo alunos particulares (personal)
       </label>
-      <p class="account-section-hint">Liga o módulo de alunos particulares no seu menu. Esses dados são só seus: o dono e os sócios nunca veem nomes, valores nem totais.</p>
+      <p class="account-section-hint">Liga o módulo de alunos particulares no seu menu, com exportação em Excel e PDF. Esses dados são só seus: a academia nunca vê nomes, valores nem totais.</p>
     </div>
 
     <div id="gradeAccountSections">
@@ -596,7 +618,6 @@
           <option value="">Sem função definida</option>
           <option value="Estagiário">Estagiário</option>
           <option value="Professor">Professor</option>
-          <option value="Personal Trainer">Personal Trainer</option>
         </select>
       </label>
       <label id="staffEditSalaryWrap" style="display:none;">Salário mensal fixo (R$)
@@ -642,8 +663,11 @@
           <option value="">Selecione a função…</option>
           <option value="Estagiário">Estagiário</option>
           <option value="Professor">Professor</option>
-          <option value="Personal Trainer">Personal Trainer</option>
         </select>
+      </label>
+      <label id="inviteSalaryWrap" style="display:none;">Salário mensal fixo (R$) — opcional
+        <input type="number" id="inviteSalary" inputmode="decimal" min="0" step="0.01" placeholder="Ex: 3500" />
+        <span class="account-section-hint" style="margin:0;">Só o dono define. O dono e os sócios veem o salário do gerente; um gerente vê só o próprio.</span>
       </label>
       <div id="inviteScheduleWrap">
         <label>Horário de trabalho (opcional — a pessoa já entra com a escala pronta)
@@ -738,6 +762,9 @@
 
 <div id="toast"></div>
 
+
+<div id="clientsPrintSheet" class="print-sheet"></div>
+<div id="teamPrintSheet" class="print-sheet"></div>
 
 <script src="js/state.js"></script>
 <script src="js/auth.js"></script>

@@ -203,7 +203,21 @@ async function ensureTables() {
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS monthly_salary numeric(12,2);`);
   // "Modulo de alunos particulares" do gerente: ele mesmo liga se tambem atende
   // aluno particular. Os dados ficam so na conta dele (a academia nunca ve).
+  var moduleCol = await pool.query("SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'personal_module'");
+  var firstModuleRun = moduleCol.rows.length === 0;
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS personal_module boolean NOT NULL DEFAULT false;`);
+  // Uma unica vez: quem ja era professor/coordenador ate agora via a tela de
+  // alunos particulares; mantem isso ligado para ninguem perder acesso.
+  if (firstModuleRun) {
+    await pool.query(`UPDATE users SET personal_module = true
+                      WHERE (company_role IS NULL OR company_role = 'coordinator')
+                        AND (role ILIKE '%professor%' OR role ILIKE '%personal%')`);
+  }
+  // "Personal Trainer" deixou de ser funcao: e o modulo de alunos particulares
+  // do professor. Converte as contas e convites antigos (sempre seguro repetir).
+  await pool.query(`UPDATE users SET role = 'Professor', personal_module = true WHERE role ILIKE '%personal%'`);
+  await pool.query(`UPDATE company_invites SET role = 'Professor' WHERE role ILIKE '%personal%'`);
+  await pool.query(`ALTER TABLE company_invites ADD COLUMN IF NOT EXISTS monthly_salary numeric(12,2);`);
   // Historico das alteracoes de equipe (quem fez o que, e quando) — base para
   // qualquer necessidade futura de auditoria.
   await pool.query(`
@@ -253,11 +267,26 @@ function isCompanyManager(role) {
   return role === "owner" || role === "manager";
 }
 
-// Personal trainer (profissional sem nivel de acesso especial cuja funcao diz
-// "personal") atende so aluno particular — renda pessoal dele, sem relacao
-// com a academia. Por isso nao aparece na equipe, nos valores nem na escala.
-// (Coordenador(a) continua aparecendo sempre: ele tambem da aula de sala.)
-var NOT_PERSONAL_SQL = "NOT (u.company_role IS NULL AND COALESCE(u.role, '') ILIKE '%personal%')";
+// Funcoes de quem trabalha na academia: Estagiario ou Professor. "Personal" nao
+// e funcao: e o modulo de alunos particulares que o professor (ou coordenador,
+// ou gerente) liga para si mesmo, e que so ele enxerga.
+var ALLOWED_ROLES = ["Estagiário", "Professor"];
+function stripAccents(t) {
+  return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+// Devolve { role, module } (module = veio como "personal", entao liga o modulo)
+// ou { invalid: true } se a funcao nao existe.
+function canonicalRole(raw) {
+  var t = String(raw || "").trim();
+  if (!t) return { role: "", module: false };
+  var norm = stripAccents(t).toLowerCase();
+  if (norm.indexOf("personal") >= 0) return { role: "Professor", module: true };
+  for (var i = 0; i < ALLOWED_ROLES.length; i++) {
+    if (stripAccents(ALLOWED_ROLES[i]).toLowerCase() === norm) return { role: ALLOWED_ROLES[i], module: false };
+  }
+  return { invalid: true };
+}
+var INVALID_ROLE_MSG = "Função inválida. Escolha Estagiário ou Professor.";
 
 var INVITE_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sem O/0 e I/1, pra nao confundir na hora de digitar
 function randomInviteCode() {
@@ -465,7 +494,8 @@ app.post("/api/register", limitRegister, async (req, res) => {
   var body = req.body || {};
   var accountType = String(body.accountType || "profissional").trim(); // "profissional" (padrao, compativel com o app antigo) ou "empresa"
   var name = String(body.name || "").trim();
-  var role = String(body.role || "").trim();
+  var roleInput = canonicalRole(body.role);
+  var role = roleInput.invalid ? "" : roleInput.role;
   var companyName = String(body.companyName || "").trim();
   var inviteCode = String(body.inviteCode || "").trim().toUpperCase();
   var inviteToken = String(body.inviteToken || "").trim();
@@ -480,6 +510,9 @@ app.post("/api/register", limitRegister, async (req, res) => {
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ error: "invalid_email", message: "E-mail inválido." });
+  }
+  if (roleInput.invalid) {
+    return res.status(400).json({ error: "invalid_role", message: INVALID_ROLE_MSG });
   }
   if (accountType === "empresa" && !companyName) {
     return res.status(400).json({ error: "invalid_input", message: "Informe o nome da academia." });
@@ -500,7 +533,7 @@ app.post("/api/register", limitRegister, async (req, res) => {
     var inviteRow = null;
     if (accountType !== "empresa" && inviteToken) {
       var inviteLookup = await pool.query(
-        "SELECT id, company_id, shift_start, shift_end, weekend_shift, access_role FROM company_invites WHERE token = $1 AND used_at IS NULL",
+        "SELECT id, company_id, shift_start, shift_end, weekend_shift, access_role, monthly_salary FROM company_invites WHERE token = $1 AND used_at IS NULL",
         [inviteToken]
       );
       if (inviteLookup.rows.length === 0) {
@@ -518,8 +551,8 @@ app.post("/api/register", limitRegister, async (req, res) => {
 
     var hash = await bcrypt.hash(password, 10);
     var result = await pool.query(
-      "INSERT INTO users (name, role, email, password_hash, company_id) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, role, email, company_id, company_role",
-      [name, role, email, hash, invitedCompany ? invitedCompany.id : null]
+      "INSERT INTO users (name, role, email, password_hash, company_id, personal_module) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, role, email, company_id, company_role, personal_module",
+      [name, role, email, hash, invitedCompany ? invitedCompany.id : null, accountType !== "empresa" && roleInput.module]
     );
     var user = result.rows[0];
 
@@ -537,6 +570,10 @@ app.post("/api/register", limitRegister, async (req, res) => {
       if (inviteRow.access_role === "coordinator" || inviteRow.access_role === "partner" || inviteRow.access_role === "manager") {
         await pool.query("UPDATE users SET company_role = $1 WHERE id = $2", [inviteRow.access_role, user.id]);
         user.company_role = inviteRow.access_role;
+        // salario mensal fixo combinado no convite de gerente
+        if (inviteRow.access_role === "manager" && inviteRow.monthly_salary !== null) {
+          await pool.query("UPDATE users SET monthly_salary = $1 WHERE id = $2", [inviteRow.monthly_salary, user.id]);
+        }
       }
     }
 
@@ -590,14 +627,18 @@ app.get("/api/me", auth, async (req, res) => {
   }
 });
 
-// O gerente liga/desliga, para si mesmo, o modulo de alunos particulares.
+// Professor, coordenador(a) ou gerente liga/desliga, para si mesmo, o modulo de alunos particulares.
 app.put("/api/me/personal-module", auth, async (req, res) => {
   try {
     var enabled = !!(req.body && req.body.enabled);
-    var me = await pool.query("SELECT company_role FROM users WHERE id = $1", [req.userId]);
+    var me = await pool.query("SELECT company_role, role FROM users WHERE id = $1", [req.userId]);
     if (me.rows.length === 0) return res.status(404).json({ error: "not_found" });
-    if (me.rows[0].company_role !== "manager") {
-      return res.status(403).json({ error: "not_allowed", message: "Esse módulo é só para gerentes." });
+    var cr = me.rows[0].company_role;
+    var isTrainee = stripAccents(me.rows[0].role).toLowerCase().indexOf("estagi") >= 0;
+    // Professor, coordenador(a) e gerente podem; estagiario (que atende so os VIP),
+    // dono e socio(a) nao.
+    if (cr === "owner" || cr === "partner" || (cr !== "manager" && isTrainee)) {
+      return res.status(403).json({ error: "not_allowed", message: "Esse módulo é para professor, coordenador(a) e gerente." });
     }
     await pool.query("UPDATE users SET personal_module = $1 WHERE id = $2", [enabled, req.userId]);
     res.json({ ok: true, personalModule: enabled });
@@ -635,7 +676,7 @@ app.get("/api/company/overview", auth, async (req, res) => {
       `SELECT u.id, u.name, u.role, u.email, u.company_role, u.monthly_salary, s.data
        FROM users u
        LEFT JOIN user_state s ON s.user_id = u.id
-       WHERE u.company_id = $1 AND ${NOT_PERSONAL_SQL}
+       WHERE u.company_id = $1
        ORDER BY (u.company_role = 'owner') DESC, u.name ASC`,
       [companyId]
     );
@@ -681,7 +722,8 @@ app.post("/api/company/invite", auth, limitInvite, async (req, res) => {
   var body = req.body || {};
   var name = String(body.name || "").trim();
   var email = String(body.email || "").trim().toLowerCase();
-  var role = String(body.role || "").trim();
+  var inviteRoleInput = canonicalRole(body.role);
+  var role = inviteRoleInput.invalid ? "" : inviteRoleInput.role;
   var accessRole = String(body.accessRole || "staff").trim();
   if (["staff", "coordinator", "partner", "manager"].indexOf(accessRole) === -1) accessRole = "staff";
   // Socio(a) e gerente sao 100% administrativos — nao faz sentido pedir
@@ -693,20 +735,38 @@ app.post("/api/company/invite", auth, limitInvite, async (req, res) => {
   if (!name || !email) {
     return res.status(400).json({ error: "invalid_input", message: "Informe nome e e-mail." });
   }
+  if (!isAdminInvite && inviteRoleInput.invalid) {
+    return res.status(400).json({ error: "invalid_role", message: INVALID_ROLE_MSG });
+  }
+  var inviteSalary = null;
+  if (body.monthlySalary !== undefined && body.monthlySalary !== null && body.monthlySalary !== "") {
+    inviteSalary = Number(body.monthlySalary);
+    if (!isFinite(inviteSalary) || inviteSalary < 0 || inviteSalary > 9999999) {
+      return res.status(400).json({ error: "invalid_input", message: "Salário inválido." });
+    }
+    inviteSalary = Math.round(inviteSalary * 100) / 100;
+  }
   try {
     var me = await pool.query("SELECT company_id, company_role FROM users WHERE id = $1", [req.userId]);
     if (me.rows.length === 0) return res.status(404).json({ error: "not_found" });
     if (!isCompanyManager(me.rows[0].company_role) || !me.rows[0].company_id) {
       return res.status(403).json({ error: "not_owner", message: "Só o dono ou o(a) gerente da academia podem convidar." });
     }
+    // Quem convida so pode dar niveis que tambem poderia atribuir (um gerente
+    // nao convida outro gerente nem socio).
+    if (assignableAccessRoles(me.rows[0].company_role).indexOf(accessRole) === -1) {
+      return res.status(403).json({ error: "not_allowed", message: "Você não pode convidar com esse nível de acesso." });
+    }
+    // O salario fixo e coisa do dono e so existe para gerente.
+    if (accessRole !== "manager" || me.rows[0].company_role !== "owner") inviteSalary = null;
     var companyId = me.rows[0].company_id;
     var companyRow = await pool.query("SELECT name FROM companies WHERE id = $1", [companyId]);
     var companyName = companyRow.rows[0] ? companyRow.rows[0].name : "sua academia";
     var token = randomInviteToken();
     await pool.query(
-      `INSERT INTO company_invites (company_id, token, name, role, email, shift_start, shift_end, weekend_shift, access_role)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [companyId, token, name, role, email, shiftStart || null, shiftEnd || null, weekendShift, accessRole]
+      `INSERT INTO company_invites (company_id, token, name, role, email, shift_start, shift_end, weekend_shift, access_role, monthly_salary)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [companyId, token, name, role, email, shiftStart || null, shiftEnd || null, weekendShift, accessRole, inviteSalary]
     );
     await audit(companyId, req.userId, "invite_created", null, name, accessLabelPt(accessRole) + (role ? " · " + role : "") + " · " + email);
     var link = APP_URL.replace(/\/+$/, "") + "/?invite=" + token;
@@ -827,7 +887,12 @@ app.put("/api/company/staff/:id/access", auth, async (req, res) => {
       return res.status(403).json({ error: "not_allowed", message: "Você não tem permissão para alterar essa pessoa." });
     }
     var body = req.body || {};
-    var newRole = typeof body.role === "string" ? body.role.trim() : null;
+    var newRole = null;
+    if (typeof body.role === "string") {
+      var editRole = canonicalRole(body.role);
+      if (editRole.invalid) return res.status(400).json({ error: "invalid_role", message: INVALID_ROLE_MSG });
+      newRole = editRole.role;
+    }
     var newAccess = typeof body.accessRole === "string" ? body.accessRole.trim() : null;
     var hasSalary = Object.prototype.hasOwnProperty.call(body, "monthlySalary");
     var newSalary = null;
@@ -1037,7 +1102,7 @@ app.get("/api/company/schedule", auth, async (req, res) => {
       `SELECT u.id, u.name, u.role, u.company_role, us.data AS state_data
        FROM users u
        LEFT JOIN user_state us ON us.user_id = u.id
-       WHERE u.company_id = $1 AND (u.company_role IS NULL OR u.company_role = 'coordinator') AND ${NOT_PERSONAL_SQL}
+       WHERE u.company_id = $1 AND (u.company_role IS NULL OR u.company_role = 'coordinator')
        ORDER BY u.name ASC`,
       [companyId]
     );
@@ -1106,7 +1171,7 @@ app.post("/api/company/schedule", auth, async (req, res) => {
       return res.status(403).json({ error: "not_allowed", message: "Você não pode editar a escala da equipe." });
     }
     var companyId = me.rows[0].company_id;
-    var target = await pool.query("SELECT u.id FROM users u WHERE u.id = $1 AND u.company_id = $2 AND " + NOT_PERSONAL_SQL, [userId, companyId]);
+    var target = await pool.query("SELECT u.id FROM users u WHERE u.id = $1 AND u.company_id = $2", [userId, companyId]);
     if (target.rows.length === 0) return res.status(400).json({ error: "invalid_user" });
     var result = await pool.query(
       `INSERT INTO company_schedule (company_id, user_id, date, status, note, covered_by_user_id, created_by)

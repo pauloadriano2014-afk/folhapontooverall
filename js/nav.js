@@ -20,10 +20,9 @@ function navItemsForCurrentUser(){
     return items;
   }
   var cat = roleCategory();
-  var items2 = [];
-  if(cat !== "personal") items2.push("grade", "resumo");
+  var items2 = ["grade", "resumo"];
   if(cat === "estagiario") items2.push("vip");
-  if(cat !== "estagiario") items2.push("clientes");
+  if(personalModuleOn()) items2.push("clientes");
   if(typeof isCoordinator === "function" && isCoordinator()) items2.push("escala");
   items2.push("exportacao", "duvidas");
   return items2;

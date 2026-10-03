@@ -180,8 +180,8 @@
     ws.getRow(r).height = 34;
     r += 2;
 
-    // ---- alunos vip (so pra quem ve essa secao na tela — personal trainer nao) ----
-    if(roleCategory() !== "personal"){
+    // ---- alunos vip (so o estagiario atende VIP) ----
+    if(roleCategory() === "estagiario"){
       titleRow("ALUNOS VIP — AGENDA SEMANAL FIXA", FILL_HEADER, "FF3B0764");
       var vipHeadRow = r;
       ws.getCell(vipHeadRow, 1).value = "Horário";
@@ -222,6 +222,172 @@
 
     return wb;
   }
+
+  // ---------- alunos particulares: Excel e PDF ----------
+  var CLIENT_XLSX_COLS = [
+    { header: "Aluno", width: 30 }, { header: "Dias", width: 24 }, { header: "Horário", width: 10 },
+    { header: "Cobrança", width: 16 }, { header: "Valor combinado (R$)", width: 20 },
+    { header: "Sessões no mês", width: 15 }, { header: "Ajuste", width: 9 }, { header: "Total do mês (R$)", width: 18 }
+  ];
+
+  function clientBillingLabel(client){
+    return client.billingType === "monthly" ? "Mensal fixo" : "Por sessão";
+  }
+  function clientAgreedValue(client){
+    return client.billingType === "monthly" ? (Number(client.flatMonthlyValue) || 0) : (Number(client.rate) || 0);
+  }
+  function clientAdjustCount(client){
+    var adj = client.adjustments && client.adjustments[currentMonthKey];
+    return adj ? (Number(adj.count) || 0) : 0;
+  }
+
+  function buildClientsWorkbook(){
+    var clients = data.clients || [];
+    var wb = new window.ExcelJS.Workbook();
+    var ws = wb.addWorksheet("Alunos particulares", { views: [{ state: "frozen", ySplit: 4 }] });
+    CLIENT_XLSX_COLS.forEach(function(c, i){ ws.getColumn(i + 1).width = c.width; });
+    var lastCol = CLIENT_XLSX_COLS.length;
+
+    ws.mergeCells(1, 1, 1, lastCol);
+    var t = ws.getCell(1, 1);
+    t.value = "ALUNOS PARTICULARES — " + monthLabel(currentMonthKey).toUpperCase();
+    t.font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } };
+    t.fill = fill(FILL_TITLE);
+    t.alignment = { vertical: "middle" };
+    ws.getRow(1).height = 26;
+    ws.mergeCells(2, 1, 2, lastCol);
+    ws.getCell(2, 1).value = (currentUser ? currentUser.name : "") + " · gerado em " + new Date().toLocaleDateString("pt-BR");
+    ws.getCell(2, 1).font = { size: 9, color: { argb: "FF666666" } };
+
+    var headRow = 4;
+    CLIENT_XLSX_COLS.forEach(function(c, i){
+      var cell = ws.getCell(headRow, i + 1);
+      cell.value = c.header;
+      cell.font = { bold: true, size: 10, color: { argb: "FF3B0764" } };
+      cell.fill = fill(FILL_HEADER);
+      cell.alignment = { horizontal: i >= 4 ? "right" : "left", wrapText: true, vertical: "middle" };
+      cell.border = THIN_BOX;
+    });
+    ws.getRow(headRow).height = 30;
+
+    var r = headRow + 1, total = 0;
+    var money = '"R$" #,##0.00';
+    clients.forEach(function(client){
+      var value = clientMonthlyValue(client, currentMonthKey);
+      total += value;
+      var monthly = client.billingType === "monthly";
+      var vals = [
+        client.name, clientDaysLabel(client), client.time || "", clientBillingLabel(client),
+        clientAgreedValue(client), monthly ? "—" : clientMonthlySessions(client, currentMonthKey),
+        clientAdjustCount(client) || "", value
+      ];
+      vals.forEach(function(v, i){
+        var cell = ws.getCell(r, i + 1);
+        cell.value = v;
+        cell.border = THIN_BOX;
+        cell.font = { size: 10, bold: i === 7 };
+        if(i === 4 || i === 7){ cell.numFmt = money; cell.alignment = { horizontal: "right" }; }
+        if(i === 5 || i === 6){ cell.alignment = { horizontal: "right" }; }
+      });
+      r++;
+    });
+    if(clients.length === 0){
+      ws.mergeCells(r, 1, r, lastCol);
+      ws.getCell(r, 1).value = "Nenhum aluno particular cadastrado.";
+      ws.getCell(r, 1).font = { italic: true, color: { argb: "FF888888" } };
+      r++;
+    }
+    ws.mergeCells(r, 1, r, lastCol - 1);
+    var tl = ws.getCell(r, 1);
+    tl.value = "TOTAL DO MÊS";
+    tl.font = { bold: true };
+    tl.alignment = { horizontal: "right" };
+    tl.fill = fill(FILL_TOTAL);
+    var tv = ws.getCell(r, lastCol);
+    tv.value = total;
+    tv.numFmt = money;
+    tv.font = { bold: true, color: { argb: "FF059669" } };
+    tv.alignment = { horizontal: "right" };
+    tv.fill = fill(FILL_TOTAL);
+    tv.border = THIN_BOX;
+    return wb;
+  }
+
+  function downloadWorkbook(wb, filename){
+    return wb.xlsx.writeBuffer().then(function(buffer){
+      var blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    });
+  }
+
+  document.getElementById("btnExportClientsXlsx").addEventListener("click", function(){
+    showToast("Gerando Excel...");
+    loadExcelJs(function(){
+      downloadWorkbook(buildClientsWorkbook(), "alunos-particulares-" + currentMonthKey + ".xlsx").catch(function(err){
+        console.error("Falha ao gerar Excel:", err);
+        showToast("Não consegui gerar o Excel.");
+      });
+    });
+  });
+
+  // Folha de impressao (PDF) com uma tabela simples: "Salvar como PDF" no dialogo de impressao.
+  function printSheet(kind){
+    document.body.classList.add("print-" + kind);
+    var done = false;
+    function cleanup(){
+      if(done) return;
+      done = true;
+      document.body.classList.remove("print-" + kind);
+      window.removeEventListener("afterprint", cleanup);
+    }
+    window.addEventListener("afterprint", cleanup);
+    setTimeout(function(){ window.print(); setTimeout(cleanup, 800); }, 60);
+  }
+
+  function renderSheetTable(sheetEl, title, subtitle, headers, rows, totalLabel, totalValue){
+    sheetEl.innerHTML = "";
+    var h1 = document.createElement("h1"); h1.textContent = title; sheetEl.appendChild(h1);
+    var sub = document.createElement("p"); sub.className = "ps-sub"; sub.textContent = subtitle; sheetEl.appendChild(sub);
+    var table = document.createElement("table");
+    var thead = document.createElement("thead"); var hr = document.createElement("tr");
+    headers.forEach(function(h, i){
+      var th = document.createElement("th"); th.textContent = h; if(i === headers.length - 1) th.className = "num"; hr.appendChild(th);
+    });
+    thead.appendChild(hr); table.appendChild(thead);
+    var tbody = document.createElement("tbody");
+    rows.forEach(function(row){
+      var tr = document.createElement("tr");
+      row.forEach(function(v, i){
+        var td = document.createElement("td"); td.textContent = v; if(i === row.length - 1) td.className = "num"; tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    var tt = document.createElement("tr"); tt.className = "ps-total";
+    var tdl = document.createElement("td"); tdl.colSpan = headers.length - 1; tdl.textContent = totalLabel; tdl.className = "num";
+    var tdv = document.createElement("td"); tdv.textContent = totalValue; tdv.className = "num";
+    tt.appendChild(tdl); tt.appendChild(tdv); tbody.appendChild(tt);
+    table.appendChild(tbody); sheetEl.appendChild(table);
+    var foot = document.createElement("p"); foot.className = "ps-foot";
+    foot.textContent = "Gerado pelo Ponto Overall em " + new Date().toLocaleDateString("pt-BR");
+    sheetEl.appendChild(foot);
+  }
+
+  document.getElementById("btnExportClientsPdf").addEventListener("click", function(){
+    var clients = data.clients || [];
+    var rows = clients.map(function(c){
+      return [c.name, clientDaysLabel(c) + (c.time ? " · " + c.time : ""), clientBillingLabel(c) + " · " + fmtMoney(clientAgreedValue(c)),
+        c.billingType === "monthly" ? "—" : String(clientMonthlySessions(c, currentMonthKey)), fmtMoney(clientMonthlyValue(c, currentMonthKey))];
+    });
+    var total = clients.reduce(function(sum, c){ return sum + clientMonthlyValue(c, currentMonthKey); }, 0);
+    renderSheetTable(document.getElementById("clientsPrintSheet"),
+      "Alunos particulares — " + monthLabel(currentMonthKey),
+      (currentUser ? currentUser.name : ""),
+      ["Aluno", "Dias e horário", "Cobrança", "Sessões", "Total do mês"], rows, "Total do mês", fmtMoney(total));
+    printSheet("clients");
+  });
 
   document.getElementById("btnExportCsv").addEventListener("click", function(){
     showToast("Gerando Excel...");

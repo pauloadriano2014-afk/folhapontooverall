@@ -20,12 +20,11 @@ function faqGroupsFor(kind){
     var team = [
       ["O que aparece em \"Equipe e valores\"?", "Cada professor, estagiário e coordenador(a) da academia, com o valor a receber no mês pelas horas de sala (grade + auxílio − consumo), calculado a partir do que cada um lançou. O total da equipe aparece embaixo da lista."],
       ["Como o salário do gerente aparece?", "O gerente não bate ponto, então o valor dele é um salário mensal fixo, definido pelo dono em \"Gestão da equipe\" (Editar, no gerente). Dono e sócios veem esse valor em \"Equipe e valores\" e ele entra no total da equipe. Um gerente vê só o próprio salário, nunca o de outro gerente."],
-      ["Os alunos particulares aparecem aqui?", "Nunca. Aula particular é renda pessoal do profissional, então nome do aluno, valor e total ficam só com ele. Isso vale para todos os níveis de acesso, inclusive para quem é coordenador(a) e também dá aula particular."],
-      ["Por que um personal trainer não aparece na lista?", "Personal trainer atende só aluno particular, sem relação com as horas de sala da academia. Por isso ele não entra na equipe, nos valores nem na escala."],
-      ["Por que alguém da equipe não aparece?", "Ainda não criou a conta com o código ou o link de convite, ou é personal trainer. Em \"Convites\" você vê quem ainda está pendente."]
+      ["Os alunos particulares aparecem aqui?", "Nunca. Aula particular é renda pessoal: o professor, o coordenador(a) ou o gerente que a atende liga o módulo de alunos particulares só para si, e nome do aluno, valor e total ficam só com ele. Isso vale para todos os níveis de acesso."],
+      ["Por que alguém da equipe não aparece?", "Ainda não criou a conta com o código ou o link de convite. Em \"Convites\" você vê quem ainda está pendente."]
     ];
     if(kind === "gerente"){
-      team.push(["Atendo alunos particulares também. Como faço?", "Em Minha conta, ligue \"Também atendo alunos particulares\". O menu ganha a categoria \"Alunos particulares\", só sua. O dono e os sócios nunca veem nomes, valores nem totais desses alunos, e você pode desligar quando quiser (os dados continuam guardados)."]);
+      team.push(["Atendo alunos particulares também. Como faço?", "Em Minha conta, ligue \"Também atendo alunos particulares\". O menu ganha a categoria \"Alunos particulares\", só sua, e a Exportação passa a ter Excel e PDF deles. O dono e os sócios nunca veem nomes, valores nem totais desses alunos, e você pode desligar quando quiser (os dados continuam guardados)."]);
     }
     groups.push({ title: "Equipe e valores", items: team });
     var sched = [
@@ -49,30 +48,28 @@ function faqGroupsFor(kind){
       ]});
     }
     groups.push({ title: "Exportação", items: [
-      ["O que a exportação baixa?", "Uma planilha da equipe do mês atual, com nome, função e valor a pagar de cada profissional (horas de sala) e o total. Abre direto no Excel."]
+      ["O que a exportação baixa?", "Uma planilha Excel (.xlsx) ou um PDF da equipe do mês atual, com nome, função e valor a pagar de cada profissional (horas de sala, e o salário fixo dos gerentes) e o total."]
     ]});
   } else {
-    if(kind !== "personal"){
-      groups.push({ title: "Grade de horários e salário", items: [
-        ["Como lanço as horas de um dia?", "Em \"Grade de horários\", toque no número do dia. Para cada horário, escolha um valor rápido, \"Outro\" para digitar um valor, \"Feriado\" ou \"Sem escala\". Dá também para repetir a semana passada ou copiar o dia para outros dias."],
-        ["O que significa cada marcação da grade?", "O número é o valor lançado, em reais. FER é feriado. s/e é sem escala, ou seja, você não trabalha naquele horário. O traço (–) quer dizer que ainda não foi lançado. A coluna mais clara é fim de semana."],
-        ["O que são os valores rápidos?", "Atalhos com o valor (em R$) da aula/hora, por exemplo 10 e 15, para você não digitar toda vez. Para trocar, toque em \"Valores rápidos\" acima da grade ou vá em Minha conta."],
-        ["Como o salário do mês é calculado?", "Salário do mês = soma de todos os valores lançados na grade + Auxílio − Consumo Overall. O resumo mostra cada parte, tudo em reais."],
-        ["O que são Auxílio e Consumo Overall?", "Auxílio é um valor somado ao total do mês (por exemplo, uma ajuda de custo). Consumo Overall é um valor descontado (por exemplo, o que foi consumido na academia). Digite os dois em reais, no Resumo do mês."],
-        ["Para que serve \"Marcar feriados\"?", "Marca sozinho os feriados nacionais e de Curitiba/PR nos dias que ainda estão vazios. Dias que você já preencheu nunca são alterados."],
-        ["Para que servem \"Hoje\", \"+ Novo mês\" e \"Marcar como pago\"?", "\"Hoje\" volta para o mês atual, \"+ Novo mês\" cria a grade de um mês novo e \"Marcar como pago\" registra que você já recebeu aquele mês (aparece um ✓ ao lado dele na lista de meses)."]
-      ]});
-    }
+    groups.push({ title: "Grade de horários e salário", items: [
+      ["Como lanço as horas de um dia?", "Em \"Grade de horários\", toque no número do dia. Para cada horário, escolha um valor rápido, \"Outro\" para digitar um valor, \"Feriado\" ou \"Sem escala\". Dá também para repetir a semana passada ou copiar o dia para outros dias."],
+      ["O que significa cada marcação da grade?", "O número é o valor lançado, em reais. FER é feriado. s/e é sem escala, ou seja, você não trabalha naquele horário. O traço (–) quer dizer que ainda não foi lançado. A coluna mais clara é fim de semana."],
+      ["O que são os valores rápidos?", "Atalhos com o valor (em R$) da aula/hora, por exemplo 10 e 15, para você não digitar toda vez. Para trocar, toque em \"Valores rápidos\" acima da grade ou vá em Minha conta."],
+      ["Como o salário do mês é calculado?", "Salário do mês = soma de todos os valores lançados na grade + Auxílio − Consumo Overall. O resumo mostra cada parte, tudo em reais."],
+      ["O que são Auxílio e Consumo Overall?", "Auxílio é um valor somado ao total do mês (por exemplo, uma ajuda de custo). Consumo Overall é um valor descontado (por exemplo, o que foi consumido na academia). Digite os dois em reais, no Resumo do mês."],
+      ["Para que serve \"Marcar feriados\"?", "Marca sozinho os feriados nacionais e de Curitiba/PR nos dias que ainda estão vazios. Dias que você já preencheu nunca são alterados."],
+      ["Para que servem \"Hoje\", \"+ Novo mês\" e \"Marcar como pago\"?", "\"Hoje\" volta para o mês atual, \"+ Novo mês\" cria a grade de um mês novo e \"Marcar como pago\" registra que você já recebeu aquele mês (aparece um ✓ ao lado dele na lista de meses)."]
+    ]});
     if(kind === "estagiario"){
       groups.push({ title: "Alunos VIP", items: [
         ["Como funcionam os alunos VIP?", "É uma agenda semanal fixa, de segunda a sexta, por horário. Toque numa célula para escolher ou trocar o aluno e marcar presença ou falta. Só o estagiário atende alunos VIP."]
       ]});
-    }
-    if(kind !== "estagiario"){
-      groups.push({ title: "Alunos particulares", items: [
+    } else {
+      groups.push({ title: "Alunos particulares (módulo opcional)", items: [
+        ["Como ligo o módulo de alunos particulares?", "Em Minha conta, ligue \"Também atendo alunos particulares\". O menu ganha a categoria \"Alunos particulares\" e a Exportação passa a ter Excel e PDF deles. Dá para desligar quando quiser; os dados continuam guardados."],
         ["Como cadastro um aluno particular?", "Em \"Alunos particulares\", toque em \"+ Novo aluno particular\" e informe nome, valor (por sessão ou mensal fixo), dias da semana e horário. Dá para tocar num horário da grade para adicionar ou editar rápido."],
         ["O total esperado do mês está certo?", "Ele é calculado sozinho a partir dos alunos e dos dias cadastrados, separado do salário da grade. Alterou algo? O total se atualiza na hora."],
-        ["Quem enxerga meus alunos particulares?", "Só você. A academia (dono, sócio, gerente e coordenador) não vê nome, valor nem total de aluno particular."]
+        ["Quem enxerga meus alunos particulares?", "Só você. A academia (dono, sócio, gerente e coordenador) não vê nome, valor nem total de aluno particular, nem sabe se você ligou o módulo."]
       ]});
     }
     if(kind === "coordenador"){
@@ -82,13 +79,11 @@ function faqGroupsFor(kind){
       ]});
     }
     groups.push({ title: "O que a academia enxerga", items: [
-      ["Quem vê as minhas horas?", kind === "personal"
-        ? "Ninguém da academia. Personal trainer usa só a parte de alunos particulares, que é só sua."
-        : "Se você está ligado a uma academia, o dono, o sócio e o gerente veem o total das suas horas de sala no mês (grade + auxílio − consumo). Os alunos particulares nunca aparecem."],
+      ["Quem vê as minhas horas?", "Se você está ligado a uma academia, o dono, o sócio e o gerente veem o total das suas horas de sala no mês (grade + auxílio − consumo). Os alunos particulares nunca aparecem."],
       ["Quem define o meu horário de trabalho?", "Quando você está ligado a uma academia, o horário de segunda a sexta e o de fim de semana são definidos pelo gerente ou coordenador. Se precisar mudar, fale com eles."]
     ]});
     groups.push({ title: "Exportação", items: [
-      ["Como baixo ou imprimo o mês?", "Em \"Exportação\", baixe a planilha Excel (.xlsx) ou gere o PDF pela impressão do navegador (escolha \"Salvar como PDF\"). O mês exportado é o selecionado no topo da tela. Lá também ficam o backup e a restauração dos seus dados."]
+      ["Como baixo ou imprimo o mês?", "Em \"Exportação\", baixe a planilha Excel (.xlsx) ou gere o PDF pela impressão do navegador (escolha \"Salvar como PDF\"), tanto das horas e do salário quanto, se o módulo estiver ligado, dos alunos particulares. O mês exportado é o selecionado no topo da tela. Lá também ficam o backup e a restauração dos seus dados."]
     ]});
   }
 
