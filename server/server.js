@@ -211,6 +211,12 @@ function isCompanyManager(role) {
   return role === "owner" || role === "manager";
 }
 
+// Personal trainer (profissional sem nivel de acesso especial cuja funcao diz
+// "personal") atende so aluno particular — renda pessoal dele, sem relacao
+// com a academia. Por isso nao aparece na equipe, nos valores nem na escala.
+// (Coordenador(a) continua aparecendo sempre: ele tambem da aula de sala.)
+var NOT_PERSONAL_SQL = "NOT (u.company_role IS NULL AND COALESCE(u.role, '') ILIKE '%personal%')";
+
 var INVITE_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sem O/0 e I/1, pra nao confundir na hora de digitar
 function randomInviteCode() {
   var out = "";
@@ -482,7 +488,7 @@ app.get("/api/company/overview", auth, async (req, res) => {
       `SELECT u.id, u.name, u.role, u.email, u.company_role, s.data
        FROM users u
        LEFT JOIN user_state s ON s.user_id = u.id
-       WHERE u.company_id = $1
+       WHERE u.company_id = $1 AND ${NOT_PERSONAL_SQL}
        ORDER BY (u.company_role = 'owner') DESC, u.name ASC`,
       [companyId]
     );
@@ -722,7 +728,7 @@ app.get("/api/company/schedule", auth, async (req, res) => {
       `SELECT u.id, u.name, u.role, u.company_role, us.data AS state_data
        FROM users u
        LEFT JOIN user_state us ON us.user_id = u.id
-       WHERE u.company_id = $1 AND (u.company_role IS NULL OR u.company_role = 'coordinator')
+       WHERE u.company_id = $1 AND (u.company_role IS NULL OR u.company_role = 'coordinator') AND ${NOT_PERSONAL_SQL}
        ORDER BY u.name ASC`,
       [companyId]
     );
@@ -791,7 +797,7 @@ app.post("/api/company/schedule", auth, async (req, res) => {
       return res.status(403).json({ error: "not_allowed", message: "Você não pode editar a escala da equipe." });
     }
     var companyId = me.rows[0].company_id;
-    var target = await pool.query("SELECT id FROM users WHERE id = $1 AND company_id = $2", [userId, companyId]);
+    var target = await pool.query("SELECT u.id FROM users u WHERE u.id = $1 AND u.company_id = $2 AND " + NOT_PERSONAL_SQL, [userId, companyId]);
     if (target.rows.length === 0) return res.status(400).json({ error: "invalid_user" });
     var result = await pool.query(
       `INSERT INTO company_schedule (company_id, user_id, date, status, note, covered_by_user_id, created_by)

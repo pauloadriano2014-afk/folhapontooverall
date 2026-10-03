@@ -122,6 +122,8 @@ function loadCompanyOverview(){
   var listEl = document.getElementById("companyStaffList");
   var monthKey = monthKeyNow();
   document.getElementById("companyMonthLabel").textContent = monthLabel(monthKey);
+  var exportLabel = document.getElementById("companyExportMonthLabel");
+  if(exportLabel) exportLabel.textContent = monthLabel(monthKey);
   listEl.innerHTML = "<p style='font-size:12px;color:var(--text-dim);margin:4px 0;'>Carregando equipe...</p>";
   authFetch("/api/company/overview").then(function(res){
     if(res.status === 401){ handleAuthExpired(); throw new Error("auth_expired"); }
@@ -205,6 +207,7 @@ document.getElementById("inviteForm").addEventListener("submit", function(e){
   var shiftEnd = applySchedule ? document.getElementById("inviteShiftEnd").value : "";
   var weekendShift = applySchedule ? document.getElementById("inviteWeekendShift").checked : false;
   if(!name || !email){ errEl.textContent = "Informe nome e e-mail."; return; }
+  if(!isAdminInvite && !role){ errEl.textContent = "Escolha a função do profissional."; return; }
   var btn = document.getElementById("inviteSubmit");
   btn.disabled = true; btn.textContent = "Enviando...";
   authFetch("/api/company/invite", {
@@ -332,6 +335,33 @@ document.getElementById("btnCopyInviteCode").addEventListener("click", function(
   }
 });
 
-document.getElementById("btnCompanyLogout").addEventListener("click", function(){
-  logout();
-});
+// ---------- exportacao: planilha da equipe (valor a pagar de cada profissional) ----------
+function csvCell(v){
+  var t = String(v == null ? "" : v);
+  return /[;"\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+}
+
+function exportCompanyTeamCsv(){
+  if(!companyOverviewData || !companyOverviewData.staff){
+    showToast("A equipe ainda não carregou. Tente de novo em instantes.");
+    return;
+  }
+  var monthKey = monthKeyNow();
+  var rows = [["Nome", "Função", "Valor do mês (R$)"]];
+  var total = 0;
+  companyOverviewData.staff.forEach(function(member){
+    if(!companyRoleCountsFinancially(member)) return;
+    var value = computeStaffMonthlyTotal(member.data, monthKey);
+    total += value;
+    rows.push([member.name, companyRoleLabel(member), value.toFixed(2).replace(".", ",")]);
+  });
+  rows.push(["", "TOTAL", total.toFixed(2).replace(".", ",")]);
+  // ponto e virgula + BOM: o Excel em portugues abre com as colunas e acentos certos
+  var csv = "\uFEFF" + rows.map(function(r){ return r.map(csvCell).join(";"); }).join("\r\n");
+  var blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "equipe-overall-" + monthKey + ".csv";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+document.getElementById("btnCompanyExport").addEventListener("click", exportCompanyTeamCsv);

@@ -58,7 +58,7 @@
     titleRow("RESUMO DO MÊS", FILL_HEADER, "FF3B0764");
     var total = monthTotal(monthObj);
     var salario = total + (Number(monthObj.auxilio) || 0) - (Number(monthObj.consumo) || 0);
-    var resumoLabels = ["Total horas (mês)", "Auxílio", "Consumo Overall", "Salário mensal"];
+    var resumoLabels = ["Total lançado na grade (R$)", "Auxílio (R$)", "Consumo Overall (R$)", "Salário do mês (R$)"];
     var resumoValues = [total, Number(monthObj.auxilio) || 0, Number(monthObj.consumo) || 0, fmtMoney(salario)];
     for(var i = 0; i < 4; i++){
       var lc = ws.getCell(r, 1 + i);

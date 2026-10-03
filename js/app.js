@@ -29,7 +29,7 @@ function roleCategory(){
 // particulares: aluno, horario e valor, sem conceito de falta.
 function applyRoleVisibility(){
   var cat = roleCategory();
-  var showVip = cat === "estagiario" || cat === null;
+  var showVip = cat === "estagiario"; // aluno VIP so o estagiario atende
   var showClients = cat !== "estagiario";
   var showGrade = cat !== "personal";
   var showSchedule = cat === "personal";
@@ -38,11 +38,19 @@ function applyRoleVisibility(){
   var gradeCard = document.getElementById("gradeCard");
   var resumoCard = document.getElementById("resumoCard");
   var gradeAccountSections = document.getElementById("gradeAccountSections");
+  var obsCard = document.getElementById("obsCard");
   var clientScheduleWrap = document.getElementById("clientScheduleWrap");
-  if(vipCard) vipCard.style.display = showVip ? "" : "none";
-  if(clientsCard) clientsCard.style.display = showClients ? "" : "none";
-  if(gradeCard) gradeCard.style.display = showGrade ? "" : "none";
-  if(resumoCard) resumoCard.style.display = showGrade ? "" : "none";
+  // role-off (alem do display) tambem esconde o cartao na impressao do PDF, ver styles.css
+  function setCardVisible(el, show){
+    if(!el) return;
+    el.style.display = show ? "" : "none";
+    el.classList.toggle("role-off", !show);
+  }
+  setCardVisible(vipCard, showVip);
+  setCardVisible(clientsCard, showClients);
+  setCardVisible(gradeCard, showGrade);
+  setCardVisible(resumoCard, showGrade);
+  setCardVisible(obsCard, showGrade);
   if(clientScheduleWrap) clientScheduleWrap.style.display = showSchedule ? "" : "none";
   if(gradeAccountSections) gradeAccountSections.style.display = showGrade ? "" : "none";
 
@@ -85,11 +93,17 @@ async function bootApp(){
     // identidade visual da Overall (classe "brand-view", ver
     // applyColorPolicyForCurrentUser em account.js), sem opção de trocar cor.
     if(typeof applyColorPolicyForCurrentUser === "function") applyColorPolicyForCurrentUser();
+    // "Minha conta" do painel da academia: só senha e cor — nada de grade/valores rápidos/lembrete.
+    var gradeAccount = document.getElementById("gradeAccountSections");
+    if(gradeAccount) gradeAccount.style.display = "none";
+    setAccountLabel();
     // Só o(a) sócio(a) é 100% leitura — dono e gerente convidam/gerenciam.
     if(typeof applyCompanyReadOnlyUI === "function") applyCompanyReadOnlyUI(isPartner());
     if(typeof mountScheduleCard === "function") mountScheduleCard(companyDashboard.querySelector("main"));
     loadCompanyOverview();
     if(typeof loadScheduleMonth === "function") loadScheduleMonth(currentScheduleMonthKey());
+    renderFaq();
+    setupNav();
     maybeShowOnboarding(isPartner() ? "socio" : (isGerente() ? "gerente" : "empresa"));
     return;
   }
@@ -142,6 +156,8 @@ async function bootApp(){
     mountScheduleCard(mainDashboard);
     loadScheduleMonth(currentScheduleMonthKey());
   }
+  renderFaq();
+  setupNav();
   maybeShowOnboarding(isCoordinator() ? "coordenador" : roleCategory());
 }
 

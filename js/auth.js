@@ -88,6 +88,7 @@ function logout(){
   authToken = null;
   currentUser = null;
   resetSyncState();
+  if(typeof teardownNav === "function") teardownNav();
   clearInterval(reminderTimer);
   lastReminderShownKey = null;
   // Restaura a cor salva do aparelho (currentUser já é null aqui, então
@@ -151,6 +152,18 @@ function showAuthView(view){
 // Mostra os campos certos pro tipo de conta escolhido no cadastro: um
 // profissional preenche função + (opcionalmente) o código de convite da
 // academia; uma academia preenche o nome dela em vez disso.
+// Seleciona uma funcao na lista; se o convite trouxe uma funcao antiga que nao
+// esta na lista, acrescenta ela em vez de perder o valor.
+function setRoleSelectValue(sel, value){
+  value = value || "";
+  if(value && !Array.prototype.some.call(sel.options, function(o){ return o.value === value; })){
+    var opt = document.createElement("option");
+    opt.value = value; opt.textContent = value;
+    sel.appendChild(opt);
+  }
+  sel.value = value;
+}
+
 function applyRegAccountTypeUI(type){
   var isCompany = type === "empresa";
   document.getElementById("regRoleWrap").style.display = isCompany ? "none" : "";
@@ -185,7 +198,7 @@ function applyInviteToForm(inviteInfo){
   if(accountTypeWrap) accountTypeWrap.style.display = "none";
   if(inviteCodeWrap) inviteCodeWrap.style.display = "none";
   document.getElementById("regName").value = inviteInfo.name || "";
-  document.getElementById("regRole").value = inviteInfo.role || "";
+  setRoleSelectValue(document.getElementById("regRole"), inviteInfo.role || "");
   document.getElementById("regEmail").value = inviteInfo.email || "";
 }
 
@@ -266,6 +279,10 @@ function initAuthForms(){
     var btn = document.getElementById("registerSubmit");
     if(accountType === "empresa" && !companyName){
       errEl.textContent = "Informe o nome da academia.";
+      return;
+    }
+    if(accountType !== "empresa" && !role){
+      errEl.textContent = "Escolha a sua função.";
       return;
     }
     btn.disabled = true; btn.textContent = "Criando...";
