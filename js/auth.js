@@ -405,6 +405,35 @@ function initAuthForms(){
   });
 }
 
+// Confere no servidor se o papel/academia da pessoa mudou (ex: o dono alterou o
+// acesso dela ou a removeu da academia). Se mudou, guarda o novo e devolve true.
+function refreshCurrentUser(){
+  if(!authToken) return Promise.resolve(false);
+  return authFetch("/api/me").then(function(res){
+    if(res.status === 401){ handleAuthExpired(); return null; }
+    if(!res.ok) return null;
+    return res.json();
+  }).then(function(body){
+    if(!body || !body.user || !currentUser) return false;
+    var u = body.user;
+    var changed = u.companyId !== currentUser.companyId || u.companyRole !== currentUser.companyRole ||
+      u.role !== currentUser.role || u.name !== currentUser.name;
+    if(changed){
+      currentUser = u;
+      try{ localStorage.setItem(USER_KEY, JSON.stringify(u)); }catch(e){}
+    }
+    return changed;
+  }).catch(function(){ return false; });
+}
+
+var lastUserCheck = 0;
+document.addEventListener("visibilitychange", function(){
+  if(document.hidden || !authToken || !currentUser) return;
+  if(Date.now() - lastUserCheck < 120000) return;
+  lastUserCheck = Date.now();
+  refreshCurrentUser().then(function(changed){ if(changed) window.location.reload(); });
+});
+
 function resumeSession(){
   var token = null, user = null;
   try{
@@ -416,6 +445,8 @@ function resumeSession(){
     authToken = token;
     currentUser = user;
     bootApp();
+    lastUserCheck = Date.now();
+    refreshCurrentUser().then(function(changed){ if(changed) window.location.reload(); });
   } else {
     showAuthScreen();
   }

@@ -17,7 +17,9 @@ function applyTheme(theme){
   updateThemeColorMeta();
   var btn = document.getElementById("btnTheme");
   if(btn){
-    btn.textContent = theme === "light" ? "🌙" : "☀️";
+    var ico = btn.querySelector(".nav-ico");
+    var themeIcon = theme === "light" ? "🌙" : "☀️";
+    if(ico) ico.textContent = themeIcon; else btn.textContent = themeIcon;
     btn.title = theme === "light" ? "Mudar para tema escuro" : "Mudar para tema claro";
   }
   try{ localStorage.setItem(THEME_KEY, theme); }catch(e){}
@@ -388,7 +390,12 @@ function initAccountModal(){
         errEl.textContent = authErrorMessage(r.body, "Não consegui trocar a senha.");
         return;
       }
-      okEl.textContent = "Senha alterada com sucesso.";
+      // As outras sessoes (outros aparelhos) caem; esta recebe um token novo.
+      if(r.body && r.body.token){
+        authToken = r.body.token;
+        try{ localStorage.setItem(TOKEN_KEY, r.body.token); }catch(e){}
+      }
+      okEl.textContent = "Senha alterada com sucesso. Em outros aparelhos você vai precisar entrar de novo.";
       document.getElementById("pwForm").reset();
     }).catch(function(err){
       btn.disabled = false; btn.textContent = "Trocar senha";

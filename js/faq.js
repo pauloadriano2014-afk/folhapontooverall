@@ -33,6 +33,12 @@ function faqGroupsFor(kind){
     ];
     groups.push({ title: "Escala", items: sched });
     if(kind !== "socio"){
+      groups.push({ title: "Gestão da equipe", items: [
+        ["Como removo alguém que saiu da academia?", "Em \"Gestão da equipe\", toque em Editar na pessoa e depois em \"Remover da academia\". Ela sai da lista, dos valores e da escala. A conta e os dados pessoais dela (horas e alunos particulares) continuam dela; você só deixa de ver. O que já foi lançado na escala fica guardado."],
+        ["Como troco a função ou o nível de acesso?", "Em \"Gestão da equipe\", toque em Editar. O dono pode dar qualquer nível (profissional, coordenador, gerente ou sócio). O gerente só altera profissionais e coordenadores, e não mexe no dono nem em outros gerentes. A mudança vale na hora."],
+        ["O código de convite vazou. O que eu faço?", "Em \"Convites\", toque em \"Gerar novo código\". O código antigo deixa de valer na hora e quem já entrou continua na academia. Convites enviados por e-mail seguem valendo até serem usados ou cancelados."],
+        ["Como vejo quem alterou o quê?", "Em \"Gestão da equipe\", o \"Histórico de alterações\" mostra quem convidou, alterou ou removeu alguém, com data e hora (últimas 50 ações)."]
+      ]});
       groups.push({ title: "Convites e níveis de acesso", items: [
         ["Como convido alguém?", "Em \"Convites\" você pode passar o código da academia (a pessoa digita ao criar a conta) ou enviar um convite por e-mail já com função e horário de trabalho. Quem entra por convite já fica ligado à academia."],
         ["Quais são os níveis de acesso?", "Profissional: bate ponto e lança as próprias horas. Coordenador(a): bate ponto e também gerencia a escala. Gerente: gerencia equipe, convites e escala, mas não bate ponto. Sócio(a): só acompanha, sem editar nada."]

@@ -22,6 +22,7 @@ function onboardingSteps(kind){
       "Compartilhe o código de convite (ou use \"Convidar profissional por e-mail\") com cada professor, estagiário ou personal da academia.",
       "Ao se cadastrar com o código ou o link, o profissional já aparece automaticamente na sua lista de equipe, ligado à sua academia.",
       "Neste painel você acompanha quanto cada profissional tem a receber no mês pelas horas de sala, calculado a partir do que cada um já lançou. Aluno particular é renda pessoal e nunca aparece aqui; personal trainers não entram na lista.",
+      "Em \"Gestão da equipe\" você troca a função ou o nível de acesso de quem já entrou e remove quem saiu. Em \"Convites\" dá para gerar um novo código se ele vazar.",
       "Se você já sabe o horário de trabalho de alguém, defina ele no convite por e-mail — a pessoa já entra com a escala certa, sem precisar configurar nada.",
       "No convite, escolha o \"Nível de acesso\": Profissional (padrão), Coordenador(a) (também gerencia a escala de fim de semana/feriado), Gerente (gerencia equipe, convites e escala, sem bater ponto) ou Sócio(a) (só acompanha, sem editar nada)."
     ];
@@ -35,7 +36,7 @@ function onboardingSteps(kind){
   }
   if(kind === "gerente"){
     return [
-      "Você gerencia a equipe igual ao dono da academia: convida profissionais e coordenadores(as) por e-mail ou pelo código de convite, e também edita a escala de fim de semana/feriado.",
+      "Você gerencia a equipe quase igual ao dono da academia (em \"Gestão da equipe\" você altera e remove profissionais e coordenadores): convida profissionais e coordenadores(as) por e-mail ou pelo código de convite, e também edita a escala de fim de semana/feriado.",
       "Você vê só o valor das horas de sala, pago pela academia. Aluno particular é renda pessoal de cada profissional e não aparece pra ninguém da academia.",
       "O relatório \"Quem ainda não trabalhou fim de semana/feriado\" ajuda a enxergar rápido se a escala está equilibrada entre a equipe.",
       "Você não bate ponto nem tem grade própria — seu acesso é só o painel de gestão da academia."

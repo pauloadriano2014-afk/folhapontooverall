@@ -137,6 +137,7 @@ function loadCompanyOverview(){
     document.getElementById("companyNameLabel").textContent = r.body.company.name;
     document.getElementById("companyInviteCodeDisplay").value = r.body.company.inviteCode;
     renderCompanyStaffList(r.body.staff, monthKey);
+    if(typeof renderTeamManage === "function") renderTeamManage();
     loadPendingInvites();
   }).catch(function(err){
     if(err && err.message === "auth_expired") return;
@@ -318,6 +319,22 @@ function loadPendingInvites(){
     console.warn("Falha ao carregar convites pendentes:", err);
   });
 }
+
+document.getElementById("btnRotateInviteCode").addEventListener("click", function(){
+  if(!confirm("Gerar um novo código de convite? O código atual deixa de valer na hora (quem já entrou continua na academia). Se você já passou o código atual para alguém que ainda não se cadastrou, precisará passar o novo.")) return;
+  authFetch("/api/company/invite-code/rotate", { method: "POST" }).then(function(res){
+    if(res.status === 401){ handleAuthExpired(); throw new Error("auth_expired"); }
+    return res.json().then(function(body){ return { ok: res.ok, body: body }; });
+  }).then(function(r){
+    if(!r.ok){ showToast(authErrorMessage(r.body, "Não consegui gerar um novo código.")); return; }
+    document.getElementById("companyInviteCodeDisplay").value = r.body.inviteCode;
+    if(companyOverviewData && companyOverviewData.company) companyOverviewData.company.inviteCode = r.body.inviteCode;
+    showToast("Novo código gerado");
+  }).catch(function(err){
+    if(err && err.message === "auth_expired") return;
+    showToast("Sem conexão com o servidor.");
+  });
+});
 
 document.getElementById("btnCopyInviteCode").addEventListener("click", function(){
   var input = document.getElementById("companyInviteCodeDisplay");

@@ -20,6 +20,12 @@
 //
 //   GET  /health      -> healthcheck simples
 //
+// Gestao da equipe (dono e gerente; ver managerCanManage):
+//   PUT    /api/company/staff/:id/access  -> troca funcao e/ou nivel de acesso de alguem
+//   DELETE /api/company/staff/:id         -> tira alguem da academia (a conta e os dados dela continuam dela)
+//   POST   /api/company/invite-code/rotate -> gera um novo codigo de convite (o antigo para de valer)
+//   GET    /api/company/audit             -> historico das alteracoes de equipe
+//
 // "Esqueci minha senha" manda o e-mail usando uma conta Gmail configurada nas
 // variaveis de ambiente SMTP_USER / SMTP_PASS (uma "senha de app" do Gmail, nao a
 // senha normal da conta) — nao precisa de dominio proprio nem configuracao de DNS.
@@ -62,6 +68,13 @@ const pool = new Pool({
   ssl: process.env.DATABASE_SSL === "off" ? false : { rejectUnauthorized: false },
 });
 
+// O banco (Neon) derruba conexoes ociosas de vez em quando. Sem este tratamento,
+// o evento de erro de uma conexao parada derrubaria o servidor inteiro; com ele,
+// o pool apenas descarta a conexao e abre outra na proxima consulta.
+pool.on("error", (err) => {
+  console.error("Conexao ociosa com o banco encerrada (normal; o pool reconecta):", err.message);
+});
+
 var mailer = null;
 if (SMTP_USER && SMTP_PASS) {
   mailer = nodemailer.createTransport({
@@ -72,6 +85,12 @@ if (SMTP_USER && SMTP_PASS) {
   console.warn(
     "SMTP_USER/SMTP_PASS nao configurados: o recurso 'esqueci minha senha' vai ficar desativado ate configurar essas variaveis."
   );
+}
+
+function escapeHtml(value) {
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 function hashToken(token) {
@@ -90,10 +109,10 @@ function sendResetEmail(user, link) {
       link +
       "\n\nSe voce nao pediu isso, pode ignorar este e-mail.",
     html:
-      "<p>Oi, " + user.name + "!</p>" +
+      "<p>Oi, " + escapeHtml(user.name) + "!</p>" +
       "<p>Recebemos um pedido para redefinir sua senha do <strong>Ponto Overall</strong>.</p>" +
-      "<p><a href=\"" + link + "\" style=\"background:#a855f7;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;\">Escolher nova senha</a></p>" +
-      "<p>Ou copie e cole este link no navegador (vale por 1 hora):<br>" + link + "</p>" +
+      "<p><a href=\"" + escapeHtml(link) + "\" style=\"background:#a855f7;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;\">Escolher nova senha</a></p>" +
+      "<p>Ou copie e cole este link no navegador (vale por 1 hora):<br>" + escapeHtml(link) + "</p>" +
       "<p style=\"color:#888;font-size:12px;\">Se voce nao pediu isso, pode ignorar este e-mail.</p>",
   });
 }
@@ -176,6 +195,23 @@ async function ensureTables() {
   // dia (pensado sobretudo pra fim de semana/feriado, onde a escala muda
   // semana a semana). Uma linha por (profissional, dia) — editar de novo no
   // mesmo dia so atualiza a linha existente.
+  // Sessoes: trocar/redefinir a senha incrementa token_version e derruba os
+  // tokens antigos (o JWT carrega a versao com que foi emitido).
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version integer NOT NULL DEFAULT 0;`);
+  // Historico das alteracoes de equipe (quem fez o que, e quando) — base para
+  // qualquer necessidade futura de auditoria.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS company_audit (
+      id serial PRIMARY KEY,
+      company_id integer NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      actor_user_id integer REFERENCES users(id) ON DELETE SET NULL,
+      action text NOT NULL,
+      target_user_id integer REFERENCES users(id) ON DELETE SET NULL,
+      target_name text,
+      detail text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS company_schedule (
       id serial PRIMARY KEY,
@@ -268,10 +304,10 @@ function sendInviteEmail(toEmail, name, companyName, link) {
       link +
       "\n\nSe você não esperava esse convite, pode ignorar este e-mail.",
     html:
-      "<p>Oi, " + name + "!</p>" +
-      "<p><strong>" + companyName + "</strong> te convidou pra usar o <strong>Ponto Overall</strong>.</p>" +
-      "<p><a href=\"" + link + "\" style=\"background:#a855f7;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;\">Completar cadastro</a></p>" +
-      "<p>Ou copie e cole este link no navegador:<br>" + link + "</p>" +
+      "<p>Oi, " + escapeHtml(name) + "!</p>" +
+      "<p><strong>" + escapeHtml(companyName) + "</strong> te convidou pra usar o <strong>Ponto Overall</strong>.</p>" +
+      "<p><a href=\"" + escapeHtml(link) + "\" style=\"background:#a855f7;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block;\">Completar cadastro</a></p>" +
+      "<p>Ou copie e cole este link no navegador:<br>" + escapeHtml(link) + "</p>" +
       "<p style=\"color:#888;font-size:12px;\">Se você não esperava esse convite, pode ignorar este e-mail.</p>",
   });
 }
@@ -295,7 +331,77 @@ async function createCompanyForOwner(ownerUserId, companyName) {
   throw new Error("nao_foi_possivel_gerar_codigo_de_convite");
 }
 
+// ---- gestao de equipe: quem pode mexer em quem ----
+// Hierarquia: dono > gerente > coordenador(a) > profissional. O dono gerencia
+// qualquer um (menos ele mesmo); o gerente so gerencia coordenador(a) e
+// profissional. Socio(a) e coordenador(a) nao gerenciam ninguem.
+function managerCanManage(actorRole, targetRole) {
+  if (targetRole === "owner") return false;
+  if (actorRole === "owner") return true;
+  if (actorRole === "manager") return !targetRole || targetRole === "coordinator";
+  return false;
+}
+// Niveis que cada um pode atribuir ("staff" = profissional comum, company_role nulo).
+function assignableAccessRoles(actorRole) {
+  if (actorRole === "owner") return ["staff", "coordinator", "manager", "partner"];
+  if (actorRole === "manager") return ["staff", "coordinator"];
+  return [];
+}
+function accessRoleToDb(accessRole) {
+  return accessRole === "staff" ? null : accessRole;
+}
+
+async function audit(companyId, actorId, action, targetId, targetName, detail) {
+  try {
+    await pool.query(
+      "INSERT INTO company_audit (company_id, actor_user_id, action, target_user_id, target_name, detail) VALUES ($1, $2, $3, $4, $5, $6)",
+      [companyId, actorId, action, targetId || null, targetName || null, detail || null]
+    );
+  } catch (err) {
+    console.error("Falha ao registrar historico:", err);
+  }
+}
+
+// Limite de tentativas simples, em memoria (suficiente para uma instancia so):
+// segura forca bruta de senha e envio em massa de e-mails.
+function rateLimit(options) {
+  var hits = new Map();
+  var timer = setInterval(function () {
+    var now = Date.now();
+    hits.forEach(function (entry, key) { if (entry.reset <= now) hits.delete(key); });
+  }, options.windowMs);
+  if (timer.unref) timer.unref();
+  return function (req, res, next) {
+    var key = options.key(req);
+    var now = Date.now();
+    var entry = hits.get(key);
+    if (!entry || entry.reset <= now) {
+      entry = { count: 0, reset: now + options.windowMs };
+      hits.set(key, entry);
+    }
+    entry.count++;
+    if (entry.count > options.max) {
+      res.set("Retry-After", String(Math.ceil((entry.reset - now) / 1000)));
+      return res.status(429).json({ error: "too_many_requests", message: options.message });
+    }
+    next();
+  };
+}
+function bodyEmail(req) {
+  return String((req.body && req.body.email) || "").trim().toLowerCase();
+}
+var MIN = 60 * 1000;
+var limitLogin = rateLimit({ windowMs: 15 * MIN, max: 8, key: function (r) { return "login:" + r.ip + ":" + bodyEmail(r); }, message: "Muitas tentativas de login. Aguarde alguns minutos e tente de novo." });
+var limitLoginIp = rateLimit({ windowMs: 15 * MIN, max: 60, key: function (r) { return "loginip:" + r.ip; }, message: "Muitas tentativas de login. Aguarde alguns minutos e tente de novo." });
+var limitRegister = rateLimit({ windowMs: 60 * MIN, max: 15, key: function (r) { return "reg:" + r.ip; }, message: "Muitos cadastros deste aparelho. Tente de novo mais tarde." });
+var limitForgotIp = rateLimit({ windowMs: 60 * MIN, max: 8, key: function (r) { return "forgotip:" + r.ip; }, message: "Muitos pedidos de redefinição. Tente de novo mais tarde." });
+var limitForgotEmail = rateLimit({ windowMs: 60 * MIN, max: 3, key: function (r) { return "forgot:" + bodyEmail(r); }, message: "Já enviamos links para esse e-mail. Confira a caixa de entrada e o spam, ou tente mais tarde." });
+var limitReset = rateLimit({ windowMs: 60 * MIN, max: 15, key: function (r) { return "reset:" + r.ip; }, message: "Muitas tentativas. Tente de novo mais tarde." });
+var limitChangePassword = rateLimit({ windowMs: 15 * MIN, max: 10, key: function (r) { return "chpw:" + r.ip; }, message: "Muitas tentativas. Aguarde alguns minutos." });
+var limitInvite = rateLimit({ windowMs: 60 * MIN, max: 40, key: function (r) { return "invite:" + r.ip; }, message: "Muitos convites em pouco tempo. Tente de novo mais tarde." });
+
 const app = express();
+app.set("trust proxy", 1); // atras do proxy do Render: r.ip e o IP real de quem chamou
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
@@ -311,19 +417,30 @@ function publicUser(row) {
 }
 
 function signToken(row) {
-  return jwt.sign({ uid: row.id }, JWT_SECRET, { expiresIn: TOKEN_TTL });
+  return jwt.sign({ uid: row.id, tv: row.token_version || 0 }, JWT_SECRET, { expiresIn: TOKEN_TTL });
 }
 
-function auth(req, res, next) {
+async function auth(req, res, next) {
   var header = req.header("authorization") || "";
   var token = header.indexOf("Bearer ") === 0 ? header.slice(7) : null;
   if (!token) return res.status(401).json({ error: "no_token" });
+  var payload;
   try {
-    var payload = jwt.verify(token, JWT_SECRET);
-    req.userId = payload.uid;
-    next();
+    payload = jwt.verify(token, JWT_SECRET);
   } catch (e) {
     return res.status(401).json({ error: "invalid_token" });
+  }
+  try {
+    // Token emitido antes de uma troca/redefinicao de senha deixa de valer.
+    var r = await pool.query("SELECT token_version FROM users WHERE id = $1", [payload.uid]);
+    if (r.rows.length === 0 || (r.rows[0].token_version || 0) !== (payload.tv || 0)) {
+      return res.status(401).json({ error: "invalid_token" });
+    }
+    req.userId = payload.uid;
+    next();
+  } catch (err) {
+    console.error("Erro ao validar sessao:", err);
+    res.status(500).json({ error: "internal_error" });
   }
 }
 
@@ -331,7 +448,7 @@ app.get("/health", (req, res) => {
   res.json({ ok: true });
 });
 
-app.post("/api/register", async (req, res) => {
+app.post("/api/register", limitRegister, async (req, res) => {
   var body = req.body || {};
   var accountType = String(body.accountType || "profissional").trim(); // "profissional" (padrao, compativel com o app antigo) ou "empresa"
   var name = String(body.name || "").trim();
@@ -425,7 +542,7 @@ app.post("/api/register", async (req, res) => {
   }
 });
 
-app.post("/api/login", async (req, res) => {
+app.post("/api/login", limitLoginIp, limitLogin, async (req, res) => {
   var body = req.body || {};
   var email = String(body.email || "").trim().toLowerCase();
   var password = String(body.password || "");
@@ -525,7 +642,7 @@ app.get("/api/company/overview", auth, async (req, res) => {
 // manda por e-mail (reaproveitando o mesmo SMTP do "esqueci minha senha").
 // Continua tambem devolvendo o link na resposta, pra quem preferir mandar
 // por WhatsApp em vez de depender do e-mail.
-app.post("/api/company/invite", auth, async (req, res) => {
+app.post("/api/company/invite", auth, limitInvite, async (req, res) => {
   var body = req.body || {};
   var name = String(body.name || "").trim();
   var email = String(body.email || "").trim().toLowerCase();
@@ -556,6 +673,7 @@ app.post("/api/company/invite", auth, async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [companyId, token, name, role, email, shiftStart || null, shiftEnd || null, weekendShift, accessRole]
     );
+    await audit(companyId, req.userId, "invite_created", null, name, accessRole + (role ? " · " + role : "") + " · " + email);
     var link = APP_URL.replace(/\/+$/, "") + "/?invite=" + token;
     var emailSent = false;
     if (mailer) {
@@ -636,13 +754,144 @@ app.delete("/api/company/invite/:id", auth, async (req, res) => {
     if (!isCompanyManager(me.rows[0].company_role) || !me.rows[0].company_id) {
       return res.status(403).json({ error: "not_owner" });
     }
-    await pool.query(
-      "DELETE FROM company_invites WHERE id = $1 AND company_id = $2 AND used_at IS NULL",
+    var cancelled = await pool.query(
+      "DELETE FROM company_invites WHERE id = $1 AND company_id = $2 AND used_at IS NULL RETURNING name, email",
       [req.params.id, me.rows[0].company_id]
     );
+    if (cancelled.rows.length) await audit(me.rows[0].company_id, req.userId, "invite_cancelled", null, cancelled.rows[0].name, cancelled.rows[0].email);
     res.json({ ok: true });
   } catch (err) {
     console.error("Erro no DELETE /api/company/invite/:id:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// ---------- gestao da equipe ----------
+// Dados de quem esta agindo (papel e academia), usado pelas rotas abaixo.
+async function loadActor(userId) {
+  var me = await pool.query("SELECT id, name, company_id, company_role FROM users WHERE id = $1", [userId]);
+  return me.rows[0] || null;
+}
+
+// Trocar a funcao (estagiario/professor/personal) e/ou o nivel de acesso de alguem.
+app.put("/api/company/staff/:id/access", auth, async (req, res) => {
+  try {
+    var actor = await loadActor(req.userId);
+    if (!actor || !actor.company_id || !isCompanyManager(actor.company_role)) {
+      return res.status(403).json({ error: "not_allowed", message: "Só o dono ou o(a) gerente podem alterar a equipe." });
+    }
+    var targetId = parseInt(req.params.id, 10);
+    if (isNaN(targetId)) return res.status(400).json({ error: "invalid_input" });
+    if (targetId === actor.id) {
+      return res.status(400).json({ error: "invalid_target", message: "Você não pode alterar o seu próprio acesso." });
+    }
+    var target = await pool.query("SELECT id, name, role, company_id, company_role FROM users WHERE id = $1", [targetId]);
+    var t = target.rows[0];
+    if (!t || t.company_id !== actor.company_id) return res.status(404).json({ error: "not_found" });
+    if (!managerCanManage(actor.company_role, t.company_role)) {
+      return res.status(403).json({ error: "not_allowed", message: "Você não tem permissão para alterar essa pessoa." });
+    }
+    var body = req.body || {};
+    var newRole = typeof body.role === "string" ? body.role.trim() : null;
+    var newAccess = typeof body.accessRole === "string" ? body.accessRole.trim() : null;
+    if (newRole !== null && newRole.length > 60) return res.status(400).json({ error: "invalid_input", message: "Função muito longa." });
+    if (newAccess !== null && assignableAccessRoles(actor.company_role).indexOf(newAccess) === -1) {
+      return res.status(403).json({ error: "not_allowed", message: "Você não pode atribuir esse nível de acesso." });
+    }
+    var changes = [];
+    if (newRole !== null && newRole !== (t.role || "")) {
+      await pool.query("UPDATE users SET role = $1 WHERE id = $2", [newRole, targetId]);
+      changes.push("função: " + (t.role || "—") + " → " + (newRole || "—"));
+    }
+    if (newAccess !== null && accessRoleToDb(newAccess) !== (t.company_role || null)) {
+      await pool.query("UPDATE users SET company_role = $1 WHERE id = $2", [accessRoleToDb(newAccess), targetId]);
+      changes.push("acesso: " + (t.company_role || "staff") + " → " + newAccess);
+    }
+    if (changes.length) await audit(actor.company_id, actor.id, "member_updated", targetId, t.name, changes.join("; "));
+    res.json({ ok: true, changed: changes.length > 0 });
+  } catch (err) {
+    console.error("Erro no PUT /api/company/staff/:id/access:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Tira alguem da academia. A conta e os dados pessoais da pessoa (horas,
+// alunos particulares) continuam dela — so o vinculo com a academia acaba, e
+// com ele o acesso do dono/gerente aos valores e a presenca na escala. O
+// historico de escala ja lancado fica guardado.
+app.delete("/api/company/staff/:id", auth, async (req, res) => {
+  try {
+    var actor = await loadActor(req.userId);
+    if (!actor || !actor.company_id || !isCompanyManager(actor.company_role)) {
+      return res.status(403).json({ error: "not_allowed", message: "Só o dono ou o(a) gerente podem remover alguém da equipe." });
+    }
+    var targetId = parseInt(req.params.id, 10);
+    if (isNaN(targetId)) return res.status(400).json({ error: "invalid_input" });
+    if (targetId === actor.id) {
+      return res.status(400).json({ error: "invalid_target", message: "Você não pode remover a si mesmo." });
+    }
+    var target = await pool.query("SELECT id, name, company_id, company_role FROM users WHERE id = $1", [targetId]);
+    var t = target.rows[0];
+    if (!t || t.company_id !== actor.company_id) return res.status(404).json({ error: "not_found" });
+    if (!managerCanManage(actor.company_role, t.company_role)) {
+      return res.status(403).json({ error: "not_allowed", message: "Você não tem permissão para remover essa pessoa." });
+    }
+    await pool.query("UPDATE users SET company_id = NULL, company_role = NULL WHERE id = $1", [targetId]);
+    await audit(actor.company_id, actor.id, "member_removed", targetId, t.name, "acesso que tinha: " + (t.company_role || "staff"));
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro no DELETE /api/company/staff/:id:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Gera um codigo de convite novo; o antigo deixa de valer na hora (quem ja
+// entrou continua na academia).
+app.post("/api/company/invite-code/rotate", auth, async (req, res) => {
+  try {
+    var actor = await loadActor(req.userId);
+    if (!actor || !actor.company_id || !isCompanyManager(actor.company_role)) {
+      return res.status(403).json({ error: "not_allowed", message: "Só o dono ou o(a) gerente podem gerar um novo código." });
+    }
+    for (var attempt = 0; attempt < 5; attempt++) {
+      var code = randomInviteCode();
+      try {
+        await pool.query("UPDATE companies SET invite_code = $1 WHERE id = $2", [code, actor.company_id]);
+        await audit(actor.company_id, actor.id, "invite_code_rotated", null, null, null);
+        return res.json({ ok: true, inviteCode: code });
+      } catch (err) {
+        if (err && err.code === "23505") continue;
+        throw err;
+      }
+    }
+    res.status(500).json({ error: "internal_error" });
+  } catch (err) {
+    console.error("Erro no POST /api/company/invite-code/rotate:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Historico das alteracoes de equipe (dono, gerente e socio(a) so leem).
+app.get("/api/company/audit", auth, async (req, res) => {
+  try {
+    var actor = await loadActor(req.userId);
+    if (!actor || !actor.company_id || ["owner", "manager", "partner"].indexOf(actor.company_role) === -1) {
+      return res.status(403).json({ error: "not_allowed" });
+    }
+    var result = await pool.query(
+      `SELECT a.id, a.action, a.target_name, a.detail, a.created_at, u.name AS actor_name
+       FROM company_audit a LEFT JOIN users u ON u.id = a.actor_user_id
+       WHERE a.company_id = $1
+       ORDER BY a.created_at DESC, a.id DESC
+       LIMIT 50`,
+      [actor.company_id]
+    );
+    res.json({ entries: result.rows.map((r) => ({
+      id: r.id, action: r.action, targetName: r.target_name || "", detail: r.detail || "",
+      actorName: r.actor_name || "—", createdAt: r.created_at,
+    })) });
+  } catch (err) {
+    console.error("Erro no GET /api/company/audit:", err);
     res.status(500).json({ error: "internal_error" });
   }
 });
@@ -832,7 +1081,7 @@ app.delete("/api/company/schedule/:id", auth, async (req, res) => {
   }
 });
 
-app.post("/api/change-password", auth, async (req, res) => {
+app.post("/api/change-password", auth, limitChangePassword, async (req, res) => {
   var body = req.body || {};
   var currentPassword = String(body.currentPassword || "");
   var newPassword = String(body.newPassword || "");
@@ -845,15 +1094,19 @@ app.post("/api/change-password", auth, async (req, res) => {
     var ok = await bcrypt.compare(currentPassword, result.rows[0].password_hash);
     if (!ok) return res.status(401).json({ error: "wrong_password", message: "Senha atual incorreta." });
     var hash = await bcrypt.hash(newPassword, 10);
-    await pool.query("UPDATE users SET password_hash = $1 WHERE id = $2", [hash, req.userId]);
-    res.json({ ok: true });
+    var updated = await pool.query(
+      "UPDATE users SET password_hash = $1, token_version = token_version + 1 WHERE id = $2 RETURNING id, token_version",
+      [hash, req.userId]
+    );
+    // As outras sessoes (outros aparelhos) caem; esta recebe um token novo.
+    res.json({ ok: true, token: signToken(updated.rows[0]) });
   } catch (err) {
     console.error("Erro no /api/change-password:", err);
     res.status(500).json({ error: "internal_error" });
   }
 });
 
-app.post("/api/forgot-password", async (req, res) => {
+app.post("/api/forgot-password", limitForgotIp, limitForgotEmail, async (req, res) => {
   var body = req.body || {};
   var email = String(body.email || "").trim().toLowerCase();
   if (!email) {
@@ -892,7 +1145,7 @@ app.post("/api/forgot-password", async (req, res) => {
   }
 });
 
-app.post("/api/reset-password", async (req, res) => {
+app.post("/api/reset-password", limitReset, async (req, res) => {
   var body = req.body || {};
   var token = String(body.token || "");
   var newPassword = String(body.newPassword || "");
@@ -914,7 +1167,7 @@ app.post("/api/reset-password", async (req, res) => {
     var userId = result.rows[0].id;
     var hash = await bcrypt.hash(newPassword, 10);
     await pool.query(
-      "UPDATE users SET password_hash = $1, reset_token_hash = NULL, reset_token_expires = NULL WHERE id = $2",
+      "UPDATE users SET password_hash = $1, reset_token_hash = NULL, reset_token_expires = NULL, token_version = token_version + 1 WHERE id = $2",
       [hash, userId]
     );
     res.json({ ok: true });

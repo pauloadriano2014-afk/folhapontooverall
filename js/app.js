@@ -186,7 +186,14 @@ var deferredPrompt = null;
 var installBanner = document.getElementById("installBanner");
 var installText = document.getElementById("installText");
 
+// O aviso de "Instalar" so faz sentido no celular; no computador o proprio
+// navegador ja oferece instalar (icone na barra de endereco), sem nosso aviso.
+function isMobileDevice(){
+  return /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints > 1 && window.matchMedia("(pointer:coarse)").matches);
+}
 window.addEventListener("beforeinstallprompt", function(e){
+  if(!isMobileDevice()) return;
   e.preventDefault();
   deferredPrompt = e;
   installBanner.classList.add("show");
@@ -203,7 +210,7 @@ document.getElementById("btnInstall").addEventListener("click", function(){
 (function checkIOS(){
   var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
   var isStandalone = window.navigator.standalone === true || window.matchMedia("(display-mode: standalone)").matches;
-  if(isIOS && !isStandalone){
+  if(isIOS && !isStandalone && isMobileDevice()){
     installText.textContent = "No iPhone: toque em Compartilhar e depois \"Adicionar à Tela de Início\".";
     installBanner.classList.add("show");
   }

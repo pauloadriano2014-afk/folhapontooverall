@@ -105,11 +105,13 @@
     <button type="button" class="nav-item" data-view="vip" hidden><span class="nav-ico" aria-hidden="true">⭐</span><span class="nav-label"><span class="l-long">Alunos VIP</span><span class="l-short">VIP</span></span></button>
     <button type="button" class="nav-item" data-view="clientes" hidden><span class="nav-ico" aria-hidden="true">🏋️</span><span class="nav-label"><span class="l-long">Alunos particulares</span><span class="l-short">Particulares</span></span></button>
     <button type="button" class="nav-item" data-view="equipe" hidden><span class="nav-ico" aria-hidden="true">💰</span><span class="nav-label"><span class="l-long">Equipe e valores</span><span class="l-short">Equipe</span></span></button>
+    <button type="button" class="nav-item" data-view="gestao" hidden><span class="nav-ico" aria-hidden="true">🛠️</span><span class="nav-label"><span class="l-long">Gestão da equipe</span><span class="l-short">Gestão</span></span></button>
     <button type="button" class="nav-item" data-view="escala" hidden><span class="nav-ico" aria-hidden="true">📅</span><span class="nav-label"><span class="l-long">Escala da equipe</span><span class="l-short">Escala</span></span></button>
     <button type="button" class="nav-item" data-view="convites" hidden><span class="nav-ico" aria-hidden="true">✉️</span><span class="nav-label"><span class="l-long">Convites</span><span class="l-short">Convites</span></span></button>
     <button type="button" class="nav-item" data-view="exportacao" hidden><span class="nav-ico" aria-hidden="true">📤</span><span class="nav-label"><span class="l-long">Exportação</span><span class="l-short">Exportar</span></span></button>
     <button type="button" class="nav-item" data-view="duvidas" hidden><span class="nav-ico" aria-hidden="true">❓</span><span class="nav-label"><span class="l-long">Dúvidas</span><span class="l-short">Dúvidas</span></span></button>
-    <button type="button" class="nav-item nav-sep" id="btnAccount" title="Senha, cor do tema, horários e lembrete"><span class="nav-ico" aria-hidden="true">👤</span><span class="nav-label"><span class="l-long">Minha conta</span><span class="l-short">Conta</span><small id="accountLabel"></small></span></button>
+    <button type="button" class="nav-item nav-sep" id="btnTheme" title="Alternar tema claro/escuro"><span class="nav-ico" aria-hidden="true">🌙</span><span class="nav-label"><span class="l-long">Tema claro/escuro</span><span class="l-short">Tema</span></span></button>
+    <button type="button" class="nav-item" id="btnAccount" title="Senha, cor do tema, horários e lembrete"><span class="nav-ico" aria-hidden="true">👤</span><span class="nav-label"><span class="l-long">Minha conta</span><span class="l-short">Conta</span><small id="accountLabel"></small></span></button>
     <button type="button" class="nav-item" id="btnNavLogout"><span class="nav-ico" aria-hidden="true">🚪</span><span class="nav-label">Sair</span></button>
   </div>
 </nav>
@@ -122,7 +124,6 @@
     <button class="small month-only" id="btnToday" title="Ir para hoje e lançar o horário">Hoje</button>
     <button class="small month-only" id="btnNewMonth" title="Criar a grade de um mês novo">+ Novo mês</button>
     <button class="small month-only" id="btnApplyHolidays" title="Marcar automaticamente os feriados nacionais e de Curitiba/PR neste mês">Marcar feriados</button>
-    <button class="small no-print" id="btnTheme" title="Alternar tema claro/escuro">🌙</button>
     <span id="syncStatus" class="sync-status no-print" title="Sincronizando..."><span class="icon" id="syncIcon">🔄</span><span id="syncLabel">Sincronizando</span></span>
   </div>
 </header>
@@ -286,6 +287,7 @@
       <div class="custom-input" style="max-width:320px;">
         <input type="text" id="companyInviteCodeDisplay" readonly style="font-weight:800;letter-spacing:2px;text-align:center;" />
         <button class="small" id="btnCopyInviteCode">Copiar código</button>
+        <button class="small ghost" id="btnRotateInviteCode" title="O código atual deixa de valer">Gerar novo código</button>
       </div>
       <div class="row-actions">
         <button class="small primary" id="btnOpenInvite">+ Convidar profissional por e-mail</button>
@@ -306,6 +308,20 @@
         <label>Total da equipe este mês</label>
         <div class="value" id="companyMonthTotal" style="color:var(--good);font-size:20px;">R$ 0,00</div>
       </div>
+    </div>
+
+    <div class="card no-print" id="companyManageCard" data-view="gestao">
+      <h2>Gestão da equipe</h2>
+      <p class="account-section-hint" style="margin:-4px 0 10px;">
+        Troque a função ou o nível de acesso de quem já está na academia, ou remova quem saiu. Ao remover, a pessoa sai da equipe, dos valores e da escala; a conta e os dados pessoais dela (horas e alunos particulares) continuam dela.
+      </p>
+      <div id="teamManageList"></div>
+    </div>
+
+    <div class="card no-print" id="companyAuditCard" data-view="gestao">
+      <h2>Histórico de alterações</h2>
+      <p class="account-section-hint" style="margin:-4px 0 10px;">Quem alterou a equipe, o quê e quando (últimas 50 ações).</p>
+      <div id="teamAuditList"></div>
     </div>
 
     <div class="card no-print" id="scheduleCard" data-view="escala" style="display:none;">
@@ -556,6 +572,37 @@
   </div>
 </div>
 
+<!-- Editar pessoa da equipe (academia) -->
+<div class="overlay" id="staffEditOverlay">
+  <div class="sheet">
+    <button class="close ghost small" data-close>Fechar</button>
+    <h3 id="staffEditTitle">Editar</h3>
+    <p class="sub" id="staffEditSub"></p>
+    <form id="staffEditForm" class="auth-form">
+      <label id="staffEditAccessWrap">Nível de acesso
+        <div class="client-days-grid" id="staffEditAccessGrid"></div>
+      </label>
+      <label id="staffEditRoleWrap">Função
+        <select id="staffEditRole">
+          <option value="">Sem função definida</option>
+          <option value="Estagiário">Estagiário</option>
+          <option value="Professor">Professor</option>
+          <option value="Personal Trainer">Personal Trainer</option>
+        </select>
+      </label>
+      <div class="auth-error" id="staffEditError"></div>
+      <button type="submit" class="primary" id="staffEditSave">Salvar alterações</button>
+    </form>
+    <div class="account-section">
+      <h3>Remover da academia</h3>
+      <p class="account-section-hint">A pessoa sai da equipe, dos valores e da escala. A conta e os dados pessoais dela continuam dela; você só deixa de ver.</p>
+      <div class="row-actions">
+        <button class="small bad" id="btnStaffRemove" type="button">Remover da academia</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Convidar profissional (academia) -->
 <div class="overlay" id="inviteOverlay">
   <div class="sheet">
@@ -689,6 +736,7 @@
 <script src="js/schedule.js"></script>
 <script src="js/export.js"></script>
 <script src="js/faq.js"></script>
+<script src="js/team.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/app.js"></script>
 </body>

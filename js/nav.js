@@ -14,7 +14,7 @@ var currentView = null;
 function navItemsForCurrentUser(){
   if(typeof isCompanyAdminView === "function" && isCompanyAdminView()){
     var items = ["equipe", "escala"];
-    if(!isPartner()) items.push("convites");
+    if(!isPartner()) items.push("gestao", "convites");
     items.push("exportacao", "duvidas");
     return items;
   }
@@ -49,6 +49,7 @@ function showView(view){
     btn.classList.toggle("active", btn.getAttribute("data-view") === view);
   });
   document.body.setAttribute("data-view", view);
+  if(view === "gestao" && typeof loadTeamAudit === "function") loadTeamAudit();
   document.body.classList.toggle("hide-month", MONTH_VIEWS.indexOf(view) < 0);
   if(currentUser){
     try{ localStorage.setItem(NAV_VIEW_KEY + currentUser.id, view); }catch(e){}
@@ -69,6 +70,8 @@ function setupNav(){
   });
   var account = document.getElementById("btnAccount");
   var logoutBtn = document.getElementById("btnNavLogout");
+  var themeBtn = document.getElementById("btnTheme");
+  if(themeBtn) themeBtn.style.order = "49";
   if(account) account.style.order = "50";
   if(logoutBtn) logoutBtn.style.order = "51";
   nav.style.display = "block";
