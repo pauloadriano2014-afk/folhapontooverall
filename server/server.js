@@ -287,6 +287,9 @@ function canonicalRole(raw) {
   for (var i = 0; i < ALLOWED_ROLES.length; i++) {
     if (stripAccents(ALLOWED_ROLES[i]).toLowerCase() === norm) return { role: ALLOWED_ROLES[i], module: false };
   }
+  // formas no feminino ("Estagiária", "Professora") valem como a funcao correspondente
+  if (norm.indexOf("estagi") === 0) return { role: "Estagiário", module: false };
+  if (norm.indexOf("professor") === 0) return { role: "Professor", module: false };
   return { invalid: true };
 }
 var INVALID_ROLE_MSG = "Função inválida. Escolha Estagiário ou Professor.";
