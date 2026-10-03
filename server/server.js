@@ -16,6 +16,7 @@
 // Rotas de dados (exigem o token no header "Authorization: Bearer <token>"):
 //   GET  /api/state   -> devolve o JSON salvo dessa conta (ou null se nunca salvou)
 //   PUT  /api/state   -> substitui o JSON salvo dessa conta pelo corpo da requisicao
+//                        (com header X-Base-Version: 409 se outro aparelho salvou antes)
 //
 //   GET  /health      -> healthcheck simples
 //
@@ -57,7 +58,8 @@ if (!JWT_SECRET) {
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  // DATABASE_SSL=off so pra rodar com um Postgres local, sem SSL (testes).
+  ssl: process.env.DATABASE_SSL === "off" ? false : { rejectUnauthorized: false },
 });
 
 var mailer = null;
@@ -489,8 +491,10 @@ app.get("/api/company/overview", auth, async (req, res) => {
       viewerRole: myRole,
       company: { name: company.rows[0].name, inviteCode: company.rows[0].invite_code },
       staff: staff.rows.map((row) => {
+        // Alunos particulares sao renda pessoal do profissional: ninguem da
+        // academia (nem dono, nem socio, nem gerente) ve — o servidor nem manda.
         var staffData = row.data || null;
-        if (staffData && myRole === "manager") {
+        if (staffData) {
           staffData = Object.assign({}, staffData, { clients: [] });
         }
         return {
@@ -927,19 +931,55 @@ app.get("/api/state", auth, async (req, res) => {
   }
 });
 
+// Salvar com controle de versao: o app manda no header X-Base-Version o
+// "updated_at" que ele viu por ultimo (ou "none" se o servidor ainda nao tinha
+// nada). Se o servidor mudou desde entao (outro aparelho salvou, ou a gerencia
+// editou o horario), a gravacao e recusada com 409 e devolve a versao atual —
+// assim nenhum aparelho sobrescreve em silencio o que outro salvou. Sem o
+// header (app antigo em cache) mantem o comportamento de antes.
 app.put("/api/state", auth, async (req, res) => {
   var payload = req.body;
   if (!payload || typeof payload !== "object") {
     return res.status(400).json({ error: "invalid_body" });
   }
+  var base = req.header("x-base-version");
   try {
-    var result = await pool.query(
-      `INSERT INTO user_state (user_id, data, updated_at)
-       VALUES ($1, $2, now())
-       ON CONFLICT (user_id) DO UPDATE SET data = $2, updated_at = now()
-       RETURNING updated_at`,
-      [req.userId, payload]
-    );
+    var result;
+    if (!base) {
+      result = await pool.query(
+        `INSERT INTO user_state (user_id, data, updated_at)
+         VALUES ($1, $2, now())
+         ON CONFLICT (user_id) DO UPDATE SET data = $2, updated_at = now()
+         RETURNING updated_at`,
+        [req.userId, payload]
+      );
+    } else if (base === "none") {
+      result = await pool.query(
+        `INSERT INTO user_state (user_id, data, updated_at)
+         VALUES ($1, $2, now())
+         ON CONFLICT (user_id) DO NOTHING
+         RETURNING updated_at`,
+        [req.userId, payload]
+      );
+    } else {
+      if (isNaN(new Date(base).getTime())) {
+        return res.status(400).json({ error: "invalid_base_version" });
+      }
+      result = await pool.query(
+        `UPDATE user_state SET data = $2, updated_at = now()
+         WHERE user_id = $1 AND date_trunc('milliseconds', updated_at) = $3::timestamptz
+         RETURNING updated_at`,
+        [req.userId, payload, base]
+      );
+    }
+    if (result.rows.length === 0) {
+      var current = await pool.query("SELECT data, updated_at FROM user_state WHERE user_id = $1", [req.userId]);
+      return res.status(409).json({
+        error: "version_conflict",
+        data: current.rows[0] ? current.rows[0].data : null,
+        updated_at: current.rows[0] ? current.rows[0].updated_at : null,
+      });
+    }
     res.json({ ok: true, updated_at: result.rows[0].updated_at });
   } catch (err) {
     console.error("Erro no PUT /api/state:", err);

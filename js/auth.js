@@ -87,7 +87,7 @@ function onAuthSuccess(user, token){
 function logout(){
   authToken = null;
   currentUser = null;
-  clearTimeout(syncTimer);
+  resetSyncState();
   clearInterval(reminderTimer);
   lastReminderShownKey = null;
   // Restaura a cor salva do aparelho (currentUser já é null aqui, então
