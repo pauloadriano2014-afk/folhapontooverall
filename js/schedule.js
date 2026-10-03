@@ -145,21 +145,18 @@ function renderScheduleWeekendReport(){
     el.innerHTML = "<p style='font-size:12px;color:var(--text-dim);margin:4px 0;'>Sem profissionais na equipe ainda.</p>";
     return;
   }
+  el.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;";
+  rows.sort(function(a, b){ return b.count - a.count || a.name.localeCompare(b.name); });
   rows.forEach(function(r){
-    var row = document.createElement("div");
-    row.className = "client-row";
-    var info = document.createElement("div");
-    info.className = "client-info";
-    var name = document.createElement("strong");
-    name.textContent = r.name;
-    if(r.count === 0) name.style.color = "var(--warn)";
-    info.appendChild(name);
-    row.appendChild(info);
-    var valueEl = document.createElement("div");
-    valueEl.className = "client-value";
-    valueEl.textContent = r.count + "x";
-    row.appendChild(valueEl);
-    el.appendChild(row);
+    var chip = document.createElement("span");
+    chip.className = "roster-load-chip" + (r.count === 0 ? " zero" : "");
+    var nm = document.createElement("span");
+    nm.textContent = r.name.split(" ")[0];
+    var n = document.createElement("b");
+    n.textContent = r.count;
+    chip.title = r.name + ": " + r.count + "x";
+    chip.appendChild(nm); chip.appendChild(n);
+    el.appendChild(chip);
   });
 }
 
@@ -256,6 +253,7 @@ if(btnStaffScheduleEditSaveEl){
       showToast("Horário atualizado");
       closeOverlays();
       loadScheduleMonth(scheduleMonthKey);
+      if(typeof loadCoordTeam === "function" && currentView === "minhaequipe") loadCoordTeam();
     }).catch(function(err){
       if(err && err.message === "auth_expired") return;
       btn.disabled = false; btn.textContent = "Salvar";

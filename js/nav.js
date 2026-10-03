@@ -13,7 +13,7 @@ var currentView = null;
 // Quais categorias cada perfil enxerga, na ordem do menu. O primeiro é a tela inicial.
 function navItemsForCurrentUser(){
   if(typeof isCompanyAdminView === "function" && isCompanyAdminView()){
-    var items = ["equipe", "escala", "presenca"];
+    var items = ["equipe", "minhaequipe", "escala", "presenca"];
     if(!isPartner()) items.push("gestao", "convites");
     if(isGerente() && currentUser.personalModule) items.push("clientes");
     items.push("exportacao", "duvidas");
@@ -82,6 +82,14 @@ function setupNav(){
     // mantém a ordem definida acima (o menu é reordenado de acordo com o perfil)
     if(show) btn.style.order = String(allowed.indexOf(btn.getAttribute("data-view")));
   });
+  // para dono/gerente/socio a aba de equipe sem valores chama "Horários e plantões"
+  var adminTeam = nav.querySelector('.nav-item[data-view="minhaequipe"]');
+  if(adminTeam){
+    var admin = typeof isCompanyAdminView === "function" && isCompanyAdminView();
+    var lg = adminTeam.querySelector(".l-long"), sh = adminTeam.querySelector(".l-short");
+    if(lg) lg.textContent = admin ? "Horários e plantões" : "Minha equipe";
+    if(sh) sh.textContent = admin ? "Horários" : "Equipe";
+  }
   var account = document.getElementById("btnAccount");
   var logoutBtn = document.getElementById("btnNavLogout");
   var themeBtn = document.getElementById("btnTheme");

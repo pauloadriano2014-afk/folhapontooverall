@@ -67,7 +67,7 @@ function loadRoster(){
     if(!r.ok){ document.getElementById("rosterPubStatus").textContent = (r.body && r.body.message) || "Não consegui carregar a escala."; return; }
     rosterData = r.body;
     renderRoster();
-    if(document.getElementById("rosterDayOverlay").classList.contains("open") && rosterActiveDate) renderRosterDay();
+    if(document.getElementById("rosterDayOverlay").classList.contains("open") && rosterActiveDate && !rosterDraft) renderRosterDay();
   }).catch(function(err){
     if(err && err.message === "auth_expired") return;
     document.getElementById("rosterPubStatus").textContent = "Sem conexão com o servidor.";
@@ -171,22 +171,48 @@ function renderRoster(){
   });
 }
 
+var rosterDraft = null; // {shiftTypeId: [userId]} — rascunho do dia, so grava ao salvar
+
 function openRosterDay(dateKey){
   rosterActiveDate = dateKey;
+  rosterDraft = null;
   renderRosterDay();
   document.getElementById("rosterDayOverlay").classList.add("open");
+}
+
+function hmToMin(t){ var p = String(t || "0:0").split(":"); return parseInt(p[0], 10) * 60 + parseInt(p[1], 10); }
+function shiftsOverlap(a, b){ return hmToMin(a.startTime) < hmToMin(b.endTime) && hmToMin(b.startTime) < hmToMin(a.endTime); }
+
+function rosterDraftInit(dk){
+  rosterDraft = {};
+  (rosterData.shiftTypes || []).forEach(function(t){ rosterDraft[t.id] = []; });
+  rosterEntriesOn(dk).forEach(function(e){ if(rosterDraft[e.shiftTypeId]) rosterDraft[e.shiftTypeId].push(e.userId); });
+}
+
+// diferenca entre o rascunho e o que ja esta salvo
+function rosterDraftDiff(dk){
+  var saved = rosterEntriesOn(dk), adds = [], removes = [];
+  saved.forEach(function(e){ if((rosterDraft[e.shiftTypeId] || []).indexOf(e.userId) < 0) removes.push(e); });
+  Object.keys(rosterDraft).forEach(function(tid){
+    rosterDraft[tid].forEach(function(uid){
+      var has = saved.some(function(e){ return e.shiftTypeId === parseInt(tid, 10) && e.userId === uid; });
+      if(!has) adds.push({ shiftTypeId: parseInt(tid, 10), userId: uid });
+    });
+  });
+  return { adds: adds, removes: removes };
 }
 
 function renderRosterDay(){
   var dk = rosterActiveDate;
   var holiday = holidaysForDateKey(dk);
+  var canManage = !!rosterData.canManage;
+  if(!rosterDraft) rosterDraftInit(dk);
   document.getElementById("rosterDayTitle").textContent = dateLabelBr(dk);
-  document.getElementById("rosterDaySub").textContent = holiday ? "Feriado: " + holiday : (rosterData.canManage ? "Escolha quem faz cada turno neste dia." : "Escala deste dia (só consulta).");
+  document.getElementById("rosterDaySub").textContent = holiday ? "Feriado: " + holiday : (canManage ? "Escolha as pessoas de cada turno e salve uma vez só." : "Escala deste dia (só consulta).");
   var wrap = document.getElementById("rosterDayShifts");
   wrap.innerHTML = "";
-  var canManage = !!rosterData.canManage;
-  var entries = rosterEntriesOn(dk);
-  (rosterData.shiftTypes || []).forEach(function(t){
+  var types = rosterData.shiftTypes || [];
+  types.forEach(function(t){
     var box = document.createElement("div");
     box.className = "roster-shift";
     var head = document.createElement("div");
@@ -195,7 +221,7 @@ function renderRosterDay(){
     head.querySelector("strong").textContent = t.name;
     head.querySelector("span").textContent = shiftHours(t);
     box.appendChild(head);
-    var mine = entries.filter(function(e){ return e.shiftTypeId === t.id; });
+    var mine = rosterDraft[t.id] || [];
     var list = document.createElement("div");
     list.className = "roster-people";
     if(mine.length === 0){
@@ -204,15 +230,16 @@ function renderRosterDay(){
       empty.textContent = "Ninguém escalado";
       list.appendChild(empty);
     }
-    mine.forEach(function(e){
+    mine.forEach(function(uid){
       var chip = document.createElement("span");
       chip.className = "roster-person";
-      chip.appendChild(document.createTextNode(rosterStaffName(e.userId)));
+      chip.appendChild(document.createTextNode(rosterStaffName(uid)));
       if(canManage){
         var x = document.createElement("button");
         x.type = "button"; x.className = "roster-x"; x.title = "Tirar da escala"; x.textContent = "✕";
         x.addEventListener("click", function(){
-          authFetch("/api/company/roster/entries/" + e.id, { method: "DELETE" }).then(function(){ loadRoster(); });
+          rosterDraft[t.id] = rosterDraft[t.id].filter(function(id){ return id !== uid; });
+          renderRosterDay();
         });
         chip.appendChild(x);
       }
@@ -220,35 +247,64 @@ function renderRosterDay(){
     });
     box.appendChild(list);
     if(canManage){
-      var assigned = {}; mine.forEach(function(e){ assigned[e.userId] = true; });
-      var candidates = (rosterData.staff || []).filter(function(s){ return !assigned[s.id] && shiftAllows(t.kind, s.role); });
+      var candidates = (rosterData.staff || []).filter(function(st){
+        if(mine.indexOf(st.id) >= 0 || !shiftAllows(t.kind, st.role)) return false;
+        // quem ja esta num turno que se sobrepoe a este, no mesmo dia, nao entra de novo
+        return !types.some(function(o){ return o.id !== t.id && shiftsOverlap(o, t) && (rosterDraft[o.id] || []).indexOf(st.id) >= 0; });
+      });
+      var sel = document.createElement("select");
+      var o0 = document.createElement("option"); o0.value = ""; o0.textContent = candidates.length ? "+ Adicionar pessoa…" : "Ninguém disponível para este turno";
+      sel.appendChild(o0);
+      candidates.forEach(function(st){ var o = document.createElement("option"); o.value = st.id; o.textContent = st.name; sel.appendChild(o); });
+      sel.disabled = candidates.length === 0;
+      sel.addEventListener("change", function(){
+        if(!sel.value) return;
+        rosterDraft[t.id].push(parseInt(sel.value, 10));
+        renderRosterDay();
+      });
       var row = document.createElement("div");
       row.className = "roster-add";
-      var sel = document.createElement("select");
-      var o0 = document.createElement("option"); o0.value = ""; o0.textContent = candidates.length ? "Escolher pessoa…" : "Ninguém disponível para este turno";
-      sel.appendChild(o0);
-      candidates.forEach(function(s){ var o = document.createElement("option"); o.value = s.id; o.textContent = s.name; sel.appendChild(o); });
-      sel.disabled = candidates.length === 0;
-      var add = document.createElement("button");
-      add.type = "button"; add.className = "small primary"; add.textContent = "Adicionar";
-      var err = document.createElement("div");
-      err.className = "auth-error";
-      add.addEventListener("click", function(){
-        if(!sel.value){ err.textContent = "Escolha uma pessoa."; return; }
-        err.textContent = "";
-        authFetch("/api/company/roster/entries", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ date: dk, shiftTypeId: t.id, userId: parseInt(sel.value, 10) })
-        }).then(function(res){ return res.json().then(function(b){ return { ok: res.ok, body: b }; }); })
-          .then(function(r){ if(!r.ok){ rosterErr(err, r, "Não consegui escalar."); return; } loadRoster(); })
-          .catch(function(){ err.textContent = "Sem conexão com o servidor."; });
-      });
-      row.appendChild(sel); row.appendChild(add);
-      box.appendChild(row); box.appendChild(err);
+      row.appendChild(sel);
+      box.appendChild(row);
     }
     wrap.appendChild(box);
   });
+  var foot = document.getElementById("rosterDayFoot");
+  if(foot){
+    foot.style.display = canManage ? "" : "none";
+    var diff = rosterDraftDiff(dk), n = diff.adds.length + diff.removes.length;
+    var btn = document.getElementById("btnRosterDaySave");
+    btn.disabled = n === 0;
+    btn.textContent = n === 0 ? "Nada para salvar" : "Salvar escala do dia (" + n + (n === 1 ? " alteração)" : " alterações)");
+    document.getElementById("rosterDayError").textContent = "";
+  }
 }
+
+(function(){
+  var btn = document.getElementById("btnRosterDaySave");
+  if(!btn) return;
+  btn.addEventListener("click", function(){
+    var dk = rosterActiveDate, diff = rosterDraftDiff(dk), err = document.getElementById("rosterDayError");
+    err.textContent = "";
+    btn.disabled = true; btn.textContent = "Salvando…";
+    var steps = diff.removes.map(function(e){ return function(){ return authFetch("/api/company/roster/entries/" + e.id, { method: "DELETE" }).then(function(res){ return { ok: res.ok, body: {} }; }); }; })
+      .concat(diff.adds.map(function(a){ return function(){
+        return authFetch("/api/company/roster/entries", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date: dk, shiftTypeId: a.shiftTypeId, userId: a.userId }) })
+          .then(function(res){ return res.json().then(function(b){ return { ok: res.ok, body: b }; }); });
+      }; }));
+    var failed = null;
+    steps.reduce(function(p, step){
+      return p.then(function(){ if(failed) return; return step().then(function(r){ if(!r.ok) failed = r; }); });
+    }, Promise.resolve()).then(function(){
+      rosterDraft = null;
+      return authFetch("/api/company/roster?month=" + encodeURIComponent(rosterMonth())).then(function(res){ return res.json(); }).then(function(b){
+        rosterData = b; renderRoster(); renderRosterDay();
+        if(failed){ rosterErr(document.getElementById("rosterDayError"), failed, "Não consegui salvar tudo."); }
+        else { showToast("Escala do dia salva."); document.getElementById("rosterDayOverlay").classList.remove("open"); }
+      });
+    }).catch(function(){ err.textContent = "Sem conexão com o servidor."; btn.disabled = false; });
+  });
+})();
 
 document.getElementById("btnRosterPrev").addEventListener("click", function(){ rosterMonthKey = shiftMonthKey(rosterMonth(), -1); loadRoster(); });
 document.getElementById("btnRosterNext").addEventListener("click", function(){ rosterMonthKey = shiftMonthKey(rosterMonth(), 1); loadRoster(); });
@@ -466,6 +522,8 @@ function loadCoordTeam(){
   var month = coordTeamMonth();
   document.getElementById("coordTeamMonthLabel").textContent = monthLabel(month);
   document.getElementById("coordTeamMonth").textContent = monthLabel(month);
+  var h2 = document.querySelector("#coordTeamCard h2");
+  if(h2 && h2.firstChild) h2.firstChild.textContent = (typeof isCompanyAdminView === "function" && isCompanyAdminView() ? "Horários e plantões" : "Minha equipe") + " — ";
   function get(url){
     return authFetch(url).then(function(res){
       if(res.status === 401){ handleAuthExpired(); throw new Error("auth_expired"); }
@@ -520,6 +578,12 @@ function renderCoordTeam(sched, roster){
     }
     line("Presença: " + att.trabalhou + " trabalhou · " + att.falta + " faltou · " + att.coberto + " coberto");
     row.appendChild(info);
+    if(sched.canEditStaffSchedule){
+      var edit = document.createElement("button");
+      edit.type = "button"; edit.className = "small"; edit.textContent = "Editar horário";
+      edit.addEventListener("click", function(){ openStaffScheduleEditModal(u); });
+      row.appendChild(edit);
+    }
     list.appendChild(row);
   });
 }

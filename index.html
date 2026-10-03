@@ -428,15 +428,8 @@
       <div class="table-wrap">
         <table id="scheduleCalendarTable" class="schedule-calendar"></table>
       </div>
-      <h3 style="margin:20px 0 6px;font-size:13px;color:var(--text-dim);">Quem ainda não trabalhou fim de semana/feriado este mês</h3>
+      <h3 style="margin:20px 0 6px;font-size:13px;color:var(--text-dim);">Fins de semana e feriados trabalhados neste mês <span style="font-weight:400;">(cinza = ainda não trabalhou)</span></h3>
       <div id="scheduleWeekendReport"></div>
-      <div id="scheduleStaffEditSection" style="display:none;">
-        <h3 style="margin:20px 0 6px;font-size:13px;color:var(--text-dim);">Horário de trabalho da equipe (segunda a sexta)</h3>
-        <p class="account-section-hint" style="margin:-4px 0 10px;">
-          Gerente e coordenador(a) editam o horário de cada profissional aqui.
-        </p>
-        <div id="scheduleStaffEditList"></div>
-      </div>
     </div>
 
     <div class="card no-print" id="companyExportCard" data-view="exportacao">
@@ -849,6 +842,10 @@
     <h3 id="rosterDayTitle">Dia</h3>
     <p class="sub" id="rosterDaySub"></p>
     <div id="rosterDayShifts"></div>
+    <div id="rosterDayFoot" class="auth-form">
+      <div class="auth-error" id="rosterDayError"></div>
+      <button type="button" class="primary" id="btnRosterDaySave">Salvar escala do dia</button>
+    </div>
   </div>
 </div>
 
