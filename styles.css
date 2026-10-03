@@ -630,6 +630,11 @@
   .roster-people{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; min-height:30px; align-items:center; }
   .roster-person{ display:inline-flex; align-items:center; gap:6px; padding:5px 6px 5px 10px; border-radius:999px; background:var(--bg-panel); border:1px solid var(--border); font-size:13px; font-weight:600; }
   .roster-x{ border:0; background:transparent; color:var(--bad); padding:0 4px; font-size:12px; cursor:pointer; }
+  #rosterLoad{ display:flex; flex-wrap:wrap; gap:6px; }
+  .roster-load-chip{ display:inline-flex; align-items:center; gap:8px; padding:4px 6px 4px 11px; border-radius:999px; background:var(--bg-panel-2); border:1px solid var(--border); font-size:13px; font-weight:600; }
+  .roster-load-chip b{ min-width:22px; text-align:center; padding:2px 6px; border-radius:999px; background:var(--accent); color:#fff; font-size:12px; }
+  .roster-load-chip.zero{ color:var(--text-dim); font-weight:500; }
+  .roster-load-chip.zero b{ background:transparent; color:var(--text-dim); border:1px solid var(--border); }
   .roster-empty{ font-size:12px; color:var(--text-dim); }
   .roster-add{ display:flex; gap:8px; }
   .roster-add select{ flex:1; min-width:0; }

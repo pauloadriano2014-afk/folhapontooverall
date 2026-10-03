@@ -1,6 +1,6 @@
 // Service worker - Ponto Overall
 // Bump this on every deploy that changes cached files so clients pick up the update.
-const CACHE_VERSION = "v48";
+const CACHE_VERSION = "v49";
 const CACHE_NAME = "ponto-overall-" + CACHE_VERSION;
 
 const APP_SHELL = [
@@ -50,6 +50,10 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
+  // So guarda arquivos do proprio site. Chamadas da API (outro dominio) e
+  // esquemas como chrome-extension:// passam direto, senao dados ficam velhos.
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin || url.pathname.indexOf("/api/") >= 0) return;
 
   const isHTML = req.mode === "navigate" || (req.headers.get("accept") || "").includes("text/html");
 

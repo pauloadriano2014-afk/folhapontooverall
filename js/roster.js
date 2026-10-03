@@ -155,20 +155,19 @@ function renderRoster(){
   var counts = {};
   rosterData.entries.forEach(function(e){ counts[e.userId] = (counts[e.userId] || 0) + 1; });
   var rows = (rosterData.staff || []).map(function(s){ return { name: s.name, count: counts[s.id] || 0 }; });
-  rows.sort(function(a, b){ return a.count - b.count || a.name.localeCompare(b.name); });
+  rows.sort(function(a, b){ return b.count - a.count || a.name.localeCompare(b.name); });
   var load = document.getElementById("rosterLoad");
   load.innerHTML = "";
   rows.forEach(function(row){
-    var line = document.createElement("div");
-    line.className = "client-row";
-    var nm = document.createElement("strong");
-    nm.textContent = row.name;
-    if(row.count === 0) nm.style.color = "var(--warn)";
-    var v = document.createElement("div");
-    v.className = "client-value";
-    v.textContent = row.count + (row.count === 1 ? " plantão" : " plantões");
-    line.appendChild(nm); line.appendChild(v);
-    load.appendChild(line);
+    var chip = document.createElement("span");
+    chip.className = "roster-load-chip" + (row.count === 0 ? " zero" : "");
+    chip.title = row.name + ": " + row.count + (row.count === 1 ? " plantão" : " plantões") + " neste mês";
+    var nm = document.createElement("span");
+    nm.textContent = row.name.split(" ")[0];
+    var n = document.createElement("b");
+    n.textContent = row.count;
+    chip.appendChild(nm); chip.appendChild(n);
+    load.appendChild(chip);
   });
 }
 
