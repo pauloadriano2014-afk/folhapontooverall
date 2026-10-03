@@ -106,6 +106,8 @@
     <button type="button" class="nav-item" data-view="gestao" hidden><span class="nav-ico" aria-hidden="true">🛠️</span><span class="nav-label"><span class="l-long">Gestão da equipe</span><span class="l-short">Gestão</span></span></button>
     <button type="button" class="nav-item" data-view="escala" hidden><span class="nav-ico" aria-hidden="true">📅</span><span class="nav-label"><span class="l-long">Escala da equipe</span><span class="l-short">Escala</span></span></button>
     <button type="button" class="nav-item" data-view="convites" hidden><span class="nav-ico" aria-hidden="true">✉️</span><span class="nav-label"><span class="l-long">Convites</span><span class="l-short">Convites</span></span></button>
+    <button type="button" class="nav-item" data-view="minhaescala" hidden><span class="nav-ico" aria-hidden="true">📅</span><span class="nav-label"><span class="l-long">Escala da equipe</span><span class="l-short">Escala</span></span></button>
+    <button type="button" class="nav-item" data-view="avisos" hidden><span class="nav-ico" aria-hidden="true">🔔</span><span class="nav-label"><span class="l-long">Avisos</span><span class="l-short">Avisos</span></span><span class="nav-badge" id="avisosBadge" hidden></span></button>
     <button type="button" class="nav-item" data-view="exportacao" hidden><span class="nav-ico" aria-hidden="true">📤</span><span class="nav-label"><span class="l-long">Exportação</span><span class="l-short">Exportar</span></span></button>
     <button type="button" class="nav-item" data-view="duvidas" hidden><span class="nav-ico" aria-hidden="true">❓</span><span class="nav-label"><span class="l-long">Dúvidas</span><span class="l-short">Dúvidas</span></span></button>
     <button type="button" class="nav-item nav-sep" id="btnTheme" title="Modo claro/escuro e combinação de cores"><span class="nav-ico" aria-hidden="true">🎨</span><span class="nav-label"><span class="l-long">Tema e cores</span><span class="l-short">Tema</span></span></button>
@@ -235,6 +237,26 @@
     </div>
   </div>
 
+  <div class="card no-print" id="myRosterCard" data-view="minhaescala">
+    <h2>Escala da equipe</h2>
+    <p class="account-section-hint" style="margin:-4px 0 10px;">Os plantões de fim de semana e feriado publicados pela coordenação. Quando sai uma escala nova ou a sua muda, você recebe um aviso.</p>
+    <div class="month-bar" style="margin-bottom:8px;">
+      <button class="small" id="btnMyRosterPrev" aria-label="Mês anterior">‹</button>
+      <strong id="myRosterMonthLabel" style="flex:1;text-align:center;"></strong>
+      <button class="small" id="btnMyRosterNext" aria-label="Próximo mês">›</button>
+    </div>
+    <div id="myRosterStatus"></div>
+    <h3 class="export-group-title" style="margin-top:6px;">Seus plantões</h3>
+    <div id="myRosterMine"></div>
+    <h3 class="export-group-title">Equipe no mês</h3>
+    <div id="myRosterTeam"></div>
+  </div>
+
+  <div class="card no-print notices-card" data-view="avisos">
+    <h2>Avisos</h2>
+    <div class="notices-body"></div>
+  </div>
+
   <div class="card no-print" id="exportCard" data-view="exportacao">
     <h2 id="exportTitle">Exportação</h2>
     <p class="account-section-hint" style="margin:-4px 0 12px;">Baixe ou imprima o mês de <strong id="exportMonthLabel"></strong>. Para trocar o mês, use o seletor no topo da tela.</p>
@@ -340,10 +362,40 @@
       <div id="teamAuditList"></div>
     </div>
 
-    <div class="card no-print" id="scheduleCard" data-view="escala" style="display:none;">
-      <h2>Escala da equipe — fim de semana/feriado</h2>
+    <div class="card no-print" id="rosterCard" data-view="escala" style="display:none;">
+      <h2>Escala planejada — fim de semana e feriado</h2>
       <p class="account-section-hint" style="margin:-4px 0 10px;">
-        Quem trabalhou, faltou ou foi coberto em cada fim de semana/feriado. Toque num dia pra ver ou lançar.
+        Monte quem faz cada turno e publique. A equipe só enxerga depois de publicada e as pessoas escaladas são avisadas. Toque num dia para escalar.
+      </p>
+      <div class="month-bar" style="margin-bottom:8px;">
+        <button class="small" id="btnRosterPrev" aria-label="Mês anterior">‹</button>
+        <strong id="rosterMonthLabel" style="flex:1;text-align:center;"></strong>
+        <button class="small" id="btnRosterNext" aria-label="Próximo mês">›</button>
+      </div>
+      <div class="roster-pub">
+        <span id="rosterPubStatus" class="pill pill-off">Carregando…</span>
+        <div class="row-actions" style="margin-top:0;">
+          <button class="small" id="btnRosterShifts">Turnos e horários</button>
+          <button class="small primary" id="btnRosterPublish">Publicar</button>
+        </div>
+      </div>
+      <div id="rosterLegend" class="roster-legend"></div>
+      <div class="table-wrap">
+        <table id="rosterCalendarTable" class="schedule-calendar"></table>
+      </div>
+      <h3 style="margin:20px 0 6px;font-size:13px;color:var(--text-dim);">Plantões de cada pessoa neste mês</h3>
+      <div id="rosterLoad"></div>
+    </div>
+
+    <div class="card no-print notices-card" data-view="avisos">
+      <h2>Avisos</h2>
+      <div class="notices-body"></div>
+    </div>
+
+<div class="card no-print" id="scheduleCard" data-view="escala" style="display:none;">
+      <h2>Registro de presença — quem trabalhou</h2>
+      <p class="account-section-hint" style="margin:-4px 0 10px;">
+        Depois do dia, registre quem trabalhou, faltou ou foi coberto. Toque num dia pra ver ou lançar.
       </p>
       <div class="month-bar" style="margin-bottom:8px;">
         <button class="small" id="btnSchedulePrevMonth">‹</button>
@@ -763,6 +815,27 @@
   </div>
 </div>
 
+<!-- Escala planejada: um dia -->
+<div class="overlay" id="rosterDayOverlay">
+  <div class="sheet">
+    <button class="close ghost small" data-close>Fechar</button>
+    <h3 id="rosterDayTitle">Dia</h3>
+    <p class="sub" id="rosterDaySub"></p>
+    <div id="rosterDayShifts"></div>
+  </div>
+</div>
+
+<!-- Escala planejada: turnos e horarios -->
+<div class="overlay" id="shiftTypesOverlay">
+  <div class="sheet">
+    <button class="close ghost small" data-close>Fechar</button>
+    <h3>Turnos e horários</h3>
+    <p class="sub">Defina os turnos da escala de fim de semana e feriado, os horários e para quem é cada um. Pode mudar quando quiser.</p>
+    <div id="shiftTypesList"></div>
+    <div class="auth-error" id="shiftTypesError"></div>
+  </div>
+</div>
+
 <!-- Tutorial inicial -->
 <div class="overlay" id="onboardingOverlay">
   <div class="sheet ob-sheet" role="dialog" aria-labelledby="onboardingTitle">
@@ -804,6 +877,7 @@
 <script src="js/export.js"></script>
 <script src="js/faq.js"></script>
 <script src="js/team.js"></script>
+<script src="js/roster.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/app.js"></script>
 </body>

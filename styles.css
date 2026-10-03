@@ -606,3 +606,45 @@
   :root[data-theme="light"] body.brand-view :is(button.primary, .nav-item.active, .mode-btn.active, .auth-tab.active),
   :root[data-theme="light"] .auth-screen :is(button.primary, .auth-tab.active){ color:#ffffff; }
 
+  /* ---------- escala planejada e avisos ---------- */
+  .nav-item{ position:relative; }
+  .nav-badge{
+    margin-left:auto; min-width:18px; height:18px; padding:0 5px; border-radius:9px; font-size:11px; font-weight:800;
+    display:inline-flex; align-items:center; justify-content:center; background:var(--accent-2); color:#fff;
+  }
+  .nav-badge[hidden]{ display:none !important; }
+  @media(max-width:899px){ .nav-badge{ position:absolute; top:2px; right:6px; margin:0; } }
+  .pill{ display:inline-block; padding:5px 10px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid var(--border); }
+  .pill-off{ color:var(--text-dim); background:var(--bg-panel-2); }
+  .pill-ok{ color:var(--good); border-color:var(--good); }
+  .pill-warn{ color:var(--warn); border-color:var(--warn); }
+  .roster-pub{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+  .roster-legend{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+  .roster-legend-chip{ font-size:11px; padding:3px 8px; border-radius:6px; background:var(--bg-panel-2); border:1px solid var(--border); color:var(--text-dim); }
+  .roster-count{ font-size:10px; font-weight:800; }
+  .roster-full{ color:var(--good); }
+  .roster-gap{ color:var(--warn); }
+  .roster-shift{ border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:10px; background:var(--bg-panel-2); }
+  .roster-shift-head{ display:flex; justify-content:space-between; gap:8px; margin-bottom:8px; }
+  .roster-shift-head span{ color:var(--text-dim); font-size:13px; }
+  .roster-people{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; min-height:30px; align-items:center; }
+  .roster-person{ display:inline-flex; align-items:center; gap:6px; padding:5px 6px 5px 10px; border-radius:999px; background:var(--bg-panel); border:1px solid var(--border); font-size:13px; font-weight:600; }
+  .roster-x{ border:0; background:transparent; color:var(--bad); padding:0 4px; font-size:12px; cursor:pointer; }
+  .roster-empty{ font-size:12px; color:var(--text-dim); }
+  .roster-add{ display:flex; gap:8px; }
+  .roster-add select{ flex:1; min-width:0; }
+  .shift-edit{ display:grid; grid-template-columns:1fr; gap:8px; padding:12px; margin-bottom:10px; border:1px solid var(--border); border-radius:12px; background:var(--bg-panel-2); }
+  .shift-edit input, .shift-edit select{ width:100%; }
+  .shift-times{ display:flex; gap:6px; align-items:center; }
+  .shift-times input{ flex:1; min-width:0; }
+  .roster-mine{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; padding:10px 12px; margin-bottom:6px; border:1px solid var(--border); border-radius:10px; background:var(--bg-panel-2); }
+  .roster-mine span{ color:var(--text-dim); font-size:13px; }
+  .roster-mine em{ margin-left:auto; font-style:normal; font-size:11px; font-weight:800; color:var(--accent); text-transform:uppercase; letter-spacing:.5px; }
+  .roster-next{ border-color:var(--accent); }
+  .roster-day{ padding:10px 0; border-bottom:1px solid var(--border); }
+  .roster-day-line{ display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; font-size:13px; padding-top:4px; }
+  .roster-day-line span:first-child{ color:var(--text-dim); }
+  .notice{ padding:12px; margin-bottom:8px; border:1px solid var(--border); border-radius:12px; background:var(--bg-panel-2); }
+  .notice-new{ border-color:var(--accent); }
+  .notice-body{ white-space:pre-line; font-size:13px; color:var(--text-dim); margin:4px 0 6px; line-height:1.5; }
+

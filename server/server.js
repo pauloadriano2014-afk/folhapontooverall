@@ -26,6 +26,14 @@
 //   POST   /api/company/invite-code/rotate -> gera um novo codigo de convite (o antigo para de valer)
 //   GET    /api/company/audit             -> historico das alteracoes de equipe
 //
+// Escala planejada por turno e avisos:
+//   GET    /api/company/roster?month=     -> rascunho + estado da publicacao (dono/gerente/coordenador/socio)
+//   POST   /api/company/roster/entries    -> escala alguem num turno de um dia (DELETE .../:id tira)
+//   POST   /api/company/roster/publish    -> publica o mes e avisa quem foi afetado
+//   GET    /api/me/roster?month=          -> a escala PUBLICADA, para qualquer pessoa da academia
+//   *      /api/company/shift-types       -> turnos e horarios (padrao: estagiario 8-13 e 13-18, professor 10-14)
+//   GET    /api/me/notifications          -> avisos da pessoa (POST .../read marca como lidos)
+//
 // "Esqueci minha senha" manda o e-mail usando uma conta Gmail configurada nas
 // variaveis de ambiente SMTP_USER / SMTP_PASS (uma "senha de app" do Gmail, nao a
 // senha normal da conta) — nao precisa de dominio proprio nem configuracao de DNS.
@@ -235,6 +243,57 @@ async function ensureTables() {
       created_at timestamptz NOT NULL DEFAULT now()
     );
   `);
+  // Escala planejada por turno (estagiario de manha/tarde, professor das 10 as 14...),
+  // publicada para a equipe, e avisos para quem foi escalado.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS company_shift_types (
+      id serial PRIMARY KEY,
+      company_id integer NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      name text NOT NULL,
+      start_time text NOT NULL,
+      end_time text NOT NULL,
+      kind text NOT NULL DEFAULT 'any',
+      sort_order integer NOT NULL DEFAULT 0,
+      active boolean NOT NULL DEFAULT true,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS company_roster_entries (
+      id serial PRIMARY KEY,
+      company_id integer NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      date text NOT NULL,
+      shift_type_id integer NOT NULL REFERENCES company_shift_types(id) ON DELETE CASCADE,
+      user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_by integer REFERENCES users(id) ON DELETE SET NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE(date, shift_type_id, user_id)
+    );
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_roster_entries_company_date ON company_roster_entries(company_id, date);`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS company_roster_months (
+      company_id integer NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      month text NOT NULL,
+      published_at timestamptz,
+      published_by integer REFERENCES users(id) ON DELETE SET NULL,
+      snapshot jsonb,
+      PRIMARY KEY (company_id, month)
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_notifications (
+      id serial PRIMARY KEY,
+      user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      company_id integer REFERENCES companies(id) ON DELETE CASCADE,
+      kind text NOT NULL,
+      title text NOT NULL,
+      body text,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      read_at timestamptz
+    );
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user ON user_notifications(user_id, read_at);`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS company_schedule (
       id serial PRIMARY KEY,
@@ -1101,6 +1160,352 @@ app.put("/api/company/staff/:id/schedule", auth, async (req, res) => {
     res.json({ ok: true, timeSlots: suggested.timeSlots, weekendShiftEnabled: suggested.weekendShiftEnabled });
   } catch (err) {
     console.error("Erro no PUT /api/company/staff/:id/schedule:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// ---------- escala planejada (por turno) + avisos ----------
+// O coordenador (ou gerente/dono) monta quem faz cada turno nos fins de semana e
+// feriados e PUBLICA; a equipe so ve a versao publicada, e quem foi afetado
+// recebe um aviso (dentro do app e, se o e-mail estiver configurado, por e-mail).
+var PT_WEEKDAYS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+var PT_MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+function monthNamePt(month) {
+  var p = month.split("-");
+  return PT_MONTHS[parseInt(p[1], 10) - 1] + " de " + p[0];
+}
+function dateLabelPt(date) {
+  var d = new Date(date + "T12:00:00Z");
+  return PT_WEEKDAYS[d.getUTCDay()] + " " + date.slice(8, 10) + "/" + date.slice(5, 7);
+}
+function isHHMM(t) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(String(t || "")); }
+function timeToMin(t) { var p = String(t).split(":"); return parseInt(p[0], 10) * 60 + parseInt(p[1], 10); }
+var SHIFT_KINDS = ["estagiario", "professor", "any"];
+// Estagiario so entra em turno de estagiario; professor (e coordenador) em turno de professor.
+function kindAllows(kind, userRole) {
+  var trainee = isTraineeRole(userRole);
+  if (kind === "estagiario") return trainee;
+  if (kind === "professor") return !trainee;
+  return true;
+}
+function validMonth(m) { return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(m || "")); }
+
+async function ensureDefaultShiftTypes(companyId) {
+  var has = await pool.query("SELECT 1 FROM company_shift_types WHERE company_id = $1 LIMIT 1", [companyId]);
+  if (has.rows.length > 0) return;
+  var defaults = [
+    ["Estagiário — manhã", "08:00", "13:00", "estagiario"],
+    ["Estagiário — tarde", "13:00", "18:00", "estagiario"],
+    ["Professor", "10:00", "14:00", "professor"],
+  ];
+  for (var i = 0; i < defaults.length; i++) {
+    await pool.query(
+      "INSERT INTO company_shift_types (company_id, name, start_time, end_time, kind, sort_order) VALUES ($1, $2, $3, $4, $5, $6)",
+      [companyId, defaults[i][0], defaults[i][1], defaults[i][2], defaults[i][3], i]
+    );
+  }
+}
+
+async function rosterTypes(companyId) {
+  var r = await pool.query(
+    "SELECT id, name, start_time, end_time, kind FROM company_shift_types WHERE company_id = $1 AND active ORDER BY sort_order, id",
+    [companyId]
+  );
+  return r.rows.map((t) => ({ id: t.id, name: t.name, startTime: t.start_time, endTime: t.end_time, kind: t.kind }));
+}
+
+async function rosterSnapshotKeys(companyId, month) {
+  var r = await pool.query(
+    "SELECT user_id, date, shift_type_id FROM company_roster_entries WHERE company_id = $1 AND date LIKE $2",
+    [companyId, month + "-%"]
+  );
+  return r.rows.map((e) => e.user_id + "|" + e.date + "|" + e.shift_type_id).sort();
+}
+
+function sameKeys(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+
+async function rosterActor(userId) {
+  var r = await pool.query("SELECT id, name, role, company_id, company_role FROM users WHERE id = $1", [userId]);
+  return r.rows[0] || null;
+}
+
+// Visao de quem gerencia/acompanha: rascunho completo + estado da publicacao.
+app.get("/api/company/roster", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id || !isScheduleViewer(me.company_role)) {
+      return res.status(403).json({ error: "not_allowed", message: "Você não tem acesso à escala da equipe." });
+    }
+    var month = String(req.query.month || "").trim();
+    if (!validMonth(month)) return res.status(400).json({ error: "invalid_month" });
+    await ensureDefaultShiftTypes(me.company_id);
+    var types = await rosterTypes(me.company_id);
+    var staff = await pool.query(
+      `SELECT id, name, role, company_role FROM users
+       WHERE company_id = $1 AND (company_role IS NULL OR company_role = 'coordinator') ORDER BY name ASC`,
+      [me.company_id]
+    );
+    var entries = await pool.query(
+      "SELECT id, date, shift_type_id, user_id FROM company_roster_entries WHERE company_id = $1 AND date LIKE $2 ORDER BY date, id",
+      [me.company_id, month + "-%"]
+    );
+    var mrow = await pool.query("SELECT published_at, snapshot FROM company_roster_months WHERE company_id = $1 AND month = $2", [me.company_id, month]);
+    var published = mrow.rows[0] && mrow.rows[0].published_at ? mrow.rows[0] : null;
+    var current = entries.rows.map((e) => e.user_id + "|" + e.date + "|" + e.shift_type_id).sort();
+    res.json({
+      canManage: isScheduleManager(me.company_role),
+      shiftTypes: types,
+      staff: staff.rows.map((u) => ({ id: u.id, name: u.name, role: u.role || "", companyRole: u.company_role || null })),
+      entries: entries.rows.map((e) => ({ id: e.id, date: e.date, shiftTypeId: e.shift_type_id, userId: e.user_id })),
+      publication: {
+        published: !!published,
+        publishedAt: published ? published.published_at : null,
+        changedSincePublish: !!published && !sameKeys((published.snapshot || []).slice().sort(), current),
+      },
+    });
+  } catch (err) {
+    console.error("Erro no GET /api/company/roster:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Visao da equipe: so a versao PUBLICADA, para qualquer pessoa da academia.
+app.get("/api/me/roster", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id) return res.status(403).json({ error: "not_allowed", message: "Você não está ligado a uma academia." });
+    var month = String(req.query.month || "").trim();
+    if (!validMonth(month)) return res.status(400).json({ error: "invalid_month" });
+    var mrow = await pool.query("SELECT published_at, snapshot FROM company_roster_months WHERE company_id = $1 AND month = $2", [me.company_id, month]);
+    var row = mrow.rows[0];
+    if (!row || !row.published_at) return res.json({ published: false, shiftTypes: [], entries: [] });
+    var types = await rosterTypes(me.company_id);
+    var typeIds = {}; types.forEach((t) => { typeIds[t.id] = true; });
+    var users = await pool.query("SELECT id, name, role FROM users WHERE company_id = $1", [me.company_id]);
+    var names = {}; users.rows.forEach((u) => { names[u.id] = u.name; });
+    var entries = [];
+    (row.snapshot || []).forEach((k) => {
+      var p = k.split("|");
+      var uid = parseInt(p[0], 10), sid = parseInt(p[2], 10);
+      if (names[uid] && typeIds[sid]) entries.push({ date: p[1], shiftTypeId: sid, userId: uid, userName: names[uid] });
+    });
+    entries.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.shiftTypeId - b.shiftTypeId));
+    res.json({ published: true, publishedAt: row.published_at, shiftTypes: types, entries: entries, me: me.id });
+  } catch (err) {
+    console.error("Erro no GET /api/me/roster:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+app.post("/api/company/roster/entries", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id || !isScheduleManager(me.company_role)) {
+      return res.status(403).json({ error: "not_allowed", message: "Você não pode editar a escala da equipe." });
+    }
+    var body = req.body || {};
+    var date = String(body.date || "").trim();
+    var typeId = parseInt(body.shiftTypeId, 10), userId = parseInt(body.userId, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !typeId || !userId) return res.status(400).json({ error: "invalid_input" });
+    var type = await pool.query("SELECT id, name, start_time, end_time, kind FROM company_shift_types WHERE id = $1 AND company_id = $2 AND active", [typeId, me.company_id]);
+    if (type.rows.length === 0) return res.status(400).json({ error: "invalid_shift", message: "Turno não encontrado." });
+    var target = await pool.query("SELECT id, name, role, company_role FROM users WHERE id = $1 AND company_id = $2", [userId, me.company_id]);
+    var t = target.rows[0];
+    if (!t || !(t.company_role === null || t.company_role === "coordinator")) {
+      return res.status(400).json({ error: "invalid_user", message: "Essa pessoa não entra na escala de turnos." });
+    }
+    if (!kindAllows(type.rows[0].kind, t.role)) {
+      var needs = type.rows[0].kind === "estagiario" ? "estagiário(a)" : "professor(a)";
+      return res.status(400).json({ error: "wrong_kind", message: t.name + " não pode fazer este turno: ele é para " + needs + "." });
+    }
+    // a mesma pessoa nao pode ter dois turnos que se sobrepoem no mesmo dia
+    var others = await pool.query(
+      `SELECT s.name, s.start_time, s.end_time FROM company_roster_entries e JOIN company_shift_types s ON s.id = e.shift_type_id
+       WHERE e.company_id = $1 AND e.user_id = $2 AND e.date = $3 AND e.shift_type_id <> $4`,
+      [me.company_id, userId, date, typeId]
+    );
+    var ns = timeToMin(type.rows[0].start_time), ne = timeToMin(type.rows[0].end_time);
+    for (var i = 0; i < others.rows.length; i++) {
+      var os = timeToMin(others.rows[i].start_time), oe = timeToMin(others.rows[i].end_time);
+      if (ns < oe && os < ne) {
+        return res.status(409).json({ error: "overlap", message: t.name + " já está escalado(a) em \"" + others.rows[i].name + "\" (" + others.rows[i].start_time + "–" + others.rows[i].end_time + "), que se sobrepõe a este turno." });
+      }
+    }
+    var ins = await pool.query(
+      `INSERT INTO company_roster_entries (company_id, date, shift_type_id, user_id, created_by)
+       VALUES ($1, $2, $3, $4, $5) ON CONFLICT (date, shift_type_id, user_id) DO NOTHING RETURNING id`,
+      [me.company_id, date, typeId, userId, req.userId]
+    );
+    res.json({ ok: true, id: ins.rows[0] ? ins.rows[0].id : null });
+  } catch (err) {
+    console.error("Erro no POST /api/company/roster/entries:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+app.delete("/api/company/roster/entries/:id", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id || !isScheduleManager(me.company_role)) return res.status(403).json({ error: "not_allowed" });
+    await pool.query("DELETE FROM company_roster_entries WHERE id = $1 AND company_id = $2", [parseInt(req.params.id, 10), me.company_id]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro no DELETE /api/company/roster/entries/:id:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Turnos e horarios editaveis (padrao: estagiario 08-13, estagiario 13-18, professor 10-14).
+function readShiftBody(body) {
+  var name = String((body && body.name) || "").trim();
+  var start = String((body && body.startTime) || "").trim(), end = String((body && body.endTime) || "").trim();
+  var kind = String((body && body.kind) || "any").trim();
+  if (!name || name.length > 40) return { error: "Dê um nome ao turno (até 40 letras)." };
+  if (!isHHMM(start) || !isHHMM(end) || timeToMin(start) >= timeToMin(end)) return { error: "Informe um horário de início e um de fim válidos (o fim depois do início)." };
+  if (SHIFT_KINDS.indexOf(kind) === -1) return { error: "Escolha para quem é o turno." };
+  return { name: name, start: start, end: end, kind: kind };
+}
+
+app.post("/api/company/shift-types", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id || !isScheduleManager(me.company_role)) return res.status(403).json({ error: "not_allowed", message: "Você não pode editar os turnos." });
+    var b = readShiftBody(req.body);
+    if (b.error) return res.status(400).json({ error: "invalid_input", message: b.error });
+    var next = await pool.query("SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM company_shift_types WHERE company_id = $1", [me.company_id]);
+    var r = await pool.query(
+      "INSERT INTO company_shift_types (company_id, name, start_time, end_time, kind, sort_order) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+      [me.company_id, b.name, b.start, b.end, b.kind, next.rows[0].n]
+    );
+    res.json({ ok: true, id: r.rows[0].id });
+  } catch (err) {
+    console.error("Erro no POST /api/company/shift-types:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+app.put("/api/company/shift-types/:id", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id || !isScheduleManager(me.company_role)) return res.status(403).json({ error: "not_allowed", message: "Você não pode editar os turnos." });
+    var b = readShiftBody(req.body);
+    if (b.error) return res.status(400).json({ error: "invalid_input", message: b.error });
+    var r = await pool.query(
+      "UPDATE company_shift_types SET name = $1, start_time = $2, end_time = $3, kind = $4 WHERE id = $5 AND company_id = $6 AND active RETURNING id",
+      [b.name, b.start, b.end, b.kind, parseInt(req.params.id, 10), me.company_id]
+    );
+    if (r.rows.length === 0) return res.status(404).json({ error: "not_found" });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro no PUT /api/company/shift-types/:id:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Excluir um turno apaga tambem as pessoas escaladas nele.
+app.delete("/api/company/shift-types/:id", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id || !isScheduleManager(me.company_role)) return res.status(403).json({ error: "not_allowed" });
+    await pool.query("DELETE FROM company_shift_types WHERE id = $1 AND company_id = $2", [parseInt(req.params.id, 10), me.company_id]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro no DELETE /api/company/shift-types/:id:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+function sendRosterEmail(toEmail, name, companyName, title, lines) {
+  var items = lines.map((l) => "<li>" + escapeHtml(l) + "</li>").join("");
+  return mailer.sendMail({
+    from: "Ponto Overall <" + SMTP_USER + ">",
+    to: toEmail,
+    subject: title + " — " + companyName,
+    text: "Oi, " + name + "!\n\n" + title + ":\n\n" + lines.join("\n") + "\n\nVeja no app: " + APP_URL,
+    html: "<p>Oi, " + escapeHtml(name) + "!</p><p><strong>" + escapeHtml(title) + "</strong></p><ul>" + items + "</ul>" +
+      "<p><a href=\"" + escapeHtml(APP_URL) + "\">Abrir o Ponto Overall</a></p>",
+  });
+}
+
+// Publica a escala do mes: a equipe passa a ver e quem foi afetado e avisado.
+app.post("/api/company/roster/publish", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id || !isScheduleManager(me.company_role)) {
+      return res.status(403).json({ error: "not_allowed", message: "Você não pode publicar a escala." });
+    }
+    var month = String((req.body && req.body.month) || "").trim();
+    if (!validMonth(month)) return res.status(400).json({ error: "invalid_month" });
+    var current = await rosterSnapshotKeys(me.company_id, month);
+    if (current.length === 0) return res.status(400).json({ error: "empty", message: "Monte a escala antes de publicar: ainda não há ninguém escalado neste mês." });
+    var prevRow = await pool.query("SELECT published_at, snapshot FROM company_roster_months WHERE company_id = $1 AND month = $2", [me.company_id, month]);
+    var wasPublished = !!(prevRow.rows[0] && prevRow.rows[0].published_at);
+    var prev = wasPublished ? (prevRow.rows[0].snapshot || []).slice().sort() : [];
+    if (wasPublished && sameKeys(prev, current)) return res.json({ ok: true, notified: 0, unchanged: true });
+    await pool.query(
+      `INSERT INTO company_roster_months (company_id, month, published_at, published_by, snapshot)
+       VALUES ($1, $2, now(), $3, $4::jsonb)
+       ON CONFLICT (company_id, month) DO UPDATE SET published_at = now(), published_by = $3, snapshot = $4::jsonb`,
+      [me.company_id, month, req.userId, JSON.stringify(current)]
+    );
+    // quem foi afetado: tem algum turno novo, mudou ou saiu
+    var byUser = function (keys) { var m = {}; keys.forEach((k) => { var u = k.split("|")[0]; (m[u] = m[u] || []).push(k); }); return m; };
+    var before = byUser(prev), after = byUser(current);
+    var affected = {};
+    Object.keys(after).forEach((u) => { if (!sameKeys((before[u] || []).slice().sort(), after[u].slice().sort())) affected[u] = true; });
+    Object.keys(before).forEach((u) => { if (!after[u]) affected[u] = true; });
+    var ids = Object.keys(affected).map((u) => parseInt(u, 10));
+    var company = await pool.query("SELECT name FROM companies WHERE id = $1", [me.company_id]);
+    var companyName = company.rows[0] ? company.rows[0].name : "sua academia";
+    var types = await pool.query("SELECT id, name, start_time, end_time FROM company_shift_types WHERE company_id = $1", [me.company_id]);
+    var typeMap = {}; types.rows.forEach((t) => { typeMap[t.id] = t; });
+    var users = ids.length ? await pool.query("SELECT id, name, email FROM users WHERE id = ANY($1::int[]) AND company_id = $2", [ids, me.company_id]) : { rows: [] };
+    var monthName = monthNamePt(month);
+    for (var i = 0; i < users.rows.length; i++) {
+      var u = users.rows[i];
+      var mine = (after[u.id] || []).map((k) => { var p = k.split("|"); return { date: p[1], shift: typeMap[parseInt(p[2], 10)] }; })
+        .filter((x) => x.shift).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+      var lines = mine.map((x) => dateLabelPt(x.date) + " · " + x.shift.name + " (" + x.shift.start_time + "–" + x.shift.end_time + ")");
+      var title, bodyText;
+      if (mine.length === 0) { title = "Você saiu da escala de " + monthName; bodyText = "Você não está mais escalado(a) neste mês."; lines = [bodyText]; }
+      else { title = wasPublished ? "Sua escala de " + monthName + " mudou" : "Escala de " + monthName + " publicada"; bodyText = lines.join("\n"); }
+      await pool.query("INSERT INTO user_notifications (user_id, company_id, kind, title, body) VALUES ($1, $2, 'roster', $3, $4)", [u.id, me.company_id, title, bodyText]);
+      if (mailer && u.email && !/\.invalid$/i.test(u.email)) {
+        sendRosterEmail(u.email, u.name, companyName, title, lines).catch((e) => console.error("Falha ao enviar e-mail da escala:", e.message));
+      }
+    }
+    await audit(me.company_id, req.userId, "roster_published", null, null, monthName + " · " + users.rows.length + " pessoa(s) avisada(s)");
+    res.json({ ok: true, notified: users.rows.length });
+  } catch (err) {
+    console.error("Erro no POST /api/company/roster/publish:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Avisos da pessoa logada.
+app.get("/api/me/notifications", auth, async (req, res) => {
+  try {
+    var r = await pool.query(
+      "SELECT id, kind, title, body, created_at, read_at FROM user_notifications WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT 30",
+      [req.userId]
+    );
+    var unread = await pool.query("SELECT COUNT(*)::int AS n FROM user_notifications WHERE user_id = $1 AND read_at IS NULL", [req.userId]);
+    res.json({
+      unread: unread.rows[0].n,
+      items: r.rows.map((n) => ({ id: n.id, kind: n.kind, title: n.title, body: n.body || "", createdAt: n.created_at, read: !!n.read_at })),
+    });
+  } catch (err) {
+    console.error("Erro no GET /api/me/notifications:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+app.post("/api/me/notifications/read", auth, async (req, res) => {
+  try {
+    await pool.query("UPDATE user_notifications SET read_at = now() WHERE user_id = $1 AND read_at IS NULL", [req.userId]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro no POST /api/me/notifications/read:", err);
     res.status(500).json({ error: "internal_error" });
   }
 });

@@ -23,7 +23,11 @@ function navItemsForCurrentUser(){
   var items2 = ["grade", "resumo"];
   if(cat === "estagiario") items2.push("vip");
   if(personalModuleOn()) items2.push("clientes");
+  // quem esta numa academia: coordenador monta a escala; os demais veem a escala publicada
+  var linked = !!(currentUser && currentUser.companyId);
   if(typeof isCoordinator === "function" && isCoordinator()) items2.push("escala");
+  else if(linked) items2.push("minhaescala");
+  if(linked) items2.push("avisos");
   items2.push("exportacao", "duvidas");
   return items2;
 }
@@ -55,6 +59,9 @@ function showView(view){
   });
   document.body.setAttribute("data-view", view);
   if(view === "gestao" && typeof loadTeamAudit === "function") loadTeamAudit();
+  if(view === "escala" && typeof loadRoster === "function") loadRoster();
+  if(view === "minhaescala" && typeof loadMyRoster === "function") loadMyRoster();
+  if(view === "avisos" && typeof loadNotices === "function") loadNotices();
   document.body.classList.toggle("hide-month", MONTH_VIEWS.indexOf(view) < 0);
   if(currentUser){
     try{ localStorage.setItem(NAV_VIEW_KEY + currentUser.id, view); }catch(e){}

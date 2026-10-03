@@ -90,6 +90,8 @@ function logout(){
   currentUser = null;
   resetSyncState();
   STORAGE_KEY = null;
+  if(typeof noticeTimer !== "undefined") clearInterval(noticeTimer);
+  if(typeof setNoticeBadge === "function") setNoticeBadge(0);
   if(typeof teardownNav === "function") teardownNav();
   clearInterval(reminderTimer);
   lastReminderShownKey = null;

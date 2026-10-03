@@ -146,6 +146,7 @@ async function bootApp(){
     // Só o(a) sócio(a) é 100% leitura — dono e gerente convidam/gerenciam.
     if(typeof applyCompanyReadOnlyUI === "function") applyCompanyReadOnlyUI(isPartner());
     if(typeof mountScheduleCard === "function") mountScheduleCard(companyDashboard.querySelector("main"));
+    if(typeof mountRosterCard === "function") mountRosterCard(companyDashboard.querySelector("main"));
     loadCompanyOverview();
     if(typeof loadScheduleMonth === "function") loadScheduleMonth(currentScheduleMonthKey());
     updatePersonalModuleUI();
@@ -204,10 +205,12 @@ async function bootApp(){
   // semana/feriado da equipe — o card correspondente aparece na propria tela dele.
   if(isCoordinator() && typeof mountScheduleCard === "function"){
     mountScheduleCard(mainDashboard);
+    mountRosterCard(mainDashboard);
     loadScheduleMonth(currentScheduleMonthKey());
   }
   renderFaq();
   setupNav();
+  if(currentUser.companyId) startNoticePolling(); // selo de avisos novos no menu
   maybeShowOnboarding(isCoordinator() ? "coordenador" : roleCategory());
 }
 
