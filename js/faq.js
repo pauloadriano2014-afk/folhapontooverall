@@ -44,7 +44,7 @@ function faqGroupsFor(kind){
       ]});
       groups.push({ title: "Convites e níveis de acesso", items: [
         ["Como convido alguém?", "Em \"Convites\" você pode passar o código da academia (a pessoa digita ao criar a conta) ou enviar um convite por e-mail já com função e horário de trabalho. Quem entra por convite já fica ligado à academia."],
-        ["Quais são os níveis de acesso?", "Profissional: bate ponto e lança as próprias horas. Coordenador(a): bate ponto e também gerencia a escala. Gerente: gerencia equipe, convites e escala, mas não bate ponto. Sócio(a): só acompanha, sem editar nada."]
+        ["Quais são os níveis de acesso?", "Profissional: bate ponto e lança as próprias horas. Coordenador(a): bate ponto e também gerencia a escala; precisa ser pessoa formada (Professor ou sem função de professor, só coordena), nunca estagiário. Gerente: gerencia equipe, convites e escala, mas não bate ponto. Sócio(a): só acompanha, sem editar nada."]
       ]});
     }
     groups.push({ title: "Exportação", items: [

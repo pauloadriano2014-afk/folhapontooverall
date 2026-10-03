@@ -109,6 +109,7 @@ function openStaffEdit(member){
 function updateStaffEditRoleVisibility(){
   var checked = document.querySelector('input[name="staffEditAccess"]:checked');
   var key = checked ? checked.value : (editingMember ? memberAccessKey(editingMember) : "staff");
+  syncRoleOptionsForAccess(document.getElementById("staffEditRole"), key); // coordenador nunca e estagiario
   document.getElementById("staffEditRoleWrap").style.display = (key === "manager" || key === "partner") ? "none" : "";
   // so o dono define o salario fixo do gerente
   document.getElementById("staffEditSalaryWrap").style.display = (key === "manager" && viewerCompanyRole() === "owner") ? "" : "none";

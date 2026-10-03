@@ -62,7 +62,8 @@ function companyRoleLabel(member){
   if(member.companyRole === "partner") return "Sócio(a)";
   if(member.companyRole === "manager") return "Gerente";
   var base = member.role || "Sem função definida";
-  if(member.companyRole === "coordinator") return base + " · Coordenador(a)";
+  // coordenador(a) sem funcao de professor so coordena
+  if(member.companyRole === "coordinator") return member.role ? base + " · Coordenador(a)" : "Coordenador(a)";
   return base;
 }
 
@@ -167,6 +168,22 @@ function loadCompanyOverview(){
 }
 
 // ---------- convidar profissional por e-mail (com horario ja preenchido) ----------
+// Coordenador(a) precisa ser pessoa formada: no seletor de funcao some "Estagiario"
+// e o campo em branco vira "Nao e professor (so coordena)". Reaproveitado pela edicao de equipe.
+function syncRoleOptionsForAccess(selectEl, accessKey){
+  if(!selectEl) return;
+  var isCoord = accessKey === "coordinator";
+  for(var i = 0; i < selectEl.options.length; i++){
+    var o = selectEl.options[i];
+    if(o.value === "Estagiário"){ o.disabled = isCoord; o.hidden = isCoord; }
+    if(o.value === ""){
+      if(!o.dataset.original) o.dataset.original = o.textContent;
+      o.textContent = isCoord ? "Não é professor (só coordena)" : o.dataset.original;
+    }
+  }
+  if(isCoord && selectEl.value === "Estagiário") selectEl.value = "Professor";
+}
+
 function selectedInviteAccessRole(){
   var checked = document.querySelector('input[name="inviteAccessRole"]:checked');
   return checked ? checked.value : "staff";
@@ -187,6 +204,7 @@ function updateInviteScheduleVisibility(){
   if(roleWrap) roleWrap.style.display = isAdminInvite ? "none" : "";
   if(wrap) wrap.style.display = isAdminInvite ? "none" : "";
   // so o dono combina o salario fixo do gerente
+  syncRoleOptionsForAccess(roleInput, accessRole);
   var salaryWrap = document.getElementById("inviteSalaryWrap");
   if(salaryWrap) salaryWrap.style.display = (accessRole === "manager" && companyOverviewData && companyOverviewData.viewerRole === "owner") ? "" : "none";
 }
@@ -235,7 +253,8 @@ document.getElementById("inviteForm").addEventListener("submit", function(e){
   var salaryRaw = document.getElementById("inviteSalary").value.trim();
   if(accessRole === "manager" && salaryRaw !== "") inviteBody.monthlySalary = Number(salaryRaw.replace(",", "."));
   if(!name || !email){ errEl.textContent = "Informe nome e e-mail."; return; }
-  if(!isAdminInvite && !role){ errEl.textContent = "Escolha a função do profissional."; return; }
+  // coordenador(a) pode ficar sem funcao ("nao e professor, so coordena"); os demais escolhem uma
+  if(!isAdminInvite && !role && accessRole !== "coordinator"){ errEl.textContent = "Escolha a função do profissional."; return; }
   var btn = document.getElementById("inviteSubmit");
   btn.disabled = true; btn.textContent = "Enviando...";
   authFetch("/api/company/invite", {

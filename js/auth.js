@@ -12,6 +12,7 @@ var authToken = null;
 var currentUser = null;
 var pendingResetToken = null; // token de "esqueci minha senha" vindo da URL (ver checkResetLink)
 var pendingInviteToken = null; // token de convite por e-mail vindo da URL (ver checkInviteLink)
+var pendingInviteAccessRole = null; // nivel do convite aberto (coordenador pode ficar sem funcao de professor)
 var pendingSuggestedSchedule = null; // horario que a academia ja definiu no convite, aplicado no 1o boot (ver app.js/bootApp)
 
 function authFetch(path, options){
@@ -200,6 +201,8 @@ function applyInviteToForm(inviteInfo){
   if(inviteCodeWrap) inviteCodeWrap.style.display = "none";
   document.getElementById("regName").value = inviteInfo.name || "";
   setRoleSelectValue(document.getElementById("regRole"), inviteInfo.role || "");
+  pendingInviteAccessRole = inviteInfo.accessRole || "staff";
+  if(typeof syncRoleOptionsForAccess === "function") syncRoleOptionsForAccess(document.getElementById("regRole"), pendingInviteAccessRole);
   document.getElementById("regEmail").value = inviteInfo.email || "";
 }
 
@@ -282,7 +285,7 @@ function initAuthForms(){
       errEl.textContent = "Informe o nome da academia.";
       return;
     }
-    if(accountType !== "empresa" && !role){
+    if(accountType !== "empresa" && !role && pendingInviteAccessRole !== "coordinator"){
       errEl.textContent = "Escolha a sua função.";
       return;
     }

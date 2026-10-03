@@ -217,6 +217,9 @@ async function ensureTables() {
   // do professor. Converte as contas e convites antigos (sempre seguro repetir).
   await pool.query(`UPDATE users SET role = 'Professor', personal_module = true WHERE role ILIKE '%personal%'`);
   await pool.query(`UPDATE company_invites SET role = 'Professor' WHERE role ILIKE '%personal%'`);
+  // Coordenador(a) nao pode ser estagiario(a): quem estava assim passa a "so coordena" (sem funcao).
+  await pool.query(`UPDATE users SET role = '' WHERE company_role = 'coordinator' AND role ILIKE '%estagi%'`);
+  await pool.query(`UPDATE company_invites SET role = '' WHERE access_role = 'coordinator' AND role ILIKE '%estagi%'`);
   await pool.query(`ALTER TABLE company_invites ADD COLUMN IF NOT EXISTS monthly_salary numeric(12,2);`);
   // Historico das alteracoes de equipe (quem fez o que, e quando) — base para
   // qualquer necessidade futura de auditoria.
@@ -287,6 +290,12 @@ function canonicalRole(raw) {
   return { invalid: true };
 }
 var INVALID_ROLE_MSG = "Função inválida. Escolha Estagiário ou Professor.";
+// Coordenador(a) precisa ser pessoa formada: professor(a) ou alguem sem funcao
+// de professor (so coordena). Nunca estagiario(a).
+function isTraineeRole(role) {
+  return stripAccents(role).toLowerCase().indexOf("estagi") >= 0;
+}
+var COORDINATOR_NOT_TRAINEE_MSG = "Coordenador(a) não pode ser estagiário(a): a função precisa ser Professor ou ficar em branco (só coordena).";
 
 var INVITE_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sem O/0 e I/1, pra nao confundir na hora de digitar
 function randomInviteCode() {
@@ -541,6 +550,9 @@ app.post("/api/register", limitRegister, async (req, res) => {
       }
       inviteRow = inviteLookup.rows[0];
       invitedCompany = { id: inviteRow.company_id };
+      if (inviteRow.access_role === "coordinator" && isTraineeRole(role)) {
+        return res.status(400).json({ error: "coordinator_not_trainee", message: COORDINATOR_NOT_TRAINEE_MSG });
+      }
     } else if (accountType !== "empresa" && inviteCode) {
       var companyLookup = await pool.query("SELECT id, name FROM companies WHERE invite_code = $1", [inviteCode]);
       if (companyLookup.rows.length === 0) {
@@ -738,6 +750,9 @@ app.post("/api/company/invite", auth, limitInvite, async (req, res) => {
   if (!isAdminInvite && inviteRoleInput.invalid) {
     return res.status(400).json({ error: "invalid_role", message: INVALID_ROLE_MSG });
   }
+  if (accessRole === "coordinator" && isTraineeRole(role)) {
+    return res.status(400).json({ error: "coordinator_not_trainee", message: COORDINATOR_NOT_TRAINEE_MSG });
+  }
   var inviteSalary = null;
   if (body.monthlySalary !== undefined && body.monthlySalary !== null && body.monthlySalary !== "") {
     inviteSalary = Number(body.monthlySalary);
@@ -909,6 +924,11 @@ app.put("/api/company/staff/:id/access", auth, async (req, res) => {
     if (newRole !== null && newRole.length > 60) return res.status(400).json({ error: "invalid_input", message: "Função muito longa." });
     if (newAccess !== null && assignableAccessRoles(actor.company_role).indexOf(newAccess) === -1) {
       return res.status(403).json({ error: "not_allowed", message: "Você não pode atribuir esse nível de acesso." });
+    }
+    var finalRole = newRole !== null ? newRole : (t.role || "");
+    var finalAccess = newAccess !== null ? accessRoleToDb(newAccess) : (t.company_role || null);
+    if (finalAccess === "coordinator" && isTraineeRole(finalRole)) {
+      return res.status(400).json({ error: "coordinator_not_trainee", message: COORDINATOR_NOT_TRAINEE_MSG });
     }
     var changes = [];
     if (newRole !== null && newRole !== (t.role || "")) {
