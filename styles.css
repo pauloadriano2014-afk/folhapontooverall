@@ -169,6 +169,20 @@
   button:active{ transform:scale(.97); }
 
   /* ---------- login / cadastro ---------- */
+  /* Tela de entrada: sempre na combinacao Overall (azul, vermelho e branco) para
+     todo mundo, qualquer que seja a cor escolhida na conta (as variaveis valem so
+     dentro dela). Segue o modo claro/escuro do aparelho. */
+  .auth-screen{
+    --bg:#0b0d10; --bg-panel:#14171c; --bg-panel-2:#1c2127; --border:#2a2f37;
+    --text:#f3f4f6; --text-dim:#9aa3af; --accent:#3b82f6; --accent-2:#ef4444;
+    --good:#3b82f6; --warn:#ef4444; --bad:#f87171;
+    color:var(--text);
+  }
+  :root[data-theme="light"] .auth-screen{
+    --bg:#ffffff; --bg-panel:#ffffff; --bg-panel-2:#f3f4f6; --border:#d9dee6;
+    --text:#10151f; --text-dim:#5b6472; --accent:#1d4ed8; --accent-2:#dc2626;
+    --good:#1d4ed8; --warn:#dc2626; --bad:#dc2626;
+  }
   .auth-screen{
     position:fixed; inset:0; z-index:500; background:var(--bg);
     display:flex; align-items:center; justify-content:center;
@@ -195,7 +209,6 @@
   .auth-form button{ margin-top:4px; width:100%; padding:10px; }
   .auth-error{ color:var(--bad); font-size:12px; min-height:1px; }
   .auth-success{ color:var(--good); font-size:12px; min-height:1px; }
-  .auth-hint{ margin:16px 0 0; font-size:11px; color:var(--text-dim); }
   .auth-link{
     background:transparent; border:none; color:var(--accent); font-size:12px;
     padding:4px 0; text-align:center; text-decoration:underline; width:100%;
@@ -587,3 +600,9 @@
   .ob-actions{ display:flex; justify-content:space-between; gap:8px; }
   .ob-actions button{ padding:10px 20px; font-size:14px; }
   .ob-actions .primary{ min-width:120px; }
+
+  /* Overall no modo claro: destaque azul escuro pede texto branco (o escuro ficava com pouco contraste) */
+  :root[data-theme="light"][data-color="overall"] :is(button.primary, .nav-item.active, .mode-btn.active, .auth-tab.active),
+  :root[data-theme="light"] body.brand-view :is(button.primary, .nav-item.active, .mode-btn.active, .auth-tab.active),
+  :root[data-theme="light"] .auth-screen :is(button.primary, .auth-tab.active){ color:#ffffff; }
+

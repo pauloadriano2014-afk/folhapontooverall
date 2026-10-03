@@ -140,10 +140,8 @@ function authErrorMessage(body, fallback){
 // nas duas primeiras.
 function showAuthView(view){
   var tabs = document.getElementById("authTabs");
-  var hint = document.getElementById("authHint");
   var isTabView = (view === "login" || view === "register");
   tabs.style.display = isTabView ? "flex" : "none";
-  hint.style.display = isTabView ? "block" : "none";
   document.getElementById("tabLogin").classList.toggle("active", view === "login");
   document.getElementById("tabRegister").classList.toggle("active", view === "register");
   document.getElementById("loginForm").style.display = view === "login" ? "flex" : "none";
