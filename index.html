@@ -14,8 +14,16 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png" />
 <title>Ponto Overall</title>
 <link rel="stylesheet" href="styles.css" />
+<script>try{fetch("https://ponto-overall-api.onrender.com/health",{mode:"no-cors",cache:"no-store"}).catch(function(){});}catch(e){}</script>
 </head>
 <body>
+
+<div class="boot-splash" id="bootSplash" style="display:none;">
+  <img src="icons/overall-logo.png" alt="Overall Gym" />
+  <div class="boot-spinner" aria-hidden="true"></div>
+  <p id="bootSplashMsg">Carregando…</p>
+</div>
+<script>try{if(sessionStorage.getItem("pontoOverallToken_v1")||localStorage.getItem("pontoOverallToken_v1"))document.getElementById("bootSplash").style.display="flex";}catch(e){}</script>
 
 <div class="auth-screen" id="authScreen">
   <div class="auth-card">

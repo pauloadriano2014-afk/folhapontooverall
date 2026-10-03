@@ -127,6 +127,10 @@ function updatePersonalModuleUI(){
 // painel com a equipe (ver company.js). Uma conta profissional continua
 // exatamente como sempre foi.
 async function bootApp(){
+  try{ await bootAppInner(); } finally { hideBootSplash(); }
+}
+
+async function bootAppInner(){
   hideAuthScreen();
   var mainHeader = document.getElementById("mainHeader");
   var mainDashboard = document.getElementById("mainDashboard");

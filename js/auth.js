@@ -24,7 +24,28 @@ function authFetch(path, options){
   return fetch(API_BASE + path, options);
 }
 
+// Tela de carregamento enquanto o app abre (no Render gratuito o servidor pode
+// levar mais de 30s para acordar): evita tela em branco e explica a espera.
+var bootSplashTimer = null;
+function showBootSplash(){
+  var el = document.getElementById("bootSplash");
+  if(!el) return;
+  el.style.display = "flex";
+  var msg = document.getElementById("bootSplashMsg");
+  if(msg) msg.textContent = "Carregando seus dados…";
+  clearTimeout(bootSplashTimer);
+  bootSplashTimer = setTimeout(function(){
+    if(msg) msg.textContent = "O servidor está acordando, isso pode levar até 1 minuto na primeira vez…";
+  }, 4000);
+}
+function hideBootSplash(){
+  clearTimeout(bootSplashTimer);
+  var el = document.getElementById("bootSplash");
+  if(el) el.style.display = "none";
+}
+
 function showAuthScreen(){
+  hideBootSplash();
   var el = document.getElementById("authScreen");
   if(el) el.style.display = "flex";
 }
@@ -75,6 +96,13 @@ function isCompanyAdminView(){
   return isCompanyOwner() || isPartner() || isGerente();
 }
 
+// A sessao fica "fixada" na aba (sessionStorage): se outra pessoa entrar em
+// outra aba do mesmo navegador (localStorage e compartilhado), o F5 desta aba
+// continua abrindo a conta de quem estava aqui, e nao a da outra aba.
+function pinSessionToTab(token, user){
+  try{ sessionStorage.setItem(TOKEN_KEY, token); sessionStorage.setItem(USER_KEY, JSON.stringify(user)); }catch(e){}
+}
+
 function onAuthSuccess(user, token){
   authToken = token;
   currentUser = user;
@@ -82,6 +110,7 @@ function onAuthSuccess(user, token){
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USER_KEY, JSON.stringify(user));
   }catch(e){}
+  pinSessionToTab(token, user);
   bootApp();
 }
 
@@ -104,6 +133,8 @@ function logout(){
   try{
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(USER_KEY);
   }catch(e){}
   document.querySelectorAll(".overlay").forEach(function(o){ o.classList.remove("open"); });
   document.getElementById("loginForm").reset();
@@ -421,11 +452,12 @@ function refreshCurrentUser(){
   }).then(function(body){
     if(!body || !body.user || !currentUser) return false;
     var u = body.user;
-    var changed = u.companyId !== currentUser.companyId || u.companyRole !== currentUser.companyRole ||
+    var changed = u.id !== currentUser.id || u.companyId !== currentUser.companyId || u.companyRole !== currentUser.companyRole ||
       u.role !== currentUser.role || u.name !== currentUser.name || !!u.personalModule !== !!currentUser.personalModule;
     if(changed){
       currentUser = u;
       try{ localStorage.setItem(USER_KEY, JSON.stringify(u)); }catch(e){}
+      pinSessionToTab(authToken, u);
     }
     return changed;
   }).catch(function(){ return false; });
@@ -442,11 +474,18 @@ document.addEventListener("visibilitychange", function(){
 function resumeSession(){
   var token = null, user = null;
   try{
-    token = localStorage.getItem(TOKEN_KEY);
-    var raw = localStorage.getItem(USER_KEY);
+    // 1o a sessao fixada nesta aba; so se nao houver, a ultima salva no aparelho
+    token = sessionStorage.getItem(TOKEN_KEY);
+    var raw = sessionStorage.getItem(USER_KEY);
+    if(!(token && raw)){
+      token = localStorage.getItem(TOKEN_KEY);
+      raw = localStorage.getItem(USER_KEY);
+    }
     user = raw ? JSON.parse(raw) : null;
   }catch(e){}
   if(token && user){
+    pinSessionToTab(token, user);
+    showBootSplash();
     authToken = token;
     currentUser = user;
     bootApp();
