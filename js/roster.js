@@ -39,6 +39,11 @@ function shiftAllows(kind, role){
 function mountRosterCard(parentMain){
   var card = document.getElementById("rosterCard");
   if(!card || !parentMain) return;
+  var teamCard = document.getElementById("coordTeamCard");
+  if(teamCard){
+    if(teamCard.parentElement !== parentMain) parentMain.appendChild(teamCard);
+    teamCard.style.display = "";
+  }
   var registry = document.getElementById("scheduleCard");
   if(registry && registry.parentElement === parentMain) parentMain.insertBefore(card, registry);
   else if(card.parentElement !== parentMain) parentMain.appendChild(card);
@@ -450,3 +455,79 @@ function startNoticePolling(){
   noticeTimer = setInterval(function(){ if(!document.hidden) refreshNoticeBadge(); }, 120000);
 }
 document.addEventListener("visibilitychange", function(){ if(!document.hidden) refreshNoticeBadge(); });
+
+
+// ---------- Minha equipe (coordenador): quem esta vinculado, sem valores ----------
+var coordTeamMonthKey = null;
+function coordTeamMonth(){ if(!coordTeamMonthKey) coordTeamMonthKey = monthKeyNow(); return coordTeamMonthKey; }
+
+function loadCoordTeam(){
+  var list = document.getElementById("coordTeamList");
+  if(!list || !authToken) return;
+  var month = coordTeamMonth();
+  document.getElementById("coordTeamMonthLabel").textContent = monthLabel(month);
+  document.getElementById("coordTeamMonth").textContent = monthLabel(month);
+  function get(url){
+    return authFetch(url).then(function(res){
+      if(res.status === 401){ handleAuthExpired(); throw new Error("auth_expired"); }
+      return res.json().then(function(b){ if(!res.ok) throw new Error("load_failed"); return b; });
+    });
+  }
+  Promise.all([
+    get("/api/company/schedule?month=" + encodeURIComponent(month)),
+    get("/api/company/roster?month=" + encodeURIComponent(month))
+  ]).then(function(r){ renderCoordTeam(r[0], r[1]); }).catch(function(err){
+    if(err && err.message === "auth_expired") return;
+    list.innerHTML = "<p class='account-section-hint'>Não consegui carregar a equipe agora.</p>";
+  });
+}
+
+function renderCoordTeam(sched, roster){
+  var list = document.getElementById("coordTeamList");
+  list.innerHTML = "";
+  var types = {};
+  (roster.shiftTypes || []).forEach(function(t){ types[t.id] = t; });
+  var staff = (sched.staff || []).filter(function(u){ return u.companyRole !== "coordinator"; });
+  if(!staff.length){
+    list.innerHTML = "<p class='account-section-hint'>Ainda não há ninguém vinculado. Convide a equipe pela gerência.</p>";
+    return;
+  }
+  staff.forEach(function(u){
+    var plant = (roster.entries || []).filter(function(e){ return e.userId === u.id; }).sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+    var att = { trabalhou: 0, falta: 0, coberto: 0 };
+    (sched.entries || []).forEach(function(e){ if(e.userId === u.id && att[e.status === "falta" ? "falta" : e.status] !== undefined) att[e.status === "falta" ? "falta" : e.status]++; });
+    var row = document.createElement("div");
+    row.className = "client-row team-member";
+    var info = document.createElement("div");
+    info.className = "client-info";
+    var name = document.createElement("strong");
+    name.textContent = u.name;
+    var pill = document.createElement("span");
+    pill.className = "pill pill-off";
+    pill.style.marginLeft = "8px";
+    pill.textContent = roleIsTrainee(u.role) ? "Estagiário" : "Professor";
+    name.appendChild(pill);
+    info.appendChild(name);
+    function line(text){ var sp = document.createElement("span"); sp.className = "client-meta"; sp.style.display = "block"; sp.textContent = text; info.appendChild(sp); }
+    line((u.email && !/\.invalid$/.test(u.email)) ? u.email : "Sem login (cadastro de teste)");
+    line("Horário seg–sex: " + (u.shiftStart && u.shiftEnd ? u.shiftStart + " às " + u.shiftEnd : "ainda não definido"));
+    if(plant.length){
+      line("Plantões planejados (" + plant.length + "): " + plant.map(function(e){
+        var t = types[e.shiftTypeId];
+        return e.date.slice(8, 10) + "/" + e.date.slice(5, 7) + (t ? " " + shiftHours(t) : "");
+      }).join(", "));
+    } else {
+      line("Nenhum plantão planejado neste mês.");
+    }
+    line("Presença: " + att.trabalhou + " trabalhou · " + att.falta + " faltou · " + att.coberto + " coberto");
+    row.appendChild(info);
+    list.appendChild(row);
+  });
+}
+
+(function(){
+  var prev = document.getElementById("btnCoordTeamPrev");
+  var next = document.getElementById("btnCoordTeamNext");
+  if(prev) prev.addEventListener("click", function(){ coordTeamMonthKey = shiftMonthKey(coordTeamMonth(), -1); loadCoordTeam(); });
+  if(next) next.addEventListener("click", function(){ coordTeamMonthKey = shiftMonthKey(coordTeamMonth(), 1); loadCoordTeam(); });
+})();

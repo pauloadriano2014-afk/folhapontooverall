@@ -334,8 +334,15 @@ function openScheduleDayModal(dateKey){
     });
   }
 
-  if(addWrap) addWrap.style.display = canManage ? "" : "none";
-  if(canManage){
+  // Dia que ainda nao aconteceu: nao ha o que "registrar" — leva para a escala planejada.
+  var now = new Date();
+  var todayKey = now.getFullYear() + "-" + pad2(now.getMonth() + 1) + "-" + pad2(now.getDate());
+  var isFuture = dateKey > todayKey;
+  var futureWrap = document.getElementById("scheduleDayFuture");
+  if(futureWrap) futureWrap.style.display = (isFuture && canManage) ? "" : "none";
+  if(isFuture && canManage && listEl && entries.length === 0) listEl.innerHTML = "";
+  if(addWrap) addWrap.style.display = (canManage && !isFuture) ? "" : "none";
+  if(canManage && !isFuture){
     populateScheduleUserSelects();
     var noteInput = document.getElementById("scheduleNoteInput");
     if(noteInput) noteInput.value = "";
@@ -409,3 +416,15 @@ var btnSchedulePrevEl = document.getElementById("btnSchedulePrevMonth");
 if(btnSchedulePrevEl) btnSchedulePrevEl.addEventListener("click", function(){ shiftScheduleMonth(-1); });
 var btnScheduleNextEl = document.getElementById("btnScheduleNextMonth");
 if(btnScheduleNextEl) btnScheduleNextEl.addEventListener("click", function(){ shiftScheduleMonth(1); });
+
+
+(function(){
+  var go = document.getElementById("btnScheduleGoRoster");
+  if(go) go.addEventListener("click", function(){
+    var dk = scheduleActiveDateKey;
+    document.getElementById("scheduleDayOverlay").classList.remove("open");
+    showView("escala");
+    if(typeof loadRoster === "function") loadRoster();
+    if(dk && typeof openRosterDay === "function") setTimeout(function(){ openRosterDay(dk); }, 250);
+  });
+})();

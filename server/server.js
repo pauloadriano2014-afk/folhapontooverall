@@ -1527,7 +1527,7 @@ app.get("/api/company/schedule", auth, async (req, res) => {
       return res.status(400).json({ error: "invalid_month" });
     }
     var staffRes = await pool.query(
-      `SELECT u.id, u.name, u.role, u.company_role, us.data AS state_data
+      `SELECT u.id, u.name, u.role, u.email, u.company_role, us.data AS state_data
        FROM users u
        LEFT JOIN user_state us ON us.user_id = u.id
        WHERE u.company_id = $1 AND (u.company_role IS NULL OR u.company_role = 'coordinator')
@@ -1560,6 +1560,7 @@ app.get("/api/company/schedule", auth, async (req, res) => {
           id: row.id,
           name: row.name,
           role: row.role || "",
+          email: row.email,
           companyRole: row.company_role || null,
           shiftStart: shiftStart,
           shiftEnd: shiftEnd,

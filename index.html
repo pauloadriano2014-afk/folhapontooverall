@@ -104,7 +104,9 @@
     <button type="button" class="nav-item" data-view="clientes" hidden><span class="nav-ico" aria-hidden="true">🏋️</span><span class="nav-label"><span class="l-long">Alunos particulares</span><span class="l-short">Particulares</span></span></button>
     <button type="button" class="nav-item" data-view="equipe" hidden><span class="nav-ico" aria-hidden="true">💰</span><span class="nav-label"><span class="l-long">Equipe e valores</span><span class="l-short">Equipe</span></span></button>
     <button type="button" class="nav-item" data-view="gestao" hidden><span class="nav-ico" aria-hidden="true">🛠️</span><span class="nav-label"><span class="l-long">Gestão da equipe</span><span class="l-short">Gestão</span></span></button>
-    <button type="button" class="nav-item" data-view="escala" hidden><span class="nav-ico" aria-hidden="true">📅</span><span class="nav-label"><span class="l-long">Escala da equipe</span><span class="l-short">Escala</span></span></button>
+    <button type="button" class="nav-item" data-view="escala" hidden><span class="nav-ico" aria-hidden="true">📅</span><span class="nav-label"><span class="l-long">Escala planejada</span><span class="l-short">Escala</span></span></button>
+    <button type="button" class="nav-item" data-view="minhaequipe" hidden><span class="nav-ico" aria-hidden="true">👥</span><span class="nav-label"><span class="l-long">Minha equipe</span><span class="l-short">Equipe</span></span></button>
+    <button type="button" class="nav-item" data-view="presenca" hidden><span class="nav-ico" aria-hidden="true">✅</span><span class="nav-label"><span class="l-long">Registro de presença</span><span class="l-short">Presença</span></span></button>
     <button type="button" class="nav-item" data-view="convites" hidden><span class="nav-ico" aria-hidden="true">✉️</span><span class="nav-label"><span class="l-long">Convites</span><span class="l-short">Convites</span></span></button>
     <button type="button" class="nav-item" data-view="minhaescala" hidden><span class="nav-ico" aria-hidden="true">📅</span><span class="nav-label"><span class="l-long">Escala da equipe</span><span class="l-short">Escala</span></span></button>
     <button type="button" class="nav-item" data-view="avisos" hidden><span class="nav-ico" aria-hidden="true">🔔</span><span class="nav-label"><span class="l-long">Avisos</span><span class="l-short">Avisos</span></span><span class="nav-badge" id="avisosBadge" hidden></span></button>
@@ -362,6 +364,19 @@
       <div id="teamAuditList"></div>
     </div>
 
+    <div class="card no-print" id="coordTeamCard" data-view="minhaequipe" style="display:none;">
+      <h2>Minha equipe — <span id="coordTeamMonth"></span></h2>
+      <p class="account-section-hint" style="margin:-4px 0 10px;">
+        Quem está vinculado a você, com horário de grade, plantões planejados e presença neste mês. Não mostra valores financeiros.
+      </p>
+      <div class="month-bar" style="margin-bottom:8px;">
+        <button class="small" id="btnCoordTeamPrev" aria-label="Mês anterior">‹</button>
+        <strong id="coordTeamMonthLabel" style="flex:1;text-align:center;"></strong>
+        <button class="small" id="btnCoordTeamNext" aria-label="Próximo mês">›</button>
+      </div>
+      <div id="coordTeamList"></div>
+    </div>
+
     <div class="card no-print" id="rosterCard" data-view="escala" style="display:none;">
       <h2>Escala planejada — fim de semana e feriado</h2>
       <p class="account-section-hint" style="margin:-4px 0 10px;">
@@ -392,10 +407,10 @@
       <div class="notices-body"></div>
     </div>
 
-<div class="card no-print" id="scheduleCard" data-view="escala" style="display:none;">
-      <h2>Registro de presença — quem trabalhou</h2>
+<div class="card no-print" id="scheduleCard" data-view="presenca" style="display:none;">
+      <h2>Registro de presença — o que já aconteceu</h2>
       <p class="account-section-hint" style="margin:-4px 0 10px;">
-        Depois do dia, registre quem trabalhou, faltou ou foi coberto. Toque num dia pra ver ou lançar.
+        Aqui é o <strong>depois</strong>: registre quem trabalhou, faltou ou foi coberto num dia que já passou. Para definir quem vai trabalhar nos próximos dias, use a aba <strong>Escala</strong>.
       </p>
       <div class="month-bar" style="margin-bottom:8px;">
         <button class="small" id="btnSchedulePrevMonth">‹</button>
@@ -768,8 +783,12 @@
     <button class="close ghost small" data-close>Fechar</button>
     <h3 id="scheduleDayTitle">Dia</h3>
     <div id="scheduleDayList"></div>
+    <div class="account-section" id="scheduleDayFuture" style="display:none;">
+      <p class="account-section-hint" style="margin:0 0 10px;">Este dia ainda não aconteceu, então não há o que registrar. Para definir quem vai trabalhar, monte a escala planejada.</p>
+      <button type="button" class="small primary" id="btnScheduleGoRoster">Escalar este dia</button>
+    </div>
     <div class="account-section auth-form" id="scheduleDayAddWrap">
-      <h3>Lançar</h3>
+      <h3>Registrar o que aconteceu</h3>
       <label>Profissional
         <select id="scheduleUserSelect"></select>
       </label>

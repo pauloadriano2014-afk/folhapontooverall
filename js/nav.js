@@ -13,7 +13,7 @@ var currentView = null;
 // Quais categorias cada perfil enxerga, na ordem do menu. O primeiro é a tela inicial.
 function navItemsForCurrentUser(){
   if(typeof isCompanyAdminView === "function" && isCompanyAdminView()){
-    var items = ["equipe", "escala"];
+    var items = ["equipe", "escala", "presenca"];
     if(!isPartner()) items.push("gestao", "convites");
     if(isGerente() && currentUser.personalModule) items.push("clientes");
     items.push("exportacao", "duvidas");
@@ -25,7 +25,7 @@ function navItemsForCurrentUser(){
   if(personalModuleOn()) items2.push("clientes");
   // quem esta numa academia: coordenador monta a escala; os demais veem a escala publicada
   var linked = !!(currentUser && currentUser.companyId);
-  if(typeof isCoordinator === "function" && isCoordinator()) items2.push("escala");
+  if(typeof isCoordinator === "function" && isCoordinator()) items2.push("minhaequipe", "escala", "presenca");
   else if(linked) items2.push("minhaescala");
   if(linked) items2.push("avisos");
   items2.push("exportacao", "duvidas");
@@ -59,6 +59,8 @@ function showView(view){
   });
   document.body.setAttribute("data-view", view);
   if(view === "gestao" && typeof loadTeamAudit === "function") loadTeamAudit();
+  if(view === "minhaequipe" && typeof loadCoordTeam === "function") loadCoordTeam();
+  if(view === "presenca" && typeof loadScheduleMonth === "function") loadScheduleMonth(currentScheduleMonthKey());
   if(view === "escala" && typeof loadRoster === "function") loadRoster();
   if(view === "minhaescala" && typeof loadMyRoster === "function") loadMyRoster();
   if(view === "avisos" && typeof loadNotices === "function") loadNotices();
