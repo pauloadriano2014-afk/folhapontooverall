@@ -39,6 +39,11 @@ function shiftAllows(kind, role){
 function mountRosterCard(parentMain){
   var card = document.getElementById("rosterCard");
   if(!card || !parentMain) return;
+  var swapsCard = document.getElementById("swapsCard");
+  if(swapsCard){
+    if(swapsCard.parentElement !== parentMain) parentMain.appendChild(swapsCard);
+    swapsCard.style.display = "";
+  }
   var closingCard = document.getElementById("closingCard");
   if(closingCard){
     if(closingCard.parentElement !== parentMain) parentMain.appendChild(closingCard);
@@ -72,6 +77,8 @@ function loadRoster(){
     if(!r.ok){ document.getElementById("rosterPubStatus").textContent = (r.body && r.body.message) || "Não consegui carregar a escala."; return; }
     rosterData = r.body;
     renderRoster();
+    if(typeof renderRosterAcks === "function") renderRosterAcks();
+    if(typeof loadSwaps === "function") loadSwaps();
     if(document.getElementById("rosterDayOverlay").classList.contains("open") && rosterActiveDate && !rosterDraft) renderRosterDay();
   }).catch(function(err){
     if(err && err.message === "auth_expired") return;
@@ -415,6 +422,8 @@ function loadMyRoster(){
     var types = {}; d.shiftTypes.forEach(function(t){ types[t.id] = t; });
     var mine = d.entries.filter(function(e){ return e.userId === d.me; });
     var today = todayFullKey;
+    if(typeof renderMyAck === "function") renderMyAck(d, mine.length > 0);
+    if(typeof loadMySwaps === "function") loadMySwaps(d);
     if(mine.length === 0){
       var none = document.createElement("p"); none.className = "account-section-hint"; none.textContent = "Você não está escalado(a) neste mês."; mineEl.appendChild(none);
     }
@@ -428,6 +437,12 @@ function loadMyRoster(){
       line.innerHTML = "<strong></strong><span></span>" + (isNext ? "<em>próximo</em>" : "");
       line.querySelector("strong").textContent = dateLabelBr(e.date);
       line.querySelector("span").textContent = t.name + " · " + shiftHours(t);
+      if(e.date >= today && typeof openSwapModal === "function"){
+        var sb = document.createElement("button");
+        sb.type = "button"; sb.className = "small"; sb.textContent = "Pedir troca";
+        sb.addEventListener("click", function(){ openSwapModal(e, t, d); });
+        line.appendChild(sb);
+      }
       mineEl.appendChild(line);
     });
     // equipe do mes, por dia

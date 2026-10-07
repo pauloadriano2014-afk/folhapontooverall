@@ -45,7 +45,7 @@ function onboardingSteps(kind){
     return [
       { icon: "⏱️", title: "Bate ponto como todo mundo", text: "Sua grade de horas funciona igual à dos outros profissionais." },
       { icon: "📅", title: "Monte a escala", text: "Em Escala planejada, toque num dia, escolha quem faz cada turno e salve: estagiário de manhã, estagiário à tarde e professor das 10h às 14h. Os horários você ajusta quando quiser." },
-      { icon: "📣", title: "Publique e avise", text: "Ao publicar, a equipe vê a escala e cada pessoa escalada recebe um aviso. Mudou algo? Publique de novo e só quem mudou é avisado." },
+      { icon: "📣", title: "Publique e avise", text: "Ao publicar, a equipe vê a escala e cada pessoa escalada recebe um aviso e confirma com \"Estou ciente\". Mudou algo? Publique de novo. Pedidos de troca chegam para você aprovar." },
       { icon: "🔍", title: "Equilíbrio, presença e fechamento", text: "Veja quantos plantões cada um tem, registre depois do dia quem trabalhou, faltou ou foi coberto e, no fim do mês, confira e feche em Fechamento do mês." },
       { icon: "🔒", title: "Valores só com a gestão", text: "Você não vê o salário da equipe. Isso fica com o dono e os sócios. Atende alunos particulares? Ligue o módulo em Minha conta." }
     ];
@@ -55,7 +55,7 @@ function onboardingSteps(kind){
       { icon: "✍️", title: "Lance suas horas", text: "Toque no número de um dia na grade e escolha o valor de cada horário." },
       { icon: "⚡", title: "Valores rápidos", text: "Atalhos como 10 e 15 para não digitar toda vez. Você edita quando quiser." },
       { icon: "⭐", title: "Alunos VIP", text: "A agenda semanal fixa fica separada da grade. Marque presença ou falta ali." },
-      { icon: "📅", title: "Sua escala de fim de semana", text: "Se você está numa academia, veja seus plantões em Escala da equipe e receba um aviso em Avisos quando a coordenação publicar ou mudar." },
+      { icon: "📅", title: "Sua escala de fim de semana", text: "Se você está numa academia, veja seus plantões em Escala da equipe, confirme com \"Estou ciente\" e peça troca quando precisar. Os avisos chegam em Avisos." },
       { icon: "🔄", title: "Tudo sincronizado", text: "Seus dados acompanham você no celular e no computador. O indicador no topo mostra se está tudo salvo." }
     ];
   }
@@ -64,7 +64,7 @@ function onboardingSteps(kind){
     { icon: "✍️", title: "Lance suas horas", text: "Toque no número de um dia na grade e escolha o valor de cada horário." },
     { icon: "⚡", title: "Valores rápidos", text: "Atalhos como 10 e 15 para não digitar toda vez. Você edita quando quiser." },
     { icon: "🏋️", title: "Atende alunos particulares?", text: "Ligue \"Também atendo alunos particulares\" em Minha conta. A tela aparece no menu e é só sua: a academia nunca vê esses dados." },
-    { icon: "📅", title: "Sua escala de fim de semana", text: "Se você está numa academia, veja seus plantões em Escala da equipe e receba um aviso em Avisos quando a coordenação publicar ou mudar." },
+    { icon: "📅", title: "Sua escala de fim de semana", text: "Se você está numa academia, veja seus plantões em Escala da equipe, confirme com \"Estou ciente\" e peça troca quando precisar. Os avisos chegam em Avisos." },
     { icon: "🔄", title: "Tudo sincronizado", text: "Seus dados acompanham você no celular e no computador. O indicador no topo mostra se está tudo salvo." }
   ];
 }

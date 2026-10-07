@@ -79,6 +79,8 @@ function faqGroupsFor(kind){
         ["Como monto a escala?", "Em \"Escala planejada\", escolha o mês e toque num dia. Para cada turno (estagiário de manhã, estagiário à tarde, professor das 10h às 14h) escolha as pessoas no seletor e, no fim, toque em \"Salvar escala do dia\" (uma vez só para o dia todo). O app só mostra, em cada turno, as pessoas que podem fazê-lo: estagiário nos turnos de estagiário e professor nos de professor. O número no calendário (ex.: 3/3) mostra quantos turnos do dia já têm alguém."],
         ["Como a equipe fica sabendo?", "Quando a escala está pronta, toque em \"Publicar escala\". A equipe passa a ver em \"Escala da equipe\" e cada pessoa escalada recebe um aviso (no app e, se o e-mail estiver configurado, por e-mail). Se você mudar algo depois, o app mostra \"alterações ainda não publicadas\": publique de novo e só quem mudou é avisado."],
         ["Como mudo os horários dos turnos?", "Toque em \"Turnos e horários\". Dá para trocar o nome e o horário, escolher para quem é o turno (estagiário, professor ou qualquer pessoa), criar turnos novos e excluir. Excluir um turno também tira as pessoas escaladas nele."],
+        ["Como sei quem viu a escala?", "Abaixo do estado da publicação aparece \"Ciente: X de Y confirmaram\" com o nome de quem falta, e um botão \"Lembrar quem falta\" que manda um aviso só para essas pessoas."],
+        ["Como aprovo uma troca de plantão?", "Em \"Escala planejada\", no fim da tela, \"Pedidos de troca de plantão\" lista os pedidos já aceitos pelo colega (ou sem substituto). Toque em Aprovar ou Recusar. Ao aprovar, a escala publicada já muda e as duas pessoas são avisadas. Você não aprova o seu próprio pedido: outra pessoa da gestão decide."],
         ["O que o relatório de plantões mostra?", "A lista de quantos plantões cada pessoa tem no mês, para você equilibrar. Quem está com zero aparece em destaque."]
       ]});
       groups.push({ title: "Escala da equipe", items: [
@@ -92,7 +94,8 @@ function faqGroupsFor(kind){
         ["Onde vejo quando vou trabalhar no fim de semana?", "Em \"Escala da equipe\" no menu. Lá aparecem os seus plantões do mês (com dia e horário, e o próximo em destaque) e a escala da equipe inteira. A escala só aparece depois que a coordenação publica."],
         ["Como sou avisado?", "Em \"Avisos\". Quando a escala sai ou a sua muda, o app mostra um aviso e um número vermelho no menu. Se o e-mail da academia estiver configurado, você também recebe por e-mail."],
         ["O que é \"mês fechado\"?", "Quando a coordenação ou a gerência confere suas horas e fecha o mês, você recebe um aviso e a grade daquele mês fica com um cadeado: não dá mais para alterar horas nem valores. Se algo estiver errado, fale com a gerência para reabrir."],
-        ["Preciso trocar um plantão. E agora?", "Fale com o(a) coordenador(a). Ele ajusta a escala e publica de novo, e você recebe um aviso com a mudança."]
+        ["O que é o \"Estou ciente\"?", "Quando a escala é publicada, aparece em \"Escala da equipe\" um aviso para você confirmar que viu os seus plantões. É só tocar em \"Estou ciente\". A coordenação enxerga quem já confirmou e pode lembrar quem falta. Se o seu plantão mudar, você confirma de novo."],
+        ["Preciso trocar um plantão. E agora?", "Em \"Escala da equipe\", toque em \"Pedir troca\" no plantão. Escolha um colega (ele recebe o pedido e precisa aceitar) ou \"Sem substituto\" se só precisa sair; a coordenação decide quem cobre. Depois que o colega aceita, a coordenação aprova e a escala se atualiza sozinha. Você acompanha o andamento na própria tela e pode cancelar o pedido enquanto estiver aberto."]
       ]});
     }
     groups.push({ title: "O que a academia enxerga", items: [

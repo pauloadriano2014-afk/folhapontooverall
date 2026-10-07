@@ -34,6 +34,8 @@
 //   POST   /api/company/roster/publish    -> publica o mes e avisa quem foi afetado
 //   GET    /api/me/roster?month=          -> a escala PUBLICADA, para qualquer pessoa da academia
 //   *      /api/company/shift-types       -> turnos e horarios (padrao: estagiario 8-13 e 13-18, professor 10-14)
+//   POST   /api/me/roster/ack, /api/company/roster/remind -> "ciente" da escala e lembrete
+//   *      /api/me/swaps, /api/company/swaps -> pedidos de troca de plantao (aceite do colega + aprovacao da coordenacao)
 //   GET    /api/me/notifications          -> avisos da pessoa (POST .../read marca como lidos)
 //
 // "Esqueci minha senha" manda o e-mail usando uma conta Gmail configurada nas
@@ -296,6 +298,31 @@ async function ensureTables() {
     );
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user ON user_notifications(user_id, read_at);`);
+  // "Ciente" da escala publicada e pedidos de troca de plantao.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS company_roster_acks (
+      user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      company_id integer NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      month text NOT NULL,
+      acked_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (user_id, month)
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS roster_swap_requests (
+      id serial PRIMARY KEY,
+      company_id integer NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      date text NOT NULL,
+      shift_type_id integer NOT NULL REFERENCES company_shift_types(id) ON DELETE CASCADE,
+      requester_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      target_id integer REFERENCES users(id) ON DELETE CASCADE,
+      note text,
+      status text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      resolved_at timestamptz,
+      resolved_by integer REFERENCES users(id) ON DELETE SET NULL
+    );
+  `);
   // Fechamento do mes: foto (snapshot) das horas de uma pessoa naquele mes.
   // Enquanto existir, o servidor nao deixa as horas/valores desse mes mudarem.
   await pool.query(`
@@ -1269,7 +1296,14 @@ app.get("/api/company/roster", auth, async (req, res) => {
     var mrow = await pool.query("SELECT published_at, snapshot FROM company_roster_months WHERE company_id = $1 AND month = $2", [me.company_id, month]);
     var published = mrow.rows[0] && mrow.rows[0].published_at ? mrow.rows[0] : null;
     var current = entries.rows.map((e) => e.user_id + "|" + e.date + "|" + e.shift_type_id).sort();
+    var pubUsers = {};
+    if (published) (published.snapshot || []).forEach((k) => { pubUsers[parseInt(k.split("|")[0], 10)] = true; });
+    var ackRows = await pool.query("SELECT user_id FROM company_roster_acks WHERE company_id = $1 AND month = $2", [me.company_id, month]);
+    var pendSw = await pool.query("SELECT COUNT(*)::int AS n FROM roster_swap_requests WHERE company_id = $1 AND status = 'pending_manager'", [me.company_id]);
     res.json({
+      publishedUserIds: Object.keys(pubUsers).map((u) => parseInt(u, 10)),
+      ackedUserIds: ackRows.rows.map((r) => r.user_id),
+      pendingSwaps: pendSw.rows[0].n,
       canManage: isScheduleManager(me.company_role),
       shiftTypes: types,
       staff: staff.rows.map((u) => ({ id: u.id, name: u.name, role: u.role || "", companyRole: u.company_role || null })),
@@ -1298,7 +1332,7 @@ app.get("/api/me/roster", auth, async (req, res) => {
     if (!row || !row.published_at) return res.json({ published: false, shiftTypes: [], entries: [] });
     var types = await rosterTypes(me.company_id);
     var typeIds = {}; types.forEach((t) => { typeIds[t.id] = true; });
-    var users = await pool.query("SELECT id, name, role FROM users WHERE company_id = $1", [me.company_id]);
+    var users = await pool.query("SELECT id, name, role FROM users WHERE company_id = $1 AND (company_role IS NULL OR company_role = 'coordinator')", [me.company_id]);
     var names = {}; users.rows.forEach((u) => { names[u.id] = u.name; });
     var entries = [];
     (row.snapshot || []).forEach((k) => {
@@ -1307,7 +1341,10 @@ app.get("/api/me/roster", auth, async (req, res) => {
       if (names[uid] && typeIds[sid]) entries.push({ date: p[1], shiftTypeId: sid, userId: uid, userName: names[uid] });
     });
     entries.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.shiftTypeId - b.shiftTypeId));
-    res.json({ published: true, publishedAt: row.published_at, shiftTypes: types, entries: entries, me: me.id });
+    var ack = await pool.query("SELECT acked_at FROM company_roster_acks WHERE user_id = $1 AND month = $2", [me.id, month]);
+    var team = users.rows.filter((u) => u.id !== me.id).map((u) => ({ id: u.id, name: u.name, role: u.role || "" }));
+    res.json({ published: true, publishedAt: row.published_at, shiftTypes: types, entries: entries, me: me.id,
+      acked: ack.rows.length > 0, ackedAt: ack.rows[0] ? ack.rows[0].acked_at : null, team: team });
   } catch (err) {
     console.error("Erro no GET /api/me/roster:", err);
     res.status(500).json({ error: "internal_error" });
@@ -1472,6 +1509,8 @@ app.post("/api/company/roster/publish", auth, async (req, res) => {
     Object.keys(after).forEach((u) => { if (!sameKeys((before[u] || []).slice().sort(), after[u].slice().sort())) affected[u] = true; });
     Object.keys(before).forEach((u) => { if (!after[u]) affected[u] = true; });
     var ids = Object.keys(affected).map((u) => parseInt(u, 10));
+    // quem teve a escala alterada precisa dar "ciente" de novo
+    if (ids.length) await pool.query("DELETE FROM company_roster_acks WHERE company_id = $1 AND month = $2 AND user_id = ANY($3::int[])", [me.company_id, month, ids]);
     var company = await pool.query("SELECT name FROM companies WHERE id = $1", [me.company_id]);
     var companyName = company.rows[0] ? company.rows[0].name : "sua academia";
     var types = await pool.query("SELECT id, name, start_time, end_time FROM company_shift_types WHERE company_id = $1", [me.company_id]);
@@ -1495,6 +1534,258 @@ app.post("/api/company/roster/publish", auth, async (req, res) => {
     res.json({ ok: true, notified: users.rows.length });
   } catch (err) {
     console.error("Erro no POST /api/company/roster/publish:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+
+// ---------- "Ciente" da escala e troca de plantao ----------
+app.post("/api/me/roster/ack", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id) return res.status(403).json({ error: "not_allowed" });
+    var month = String((req.body && req.body.month) || "").trim();
+    if (!validMonth(month)) return res.status(400).json({ error: "invalid_month" });
+    var mrow = await pool.query("SELECT snapshot FROM company_roster_months WHERE company_id = $1 AND month = $2 AND published_at IS NOT NULL", [me.company_id, month]);
+    var has = mrow.rows[0] && (mrow.rows[0].snapshot || []).some((k) => parseInt(k.split("|")[0], 10) === me.id);
+    if (!has) return res.status(400).json({ error: "no_shifts", message: "Você não tem plantão publicado neste mês." });
+    await pool.query(
+      `INSERT INTO company_roster_acks (user_id, company_id, month) VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, month) DO UPDATE SET acked_at = now()`, [me.id, me.company_id, month]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro no POST /api/me/roster/ack:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Lembrete para quem ainda nao deu "ciente".
+app.post("/api/company/roster/remind", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id || !isScheduleManager(me.company_role)) return res.status(403).json({ error: "not_allowed", message: "Você não pode lembrar a equipe." });
+    var month = String((req.body && req.body.month) || "").trim();
+    if (!validMonth(month)) return res.status(400).json({ error: "invalid_month" });
+    var mrow = await pool.query("SELECT snapshot FROM company_roster_months WHERE company_id = $1 AND month = $2 AND published_at IS NOT NULL", [me.company_id, month]);
+    if (!mrow.rows[0]) return res.status(400).json({ error: "not_published", message: "Publique a escala antes de lembrar a equipe." });
+    var ids = {}; (mrow.rows[0].snapshot || []).forEach((k) => { ids[parseInt(k.split("|")[0], 10)] = true; });
+    var acked = await pool.query("SELECT user_id FROM company_roster_acks WHERE company_id = $1 AND month = $2", [me.company_id, month]);
+    acked.rows.forEach((r) => { delete ids[r.user_id]; });
+    var pending = Object.keys(ids).map((u) => parseInt(u, 10));
+    var monthName = monthNamePt(month);
+    for (var i = 0; i < pending.length; i++) {
+      await pool.query("INSERT INTO user_notifications (user_id, company_id, kind, title, body) VALUES ($1, $2, 'roster', $3, $4)",
+        [pending[i], me.company_id, "Confirme a sua escala de " + monthName, "Abra \"Escala da equipe\" e toque em \"Estou ciente\" para confirmar que viu os seus plantões."]);
+    }
+    res.json({ ok: true, reminded: pending.length });
+  } catch (err) {
+    console.error("Erro no POST /api/company/roster/remind:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+async function swapContext(row) {
+  var t = await pool.query("SELECT id, name, start_time, end_time, kind FROM company_shift_types WHERE id = $1", [row.shift_type_id]);
+  return t.rows[0] || null;
+}
+function swapLabel(row, type) {
+  return dateLabelPt(row.date) + " · " + (type ? type.name + " (" + type.start_time + "–" + type.end_time + ")" : "turno");
+}
+async function notifyUsers(companyId, userIds, title, body) {
+  for (var i = 0; i < userIds.length; i++) {
+    await pool.query("INSERT INTO user_notifications (user_id, company_id, kind, title, body) VALUES ($1, $2, 'swap', $3, $4)", [userIds[i], companyId, title, body]);
+  }
+}
+async function managerIds(companyId, exceptId) {
+  var r = await pool.query("SELECT id FROM users WHERE company_id = $1 AND company_role IN ('owner','manager','coordinator') AND id <> $2", [companyId, exceptId || 0]);
+  return r.rows.map((x) => x.id);
+}
+// Mesma regra de "pode fazer este turno" usada ao montar a escala.
+async function canTakeShift(companyId, userId, date, type) {
+  var u = await pool.query("SELECT id, name, role, company_role FROM users WHERE id = $1 AND company_id = $2", [userId, companyId]);
+  var t = u.rows[0];
+  if (!t || !(t.company_role === null || t.company_role === "coordinator")) return { ok: false, message: "Essa pessoa não entra na escala de turnos." };
+  if (!kindAllows(type.kind, t.role)) return { ok: false, message: t.name + " não pode fazer este turno." };
+  var others = await pool.query(
+    `SELECT s.name, s.start_time, s.end_time FROM company_roster_entries e JOIN company_shift_types s ON s.id = e.shift_type_id
+     WHERE e.company_id = $1 AND e.user_id = $2 AND e.date = $3`, [companyId, userId, date]);
+  var ns = timeToMin(type.start_time), ne = timeToMin(type.end_time);
+  for (var i = 0; i < others.rows.length; i++) {
+    if (ns < timeToMin(others.rows[i].end_time) && timeToMin(others.rows[i].start_time) < ne) return { ok: false, message: t.name + " já está escalado(a) em outro turno nesse horário." };
+  }
+  return { ok: true, user: t };
+}
+
+function swapOut(r, names, types) {
+  var t = types[r.shift_type_id];
+  return { id: r.id, date: r.date, shiftTypeId: r.shift_type_id, shiftName: t ? t.name : "", startTime: t ? t.start_time : "", endTime: t ? t.end_time : "",
+    requesterId: r.requester_id, requesterName: names[r.requester_id] || "", targetId: r.target_id, targetName: r.target_id ? (names[r.target_id] || "") : "",
+    note: r.note || "", status: r.status, createdAt: r.created_at, resolvedAt: r.resolved_at };
+}
+async function swapMaps(companyId) {
+  var us = await pool.query("SELECT id, name FROM users WHERE company_id = $1", [companyId]);
+  var names = {}; us.rows.forEach((u) => { names[u.id] = u.name; });
+  var ts = await pool.query("SELECT id, name, start_time, end_time FROM company_shift_types WHERE company_id = $1", [companyId]);
+  var types = {}; ts.rows.forEach((t) => { types[t.id] = t; });
+  return { names: names, types: types };
+}
+
+// Pedir troca: de um plantao publicado seu, com uma pessoa (ela aceita antes) ou sem substituto.
+app.post("/api/me/swaps", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id) return res.status(403).json({ error: "not_allowed" });
+    var b = req.body || {};
+    var date = String(b.date || "").trim(), typeId = parseInt(b.shiftTypeId, 10);
+    var targetId = b.targetId ? parseInt(b.targetId, 10) : null;
+    var note = String(b.note || "").trim().slice(0, 300);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !typeId) return res.status(400).json({ error: "invalid_input" });
+    if (date < new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10)) return res.status(400).json({ error: "past", message: "Esse plantão já passou." });
+    var month = date.slice(0, 7);
+    var mrow = await pool.query("SELECT snapshot FROM company_roster_months WHERE company_id = $1 AND month = $2 AND published_at IS NOT NULL", [me.company_id, month]);
+    var key = me.id + "|" + date + "|" + typeId;
+    if (!mrow.rows[0] || (mrow.rows[0].snapshot || []).indexOf(key) < 0) return res.status(400).json({ error: "not_yours", message: "Esse plantão não está publicado para você." });
+    var type = (await pool.query("SELECT id, name, start_time, end_time, kind FROM company_shift_types WHERE id = $1 AND company_id = $2", [typeId, me.company_id])).rows[0];
+    if (!type) return res.status(400).json({ error: "invalid_shift" });
+    var dup = await pool.query("SELECT 1 FROM roster_swap_requests WHERE requester_id = $1 AND date = $2 AND shift_type_id = $3 AND status IN ('pending_target','pending_manager')", [me.id, date, typeId]);
+    if (dup.rows.length) return res.status(409).json({ error: "duplicate", message: "Você já tem um pedido de troca aberto para esse plantão." });
+    var target = null;
+    if (targetId) {
+      if (targetId === me.id) return res.status(400).json({ error: "invalid_input" });
+      var can = await canTakeShift(me.company_id, targetId, date, type);
+      if (!can.ok) return res.status(400).json({ error: "target_not_allowed", message: can.message });
+      target = can.user;
+    }
+    var status = target ? "pending_target" : "pending_manager";
+    var ins = await pool.query(
+      "INSERT INTO roster_swap_requests (company_id, date, shift_type_id, requester_id, target_id, note, status) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+      [me.company_id, date, typeId, me.id, targetId, note || null, status]);
+    var label = swapLabel({ date: date }, type);
+    if (target) {
+      await notifyUsers(me.company_id, [target.id], me.name + " pediu para trocar de plantão com você", label + (note ? "\nMotivo: " + note : "") + "\nAbra \"Escala da equipe\" para aceitar ou recusar.");
+    } else {
+      await notifyUsers(me.company_id, await managerIds(me.company_id, me.id), me.name + " pediu para sair de um plantão", label + (note ? "\nMotivo: " + note : "") + "\nSem substituto. Veja em \"Escala planejada\" > Pedidos de troca.");
+    }
+    res.json({ ok: true, id: ins.rows[0].id, status: status });
+  } catch (err) {
+    console.error("Erro no POST /api/me/swaps:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+app.get("/api/me/swaps", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id) return res.status(403).json({ error: "not_allowed" });
+    var maps = await swapMaps(me.company_id);
+    var r = await pool.query(
+      `SELECT * FROM roster_swap_requests WHERE company_id = $1 AND (requester_id = $2 OR target_id = $2)
+       AND (status IN ('pending_target','pending_manager') OR resolved_at > now() - interval '14 days') ORDER BY created_at DESC LIMIT 40`, [me.company_id, me.id]);
+    res.json({ me: me.id, swaps: r.rows.map((x) => swapOut(x, maps.names, maps.types)) });
+  } catch (err) {
+    console.error("Erro no GET /api/me/swaps:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+app.post("/api/me/swaps/:id/respond", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id) return res.status(403).json({ error: "not_allowed" });
+    var id = parseInt(req.params.id, 10);
+    var sw = (await pool.query("SELECT * FROM roster_swap_requests WHERE id = $1 AND company_id = $2", [id, me.company_id])).rows[0];
+    if (!sw || sw.target_id !== me.id || sw.status !== "pending_target") return res.status(404).json({ error: "not_found", message: "Pedido não encontrado ou já respondido." });
+    var type = await swapContext(sw), label = swapLabel(sw, type);
+    var requester = (await pool.query("SELECT name FROM users WHERE id = $1", [sw.requester_id])).rows[0];
+    if (req.body && req.body.accept) {
+      var can = await canTakeShift(me.company_id, me.id, sw.date, type);
+      if (!can.ok) return res.status(400).json({ error: "cannot", message: "Você não pode assumir esse plantão: " + can.message });
+      await pool.query("UPDATE roster_swap_requests SET status = 'pending_manager' WHERE id = $1", [id]);
+      await notifyUsers(me.company_id, [sw.requester_id], me.name + " aceitou a troca", label + "\nAgora falta a aprovação da coordenação.");
+      await notifyUsers(me.company_id, await managerIds(me.company_id, sw.requester_id), "Troca de plantão para aprovar", requester.name + " → " + me.name + "\n" + label + "\nVeja em \"Escala planejada\" > Pedidos de troca.");
+      return res.json({ ok: true, status: "pending_manager" });
+    }
+    await pool.query("UPDATE roster_swap_requests SET status = 'rejected', resolved_at = now(), resolved_by = $2 WHERE id = $1", [id, me.id]);
+    await notifyUsers(me.company_id, [sw.requester_id], me.name + " recusou a troca", label + "\nVocê continua escalado(a) nesse plantão. Tente outra pessoa ou fale com a coordenação.");
+    res.json({ ok: true, status: "rejected" });
+  } catch (err) {
+    console.error("Erro no POST /api/me/swaps/:id/respond:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+app.post("/api/me/swaps/:id/cancel", auth, async (req, res) => {
+  try {
+    var id = parseInt(req.params.id, 10);
+    var r = await pool.query(
+      "UPDATE roster_swap_requests SET status = 'cancelled', resolved_at = now(), resolved_by = $2 WHERE id = $1 AND requester_id = $2 AND status IN ('pending_target','pending_manager') RETURNING id", [id, req.userId]);
+    if (r.rows.length === 0) return res.status(404).json({ error: "not_found", message: "Pedido não encontrado ou já resolvido." });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro no POST /api/me/swaps/:id/cancel:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Fila de aprovacao (coordenacao/gerencia/dono; socio so ve).
+app.get("/api/company/swaps", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id || !isScheduleViewer(me.company_role)) return res.status(403).json({ error: "not_allowed" });
+    var maps = await swapMaps(me.company_id);
+    var r = await pool.query(
+      `SELECT * FROM roster_swap_requests WHERE company_id = $1 AND (status = 'pending_manager' OR (status IN ('approved','rejected') AND resolved_at > now() - interval '14 days'))
+       ORDER BY (status = 'pending_manager') DESC, created_at DESC LIMIT 40`, [me.company_id]);
+    res.json({ canDecide: isScheduleManager(me.company_role), me: me.id, swaps: r.rows.map((x) => swapOut(x, maps.names, maps.types)) });
+  } catch (err) {
+    console.error("Erro no GET /api/company/swaps:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+app.post("/api/company/swaps/:id/decide", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id || !isScheduleManager(me.company_role)) return res.status(403).json({ error: "not_allowed", message: "Você não pode decidir trocas." });
+    var id = parseInt(req.params.id, 10);
+    var sw = (await pool.query("SELECT * FROM roster_swap_requests WHERE id = $1 AND company_id = $2", [id, me.company_id])).rows[0];
+    if (!sw || sw.status !== "pending_manager") return res.status(404).json({ error: "not_found", message: "Pedido não encontrado ou já decidido." });
+    if (sw.requester_id === me.id) return res.status(403).json({ error: "self", message: "Você não pode aprovar o seu próprio pedido: outra pessoa da gestão decide." });
+    var type = await swapContext(sw), label = swapLabel(sw, type);
+    var maps = await swapMaps(me.company_id);
+    var who = (maps.names[sw.requester_id] || "") + (sw.target_id ? " → " + (maps.names[sw.target_id] || "") : " (sem substituto)");
+    var month = sw.date.slice(0, 7);
+    if (!(req.body && req.body.approve)) {
+      await pool.query("UPDATE roster_swap_requests SET status = 'rejected', resolved_at = now(), resolved_by = $2 WHERE id = $1", [id, me.id]);
+      await notifyUsers(me.company_id, [sw.requester_id].concat(sw.target_id ? [sw.target_id] : []), "Troca de plantão recusada", label + "\nA escala continua como estava (" + (maps.names[sw.requester_id] || "") + " no plantão).");
+      await audit(me.company_id, me.id, "swap_rejected", sw.requester_id, maps.names[sw.requester_id], label);
+      return res.json({ ok: true, status: "rejected" });
+    }
+    // aprovar: troca quem faz o plantao (ou deixa o turno vago)
+    if (sw.target_id) {
+      var can = await canTakeShift(me.company_id, sw.target_id, sw.date, type);
+      if (!can.ok) return res.status(400).json({ error: "cannot", message: "Não dá para aprovar: " + can.message });
+    }
+    var cur = await pool.query("SELECT id FROM company_roster_entries WHERE company_id = $1 AND date = $2 AND shift_type_id = $3 AND user_id = $4", [me.company_id, sw.date, sw.shift_type_id, sw.requester_id]);
+    if (cur.rows.length === 0) return res.status(409).json({ error: "changed", message: "A escala mudou: esse plantão já não é mais dessa pessoa." });
+    if (sw.target_id) await pool.query("UPDATE company_roster_entries SET user_id = $2 WHERE id = $1", [cur.rows[0].id, sw.target_id]);
+    else await pool.query("DELETE FROM company_roster_entries WHERE id = $1", [cur.rows[0].id]);
+    // a escala ja publicada acompanha a troca, e o novo responsavel precisa dar ciente
+    var mrow = await pool.query("SELECT snapshot FROM company_roster_months WHERE company_id = $1 AND month = $2 AND published_at IS NOT NULL", [me.company_id, month]);
+    if (mrow.rows[0]) {
+      var oldKey = sw.requester_id + "|" + sw.date + "|" + sw.shift_type_id;
+      var snap = (mrow.rows[0].snapshot || []).filter((k) => k !== oldKey);
+      if (sw.target_id) snap.push(sw.target_id + "|" + sw.date + "|" + sw.shift_type_id);
+      await pool.query("UPDATE company_roster_months SET snapshot = $3::jsonb WHERE company_id = $1 AND month = $2", [me.company_id, month, JSON.stringify(snap.sort())]);
+    }
+    if (sw.target_id) await pool.query("DELETE FROM company_roster_acks WHERE user_id = $1 AND month = $2", [sw.target_id, month]);
+    await pool.query("UPDATE roster_swap_requests SET status = 'approved', resolved_at = now(), resolved_by = $2 WHERE id = $1", [id, me.id]);
+    await notifyUsers(me.company_id, [sw.requester_id], "Troca de plantão aprovada", label + "\nVocê saiu desse plantão.");
+    if (sw.target_id) await notifyUsers(me.company_id, [sw.target_id], "Você assumiu um plantão", label + "\nConfirme em \"Escala da equipe\" com \"Estou ciente\".");
+    await audit(me.company_id, me.id, "swap_approved", sw.requester_id, maps.names[sw.requester_id], label + " · " + who);
+    res.json({ ok: true, status: "approved" });
+  } catch (err) {
+    console.error("Erro no POST /api/company/swaps/:id/decide:", err);
     res.status(500).json({ error: "internal_error" });
   }
 });

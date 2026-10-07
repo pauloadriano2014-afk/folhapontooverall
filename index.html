@@ -258,8 +258,11 @@
       <button class="small" id="btnMyRosterNext" aria-label="Próximo mês">›</button>
     </div>
     <div id="myRosterStatus"></div>
+    <div id="myRosterAck"></div>
     <h3 class="export-group-title" style="margin-top:6px;">Seus plantões</h3>
     <div id="myRosterMine"></div>
+    <h3 class="export-group-title">Trocas de plantão</h3>
+    <div id="myRosterSwaps"></div>
     <h3 class="export-group-title">Equipe no mês</h3>
     <div id="myRosterTeam"></div>
   </div>
@@ -424,12 +427,19 @@
           <button class="small primary" id="btnRosterPublish">Publicar</button>
         </div>
       </div>
+      <div id="rosterAcks" class="roster-acks"></div>
       <div id="rosterLegend" class="roster-legend"></div>
       <div class="table-wrap">
         <table id="rosterCalendarTable" class="schedule-calendar"></table>
       </div>
       <h3 style="margin:20px 0 6px;font-size:13px;color:var(--text-dim);">Equilíbrio de plantões neste mês <span style="font-weight:400;">(quantos cada um já tem)</span></h3>
       <div id="rosterLoad"></div>
+    </div>
+
+    <div class="card no-print" id="swapsCard" data-view="escala" style="display:none;">
+      <h2>Pedidos de troca de plantão</h2>
+      <p class="account-section-hint" style="margin:-4px 0 10px;">A pessoa pede a troca, o colega aceita e aqui a coordenação aprova. Ao aprovar, a escala já publicada é atualizada e o novo responsável é avisado.</p>
+      <div id="swapsList"></div>
     </div>
 
     <div class="card no-print notices-card" data-view="avisos">
@@ -871,6 +881,26 @@
   </div>
 </div>
 
+<!-- Pedir troca de plantao -->
+<div class="overlay" id="swapOverlay">
+  <div class="sheet">
+    <button class="close ghost small" data-close>Fechar</button>
+    <h3>Pedir troca de plantão</h3>
+    <p class="sub" id="swapInfo"></p>
+    <div class="auth-form">
+      <label>Quem assume?
+        <select id="swapTarget"></select>
+      </label>
+      <label>Motivo (opcional)
+        <input type="text" id="swapNote" maxlength="300" placeholder="Ex: consulta médica, viagem…" />
+      </label>
+      <p class="account-section-hint" id="swapHint" style="margin:0;"></p>
+      <div class="auth-error" id="swapError"></div>
+      <button type="button" class="primary" id="btnSwapSend">Enviar pedido</button>
+    </div>
+  </div>
+</div>
+
 <!-- Escala planejada: turnos e horarios -->
 <div class="overlay" id="shiftTypesOverlay">
   <div class="sheet">
@@ -925,6 +955,7 @@
 <script src="js/team.js"></script>
 <script src="js/roster.js"></script>
 <script src="js/closing.js"></script>
+<script src="js/swaps.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/app.js"></script>
 </body>

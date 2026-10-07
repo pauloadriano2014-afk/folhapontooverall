@@ -664,3 +664,10 @@
 /* mes fechado */
 .month-lock{ margin:0 0 10px; padding:10px 12px; border-radius:10px; font-size:13px; line-height:1.4; border:1px solid var(--warn); color:var(--warn); background:var(--bg-panel-2); }
 .month-locked td, .month-locked th{ cursor:not-allowed; }
+
+/* ciente e trocas */
+.ack-box{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; padding:10px 12px; margin:0 0 10px; border:1px solid var(--warn); border-radius:10px; background:var(--bg-panel-2); font-size:13px; }
+.ack-box.ok{ border-color:var(--good); color:var(--good); }
+.roster-acks:empty{ display:none; }
+.roster-mine em + button{ margin-left:0; }
+.roster-mine button{ margin-left:auto; }
