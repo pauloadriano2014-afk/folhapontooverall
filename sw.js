@@ -1,6 +1,6 @@
 // Service worker - Ponto Overall
 // Bump this on every deploy that changes cached files so clients pick up the update.
-const CACHE_VERSION = "v53";
+const CACHE_VERSION = "v54";
 const CACHE_NAME = "ponto-overall-" + CACHE_VERSION;
 
 const APP_SHELL = [
@@ -24,6 +24,8 @@ const APP_SHELL = [
   "./js/roster.js",
   "./js/closing.js",
   "./js/swaps.js",
+  "./js/legal.js",
+  "./js/push.js",
   "./js/app.js",
   "./manifest.json",
   "./icons/icon-192.png",
@@ -84,4 +86,26 @@ self.addEventListener("fetch", (event) => {
         .catch(() => cached);
     })
   );
+});
+
+// Notificacao push: mostra o aviso mesmo com o app fechado e abre o app ao tocar.
+self.addEventListener("push", (event) => {
+  let d = {};
+  try { d = event.data ? event.data.json() : {}; } catch (e) { d = { title: "Ponto Overall", body: event.data ? event.data.text() : "" }; }
+  event.waitUntil(self.registration.showNotification(d.title || "Ponto Overall", {
+    body: d.body || "",
+    icon: "./icons/icon-192.png",
+    badge: "./icons/icon-192.png",
+    tag: d.tag || undefined,
+    data: { url: d.url || "./" }
+  }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "./";
+  event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+    for (const c of list) { if ("focus" in c) return c.focus(); }
+    return self.clients.openWindow(url);
+  }));
 });

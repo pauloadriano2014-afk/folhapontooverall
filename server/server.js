@@ -36,6 +36,8 @@
 //   *      /api/company/shift-types       -> turnos e horarios (padrao: estagiario 8-13 e 13-18, professor 10-14)
 //   POST   /api/me/roster/ack, /api/company/roster/remind -> "ciente" da escala e lembrete
 //   *      /api/me/swaps, /api/company/swaps -> pedidos de troca de plantao (aceite do colega + aprovacao da coordenacao)
+//   POST   /api/me/accept-terms, GET /api/me/export, DELETE /api/me -> termos, copia dos dados e exclusao da conta (LGPD)
+//   GET    /api/push/config, POST /api/me/push/{subscribe,unsubscribe,test} -> notificacao push no celular
 //   GET    /api/me/notifications          -> avisos da pessoa (POST .../read marca como lidos)
 //
 // "Esqueci minha senha" manda o e-mail usando uma conta Gmail configurada nas
@@ -50,6 +52,7 @@ const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
+const webpush = require("web-push");
 const { Pool } = require("pg");
 
 const PORT = process.env.PORT || 3000;
@@ -64,6 +67,24 @@ const APP_URL = process.env.APP_URL || "https://ponto-overall.onrender.com";
 
 const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
+
+// Notificacao push (aviso na tela do celular). Gere as chaves uma vez com
+// `npx web-push generate-vapid-keys` e coloque no Render como VAPID_PUBLIC_KEY e
+// VAPID_PRIVATE_KEY. Sem elas o push fica desligado e o resto do app funciona igual.
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
+const PUSH_ENABLED = !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
+if (PUSH_ENABLED) {
+  try {
+    webpush.setVapidDetails(process.env.VAPID_SUBJECT || APP_URL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  } catch (e) {
+    console.error("Chaves VAPID invalidas, push desligado:", e.message);
+  }
+}
+
+// Versao dos Termos de uso / Politica de privacidade. Ao mudar o texto, troque
+// a versao: todo mundo precisa aceitar de novo no proximo acesso.
+const TERMS_VERSION = "2026-10";
 
 if (!DATABASE_URL) {
   console.error("Faltando variavel de ambiente DATABASE_URL");
@@ -298,6 +319,20 @@ async function ensureTables() {
     );
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user ON user_notifications(user_id, read_at);`);
+  // Termos/privacidade aceitos (versao + data) e aparelhos com notificacao push.
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version text");
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at timestamptz");
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id serial PRIMARY KEY,
+      user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      endpoint text NOT NULL UNIQUE,
+      p256dh text NOT NULL,
+      auth text NOT NULL,
+      user_agent text,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
   // "Ciente" da escala publicada e pedidos de troca de plantao.
   await pool.query(`
     CREATE TABLE IF NOT EXISTS company_roster_acks (
@@ -507,6 +542,27 @@ function accessRoleToDb(accessRole) {
   return accessRole === "staff" ? null : accessRole;
 }
 
+// Aviso dentro do app + (se ligado) notificacao push no celular.
+async function notify(userId, companyId, kind, title, body) {
+  await pool.query("INSERT INTO user_notifications (user_id, company_id, kind, title, body) VALUES ($1, $2, $3, $4, $5)", [userId, companyId, kind, title, body]);
+  pushToUser(userId, { title: title, body: String(body || "").split("\n")[0].slice(0, 140), tag: kind }).catch(function () {});
+}
+
+async function pushToUser(userId, payload) {
+  if (!PUSH_ENABLED) return;
+  var subs = await pool.query("SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = $1", [userId]);
+  for (var i = 0; i < subs.rows.length; i++) {
+    var sb = subs.rows[i];
+    try {
+      await webpush.sendNotification({ endpoint: sb.endpoint, keys: { p256dh: sb.p256dh, auth: sb.auth } }, JSON.stringify(payload), { TTL: 86400 });
+    } catch (e) {
+      // 404/410: o aparelho cancelou a permissao ou desinstalou — esquece ele
+      if (e && (e.statusCode === 404 || e.statusCode === 410)) await pool.query("DELETE FROM push_subscriptions WHERE id = $1", [sb.id]);
+      else console.error("Falha ao enviar push:", e && (e.statusCode || e.message));
+    }
+  }
+}
+
 async function audit(companyId, actorId, action, targetId, targetName, detail) {
   try {
     await pool.query(
@@ -570,6 +626,7 @@ function publicUser(row) {
     companyId: row.company_id || null,
     companyRole: row.company_role || null,
     personalModule: !!row.personal_module,
+    termsAccepted: row.terms_version === TERMS_VERSION,
   };
 }
 
@@ -629,6 +686,9 @@ app.post("/api/register", limitRegister, async (req, res) => {
   if (roleInput.invalid) {
     return res.status(400).json({ error: "invalid_role", message: INVALID_ROLE_MSG });
   }
+  if (body.acceptTerms !== true) {
+    return res.status(400).json({ error: "terms_required", message: "Aceite os Termos de uso e a Política de privacidade para criar a conta." });
+  }
   if (accountType === "empresa" && !companyName) {
     return res.status(400).json({ error: "invalid_input", message: "Informe o nome da academia." });
   }
@@ -669,8 +729,8 @@ app.post("/api/register", limitRegister, async (req, res) => {
 
     var hash = await bcrypt.hash(password, 10);
     var result = await pool.query(
-      "INSERT INTO users (name, role, email, password_hash, company_id, personal_module) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, role, email, company_id, company_role, personal_module",
-      [name, role, email, hash, invitedCompany ? invitedCompany.id : null, accountType !== "empresa" && roleInput.module]
+      "INSERT INTO users (name, role, email, password_hash, company_id, personal_module, terms_version, terms_accepted_at) VALUES ($1, $2, $3, $4, $5, $6, $7, now()) RETURNING id, name, role, email, company_id, company_role, personal_module, terms_version",
+      [name, role, email, hash, invitedCompany ? invitedCompany.id : null, accountType !== "empresa" && roleInput.module, TERMS_VERSION]
     );
     var user = result.rows[0];
 
@@ -736,7 +796,7 @@ app.post("/api/login", limitLoginIp, limitLogin, async (req, res) => {
 
 app.get("/api/me", auth, async (req, res) => {
   try {
-    var result = await pool.query("SELECT id, name, role, email, company_id, company_role, personal_module FROM users WHERE id = $1", [req.userId]);
+    var result = await pool.query("SELECT id, name, role, email, company_id, company_role, personal_module, terms_version FROM users WHERE id = $1", [req.userId]);
     if (result.rows.length === 0) return res.status(404).json({ error: "not_found" });
     res.json({ user: publicUser(result.rows[0]) });
   } catch (err) {
@@ -1525,7 +1585,7 @@ app.post("/api/company/roster/publish", auth, async (req, res) => {
       var title, bodyText;
       if (mine.length === 0) { title = "Você saiu da escala de " + monthName; bodyText = "Você não está mais escalado(a) neste mês."; lines = [bodyText]; }
       else { title = wasPublished ? "Sua escala de " + monthName + " mudou" : "Escala de " + monthName + " publicada"; bodyText = lines.join("\n"); }
-      await pool.query("INSERT INTO user_notifications (user_id, company_id, kind, title, body) VALUES ($1, $2, 'roster', $3, $4)", [u.id, me.company_id, title, bodyText]);
+      await notify(u.id, me.company_id, "roster", title, bodyText);
       if (mailer && u.email && !/\.invalid$/i.test(u.email)) {
         sendRosterEmail(u.email, u.name, companyName, title, lines).catch((e) => console.error("Falha ao enviar e-mail da escala:", e.message));
       }
@@ -1574,8 +1634,7 @@ app.post("/api/company/roster/remind", auth, async (req, res) => {
     var pending = Object.keys(ids).map((u) => parseInt(u, 10));
     var monthName = monthNamePt(month);
     for (var i = 0; i < pending.length; i++) {
-      await pool.query("INSERT INTO user_notifications (user_id, company_id, kind, title, body) VALUES ($1, $2, 'roster', $3, $4)",
-        [pending[i], me.company_id, "Confirme a sua escala de " + monthName, "Abra \"Escala da equipe\" e toque em \"Estou ciente\" para confirmar que viu os seus plantões."]);
+      await notify(pending[i], me.company_id, "roster", "Confirme a sua escala de " + monthName, "Abra \"Escala da equipe\" e toque em \"Estou ciente\" para confirmar que viu os seus plantões.");
     }
     res.json({ ok: true, reminded: pending.length });
   } catch (err) {
@@ -1593,7 +1652,7 @@ function swapLabel(row, type) {
 }
 async function notifyUsers(companyId, userIds, title, body) {
   for (var i = 0; i < userIds.length; i++) {
-    await pool.query("INSERT INTO user_notifications (user_id, company_id, kind, title, body) VALUES ($1, $2, 'swap', $3, $4)", [userIds[i], companyId, title, body]);
+    await notify(userIds[i], companyId, "swap", title, body);
   }
 }
 async function managerIds(companyId, exceptId) {
@@ -2181,9 +2240,7 @@ app.post("/api/company/closings", auth, async (req, res) => {
         `INSERT INTO company_month_closings (company_id, user_id, month, closed_by, snapshot, hours, total)
          VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (user_id, month) DO NOTHING`,
         [me.company_id, u.id, month, me.id, sum.month, sum.hours, sum.total]);
-      await pool.query(
-        "INSERT INTO user_notifications (user_id, company_id, kind, title, body) VALUES ($1, $2, 'closing', $3, $4)",
-        [u.id, me.company_id, "Seu mês de " + monthName + " foi fechado", "Conferido por " + me.name + ". As horas desse mês não podem mais ser alteradas. Se algo estiver errado, fale com a gerência para reabrir."]);
+      await notify(u.id, me.company_id, "closing", "Seu mês de " + monthName + " foi fechado", "Conferido por " + me.name + ". As horas desse mês não podem mais ser alteradas. Se algo estiver errado, fale com a gerência para reabrir.");
       closedNames.push(u.name);
     }
     if (targets.length) {
@@ -2211,9 +2268,7 @@ app.delete("/api/company/closings/:userId/:month", auth, async (req, res) => {
     if (del.rows.length === 0) return res.status(404).json({ error: "not_found" });
     var tu = await pool.query("SELECT name FROM users WHERE id = $1", [uid]);
     var monthName = monthNamePt(month);
-    await pool.query(
-      "INSERT INTO user_notifications (user_id, company_id, kind, title, body) VALUES ($1, $2, 'closing', $3, $4)",
-      [uid, me.company_id, "Seu mês de " + monthName + " foi reaberto", me.name + " reabriu o mês para ajustes. Você será avisado(a) quando for fechado de novo."]);
+    await notify(uid, me.company_id, "closing", "Seu mês de " + monthName + " foi reaberto", me.name + " reabriu o mês para ajustes. Você será avisado(a) quando for fechado de novo.");
     await audit(me.company_id, me.id, "month_reopened", uid, tu.rows[0] ? tu.rows[0].name : null, monthName);
     res.json({ ok: true });
   } catch (err) {
@@ -2234,6 +2289,124 @@ app.get("/api/me/closings", auth, async (req, res) => {
     res.json({ closings: r.rows.map(function (x) { return { month: x.month, closedAt: x.closed_at, closedByName: x.closed_by_name }; }) });
   } catch (err) {
     console.error("Erro no GET /api/me/closings:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+
+// ---------- Termos, privacidade e dados pessoais (LGPD) ----------
+app.post("/api/me/accept-terms", auth, async (req, res) => {
+  try {
+    await pool.query("UPDATE users SET terms_version = $2, terms_accepted_at = now() WHERE id = $1", [req.userId, TERMS_VERSION]);
+    res.json({ ok: true, termsVersion: TERMS_VERSION });
+  } catch (err) {
+    console.error("Erro no POST /api/me/accept-terms:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Copia dos dados da propria pessoa (direito de acesso/portabilidade).
+app.get("/api/me/export", auth, async (req, res) => {
+  try {
+    var u = (await pool.query(
+      `SELECT u.id, u.name, u.email, u.role, u.company_role, u.personal_module, u.created_at, u.terms_version, u.terms_accepted_at, c.name AS company_name
+       FROM users u LEFT JOIN companies c ON c.id = u.company_id WHERE u.id = $1`, [req.userId])).rows[0];
+    if (!u) return res.status(404).json({ error: "not_found" });
+    var st = await pool.query("SELECT data, updated_at FROM user_state WHERE user_id = $1", [req.userId]);
+    var notes = await pool.query("SELECT kind, title, body, created_at, read_at FROM user_notifications WHERE user_id = $1 ORDER BY created_at DESC", [req.userId]);
+    var shifts = await pool.query(
+      `SELECT e.date, s.name AS turno, s.start_time, s.end_time FROM company_roster_entries e JOIN company_shift_types s ON s.id = e.shift_type_id
+       WHERE e.user_id = $1 ORDER BY e.date`, [req.userId]);
+    var presence = await pool.query("SELECT date, status, note FROM company_schedule WHERE user_id = $1 ORDER BY date", [req.userId]);
+    var closings = await pool.query("SELECT month, closed_at, hours FROM company_month_closings WHERE user_id = $1 ORDER BY month", [req.userId]);
+    var swaps = await pool.query("SELECT date, status, note, created_at FROM roster_swap_requests WHERE requester_id = $1 OR target_id = $1 ORDER BY created_at", [req.userId]);
+    var devices = await pool.query("SELECT user_agent, created_at FROM push_subscriptions WHERE user_id = $1", [req.userId]);
+    res.setHeader("Content-Disposition", 'attachment; filename="meus-dados-ponto-overall.json"');
+    res.json({
+      exportedAt: new Date().toISOString(),
+      account: { name: u.name, email: u.email, role: u.role || "", accessLevel: u.company_role || "profissional", personalModule: !!u.personal_module, academy: u.company_name || null, createdAt: u.created_at, termsVersion: u.terms_version, termsAcceptedAt: u.terms_accepted_at },
+      appData: st.rows[0] ? { updatedAt: st.rows[0].updated_at, data: st.rows[0].data } : null,
+      plannedShifts: shifts.rows,
+      attendanceRecords: presence.rows,
+      closedMonths: closings.rows,
+      swapRequests: swaps.rows,
+      notifications: notes.rows,
+      notificationDevices: devices.rows,
+    });
+  } catch (err) {
+    console.error("Erro no GET /api/me/export:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Apagar a propria conta (direito de eliminacao). Pede a senha.
+app.delete("/api/me", auth, limitChangePassword, async (req, res) => {
+  try {
+    var password = String((req.body && req.body.password) || "");
+    var u = (await pool.query("SELECT id, name, password_hash, company_id, company_role FROM users WHERE id = $1", [req.userId])).rows[0];
+    if (!u) return res.status(404).json({ error: "not_found" });
+    if (!password || !(await bcrypt.compare(password, u.password_hash))) {
+      return res.status(403).json({ error: "wrong_password", message: "Senha incorreta." });
+    }
+    if (u.company_role === "owner") {
+      return res.status(400).json({ error: "owner_cannot_delete", message: "Esta é a conta administradora da academia. Para encerrá-la, fale com o suporte do app: apagar a conta dona apagaria a academia inteira." });
+    }
+    var uid = u.id;
+    // quem aparece como autor/cobertura em registros de outras pessoas fica sem nome em vez de travar a exclusao
+    await pool.query("UPDATE company_schedule SET covered_by_user_id = NULL WHERE covered_by_user_id = $1", [uid]);
+    await pool.query("UPDATE company_schedule SET created_by = NULL WHERE created_by = $1", [uid]);
+    await pool.query("UPDATE company_invites SET redeemed_user_id = NULL WHERE redeemed_user_id = $1", [uid]);
+    if (u.company_id) await audit(u.company_id, null, "account_deleted", null, "Pessoa que apagou a conta", "A própria pessoa apagou a conta e os dados dela");
+    await pool.query("DELETE FROM users WHERE id = $1", [uid]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro no DELETE /api/me:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// ---------- Notificacao push ----------
+app.get("/api/push/config", auth, (req, res) => {
+  res.json({ enabled: PUSH_ENABLED, publicKey: PUSH_ENABLED ? VAPID_PUBLIC_KEY : null });
+});
+
+app.post("/api/me/push/subscribe", auth, async (req, res) => {
+  try {
+    if (!PUSH_ENABLED) return res.status(400).json({ error: "push_disabled", message: "As notificações no celular ainda não estão ativas neste servidor." });
+    var sub = (req.body && req.body.subscription) || {};
+    var endpoint = String(sub.endpoint || ""), keys = sub.keys || {};
+    if (!/^https:\/\//.test(endpoint) || !keys.p256dh || !keys.auth) return res.status(400).json({ error: "invalid_subscription" });
+    await pool.query(
+      `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, user_agent) VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (endpoint) DO UPDATE SET user_id = $1, p256dh = $3, auth = $4, user_agent = $5`,
+      [req.userId, endpoint, String(keys.p256dh), String(keys.auth), String(req.header("user-agent") || "").slice(0, 200)]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro no POST /api/me/push/subscribe:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+app.post("/api/me/push/unsubscribe", auth, async (req, res) => {
+  try {
+    var endpoint = String((req.body && req.body.endpoint) || "");
+    await pool.query("DELETE FROM push_subscriptions WHERE user_id = $1 AND endpoint = $2", [req.userId, endpoint]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro no POST /api/me/push/unsubscribe:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+app.post("/api/me/push/test", auth, async (req, res) => {
+  try {
+    if (!PUSH_ENABLED) return res.status(400).json({ error: "push_disabled", message: "As notificações no celular ainda não estão ativas neste servidor." });
+    var n = await pool.query("SELECT COUNT(*)::int AS n FROM push_subscriptions WHERE user_id = $1", [req.userId]);
+    if (n.rows[0].n === 0) return res.status(400).json({ error: "no_device", message: "Ative as notificações neste aparelho primeiro." });
+    await pushToUser(req.userId, { title: "Teste do Ponto Overall", body: "Funcionou! É assim que os avisos vão chegar.", tag: "test" });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro no POST /api/me/push/test:", err);
     res.status(500).json({ error: "internal_error" });
   }
 });

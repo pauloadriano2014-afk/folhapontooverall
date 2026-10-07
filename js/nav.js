@@ -65,6 +65,7 @@ function showView(view){
   if(view === "escala" && typeof loadRoster === "function") loadRoster();
   if(view === "minhaescala" && typeof loadMyRoster === "function") loadMyRoster();
   if(view === "avisos" && typeof loadNotices === "function") loadNotices();
+  if(view === "avisos" && typeof renderPushBox === "function") renderPushBox();
   document.body.classList.toggle("hide-month", MONTH_VIEWS.indexOf(view) < 0);
   if(currentUser){
     try{ localStorage.setItem(NAV_VIEW_KEY + currentUser.id, view); }catch(e){}

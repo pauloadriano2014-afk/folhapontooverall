@@ -180,6 +180,7 @@ function auditText(entry){
   if(entry.action === "member_removed") return who + " removeu " + target + " da academia";
   if(entry.action === "invite_created") return who + " convidou " + target;
   if(entry.action === "invite_cancelled") return who + " cancelou o convite de " + target;
+  if(entry.action === "account_deleted") return "Uma pessoa apagou a própria conta e os dados dela";
   if(entry.action === "month_closed") return who + " fechou o mês" + (target ? " de " + target : "") + " (" + entry.detail + ")";
   if(entry.action === "month_reopened") return who + " reabriu o mês de " + target + " (" + entry.detail + ")";
   if(entry.action === "roster_published") return who + " publicou a escala (" + entry.detail + ")";

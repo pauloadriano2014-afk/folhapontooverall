@@ -671,3 +671,17 @@
 .roster-acks:empty{ display:none; }
 .roster-mine em + button{ margin-left:0; }
 .roster-mine button{ margin-left:auto; }
+
+/* termos, privacidade e push */
+#termsOverlay, #privacyOverlay{ z-index:1200; }
+#termsGateOverlay{ z-index:1100; }
+.legal-sheet{ max-height:86vh; overflow-y:auto; }
+.legal-text h4{ margin:16px 0 4px; font-size:14px; }
+.legal-text p{ margin:0 0 6px; font-size:13px; line-height:1.5; color:var(--text-dim); }
+.legal-text .legal-ver{ font-size:11px; opacity:.8; }
+.legal-accept{ font-size:13px; align-items:flex-start; text-align:left; }
+.legal-accept a{ color:var(--accent); text-decoration:underline; }
+.push-box:empty{ display:none; }
+.push-box{ margin:0 0 12px; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:var(--bg-panel-2); font-size:13px; }
+.push-box .push-line{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+.push-box .push-hint{ margin:6px 0 0; font-size:12px; color:var(--text-dim); }

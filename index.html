@@ -77,6 +77,10 @@
       <label>Senha (mínimo 6 caracteres)
         <input type="password" id="regPassword" required autocomplete="new-password" minlength="6" />
       </label>
+      <label class="reminder-toggle legal-accept">
+        <input type="checkbox" id="regAcceptTerms" />
+        <span>Li e aceito os <a href="#" data-legal="terms">Termos de uso</a> e a <a href="#" data-legal="privacy">Política de privacidade</a>.</span>
+      </label>
       <div class="auth-error" id="registerError"></div>
       <button type="submit" class="primary" id="registerSubmit">Criar conta</button>
     </form>
@@ -444,6 +448,7 @@
 
     <div class="card no-print notices-card" data-view="avisos">
       <h2>Avisos</h2>
+      <div class="push-box"></div>
       <div class="notices-body"></div>
     </div>
 
@@ -547,6 +552,17 @@
         Também atendo alunos particulares (personal)
       </label>
       <p class="account-section-hint">Liga o módulo de alunos particulares no seu menu, com exportação em Excel e PDF. Esses dados são só seus: a academia nunca vê nomes, valores nem totais.</p>
+    </div>
+
+    <div class="account-section" id="privacySection">
+      <h3>Privacidade e dados</h3>
+      <p class="account-section-hint">Seus dados são seus: você pode ler os termos, baixar uma cópia e apagar a conta quando quiser.</p>
+      <div class="row-actions">
+        <button type="button" class="small" data-legal="terms">Termos de uso</button>
+        <button type="button" class="small" data-legal="privacy">Política de privacidade</button>
+        <button type="button" class="small" id="btnExportMyData">Baixar meus dados</button>
+        <button type="button" class="small bad" id="btnDeleteAccount">Excluir minha conta</button>
+      </div>
     </div>
 
     <div id="gradeAccountSections">
@@ -881,6 +897,90 @@
   </div>
 </div>
 
+<!-- Termos de uso -->
+<div class="overlay" id="termsOverlay">
+  <div class="sheet legal-sheet">
+    <button class="close ghost small" data-close>Fechar</button>
+    <h3>Termos de uso</h3>
+    <div class="legal-text">
+      <p class="legal-ver">Versão 2026-10</p>
+      <h4>1. O que é o Ponto Overall</h4>
+      <p>É um aplicativo para registrar horas de trabalho, montar e consultar a escala de fim de semana e feriado, acompanhar presença e conferir o fechamento do mês. Funciona no navegador e como aplicativo instalado no celular.</p>
+      <h4>2. Sua conta</h4>
+      <p>Você cria a conta com seus dados reais e é responsável por manter a senha em segredo e por conferir o que lança. O app registra o que você informa; ele não substitui o controle oficial de jornada exigido por lei, a menos que a sua academia o adote como tal.</p>
+      <h4>3. O que a sua academia enxerga</h4>
+      <p>Se você entrou por convite de uma academia, o dono, o sócio, o gerente e o coordenador veem, conforme o nível de cada um, as suas horas de sala, a sua escala e a sua presença. Valores em reais só aparecem para dono, gerente e sócio. Alunos particulares são seus: a academia não vê nomes, valores nem totais.</p>
+      <h4>4. Mês fechado</h4>
+      <p>Depois que a gerência ou a coordenação fecha um mês, as horas e os valores daquele mês ficam travados. Para corrigir, o dono ou o gerente precisa reabrir o mês, e isso fica registrado.</p>
+      <h4>5. Uso adequado</h4>
+      <p>Não use o app para fraudar horas, acessar dados de outras pessoas ou prejudicar o funcionamento do serviço. Contas usadas dessa forma podem ser removidas.</p>
+      <h4>6. Disponibilidade</h4>
+      <p>Trabalhamos para manter o app disponível, mas ele pode ficar fora do ar por manutenção ou por falhas de terceiros (hospedagem, internet). Recomendamos conferir seus lançamentos com regularidade.</p>
+      <h4>7. Encerramento</h4>
+      <p>Você pode apagar a sua conta a qualquer momento em Minha conta &gt; Privacidade e dados. A academia também pode retirar você da equipe; nesse caso a sua conta e os seus dados pessoais continuam com você.</p>
+      <h4>8. Mudanças nestes termos</h4>
+      <p>Se os termos mudarem, o app pede um novo aceite no próximo acesso.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Politica de privacidade -->
+<div class="overlay" id="privacyOverlay">
+  <div class="sheet legal-sheet">
+    <button class="close ghost small" data-close>Fechar</button>
+    <h3>Política de privacidade</h3>
+    <div class="legal-text">
+      <p class="legal-ver">Versão 2026-10</p>
+      <h4>Quais dados guardamos</h4>
+      <p>Nome, e-mail, função (estagiário ou professor), nível de acesso na academia, senha (guardada de forma criptografada, nunca em texto), horas e valores que você lança, escala e presença, meses fechados, avisos recebidos, e, se você ativar, o aparelho que recebe notificações. Se você usar o módulo de alunos particulares, os dados desses alunos ficam só na sua conta.</p>
+      <h4>Para que usamos</h4>
+      <p>Para o app funcionar: entrar na conta, sincronizar seus dados entre aparelhos, calcular totais, montar a escala, avisar você e permitir que a academia acompanhe o que é do trabalho dela. Não vendemos nem usamos seus dados para publicidade.</p>
+      <h4>Quem vê seus dados</h4>
+      <p>Você, e a sua academia conforme o nível de acesso (veja os Termos de uso). Os alunos particulares só você vê. Usamos serviços de terceiros para operar o app, como hospedagem, banco de dados e envio de e-mail; eles só tratam os dados para isso, e os servidores podem estar em outros países.</p>
+      <h4>Por quanto tempo guardamos</h4>
+      <p>Enquanto a sua conta existir. Ao apagar a conta, os seus dados são removidos do app. Cópias de segurança do banco podem manter os dados por um curto período antes de serem descartadas.</p>
+      <h4>Seus direitos</h4>
+      <p>Você pode, dentro do app, em Minha conta &gt; Privacidade e dados: ler estes textos, baixar uma cópia dos seus dados e apagar a sua conta. Para corrigir informações como nome e função, use Minha conta ou fale com a gerência da sua academia.</p>
+      <h4>Segurança</h4>
+      <p>A comunicação é protegida por HTTPS, as senhas são criptografadas e o acesso aos dados exige login. Nenhum sistema é totalmente imune a falhas; se acontecer um incidente que afete você, avisaremos.</p>
+      <p id="privacyContact" class="legal-contact" style="display:none;"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Aceite obrigatorio (quem ja tinha conta antes dos termos, ou quando mudam) -->
+<div class="overlay" id="termsGateOverlay">
+  <div class="sheet">
+    <h3>Termos de uso e privacidade</h3>
+    <p class="sub">Para continuar usando o Ponto Overall, leia e aceite os termos. É rápido e fica registrado.</p>
+    <div class="row-actions">
+      <button type="button" class="small" data-legal="terms">Ler os Termos de uso</button>
+      <button type="button" class="small" data-legal="privacy">Ler a Política de privacidade</button>
+    </div>
+    <div class="auth-form" style="margin-top:12px;">
+      <label class="reminder-toggle"><input type="checkbox" id="gateAccept" /> Li e aceito os Termos de uso e a Política de privacidade.</label>
+      <div class="auth-error" id="gateError"></div>
+      <button type="button" class="primary" id="btnGateAccept" disabled>Aceitar e continuar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Excluir a propria conta -->
+<div class="overlay" id="deleteAccountOverlay">
+  <div class="sheet">
+    <button class="close ghost small" data-close>Fechar</button>
+    <h3>Excluir minha conta</h3>
+    <p class="sub">Isso apaga a sua conta e todos os seus dados (horas, escala, avisos, alunos particulares) e não pode ser desfeito. Se você faz parte de uma academia, ela deixa de ver os seus registros, inclusive de meses já fechados. Antes, considere baixar uma cópia em "Baixar meus dados".</p>
+    <div class="auth-form">
+      <label>Digite a sua senha para confirmar
+        <input type="password" id="deleteAccountPassword" autocomplete="current-password" />
+      </label>
+      <div class="auth-error" id="deleteAccountError"></div>
+      <button type="button" class="primary bad" id="btnDeleteAccountConfirm">Apagar tudo e sair</button>
+    </div>
+  </div>
+</div>
+
 <!-- Pedir troca de plantao -->
 <div class="overlay" id="swapOverlay">
   <div class="sheet">
@@ -956,6 +1056,8 @@
 <script src="js/roster.js"></script>
 <script src="js/closing.js"></script>
 <script src="js/swaps.js"></script>
+<script src="js/legal.js"></script>
+<script src="js/push.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/app.js"></script>
 </body>

@@ -115,6 +115,7 @@ function onAuthSuccess(user, token){
 }
 
 function logout(){
+  if(typeof pushDetachDevice === "function") pushDetachDevice(); // este aparelho para de receber avisos de quem saiu
   authToken = null;
   currentUser = null;
   resetSyncState();
@@ -314,6 +315,10 @@ function initAuthForms(){
     var email = document.getElementById("regEmail").value.trim();
     var password = document.getElementById("regPassword").value;
     var btn = document.getElementById("registerSubmit");
+    if(!document.getElementById("regAcceptTerms").checked){
+      errEl.textContent = "Marque que leu e aceita os Termos de uso e a Política de privacidade.";
+      return;
+    }
     if(accountType === "empresa" && !companyName){
       errEl.textContent = "Informe o nome da academia.";
       return;
@@ -334,7 +339,8 @@ function initAuthForms(){
         inviteCode: inviteCode,
         inviteToken: pendingInviteToken || "",
         email: email,
-        password: password
+        password: password,
+        acceptTerms: true
       })
     }).then(function(res){
       return res.json().then(function(body){ return { ok: res.ok, body: body }; });
@@ -453,6 +459,13 @@ function refreshCurrentUser(){
   }).then(function(body){
     if(!body || !body.user || !currentUser) return false;
     var u = body.user;
+    // aceite dos termos: atualiza sem recarregar a tela
+    if(u.id === currentUser.id && u.termsAccepted !== currentUser.termsAccepted){
+      currentUser.termsAccepted = u.termsAccepted;
+      try{ localStorage.setItem(USER_KEY, JSON.stringify(currentUser)); }catch(e){}
+      pinSessionToTab(authToken, currentUser);
+      if(typeof checkTermsGate === "function") checkTermsGate();
+    }
     var changed = u.id !== currentUser.id || u.companyId !== currentUser.companyId || u.companyRole !== currentUser.companyRole ||
       u.role !== currentUser.role || u.name !== currentUser.name || !!u.personalModule !== !!currentUser.personalModule;
     if(changed){

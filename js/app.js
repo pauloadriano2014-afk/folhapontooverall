@@ -157,6 +157,8 @@ async function bootAppInner(){
     if(isGerente() && currentUser.personalModule) await bootPersonalModule();
     renderFaq();
     setupNav();
+    if(typeof checkTermsGate === "function") checkTermsGate();
+    if(currentUser.companyId && typeof pushSyncOnBoot === "function") pushSyncOnBoot();
     maybeShowOnboarding(isPartner() ? "socio" : (isGerente() ? "gerente" : "empresa"));
     return;
   }
@@ -214,17 +216,19 @@ async function bootAppInner(){
   }
   renderFaq();
   setupNav();
-  if(currentUser.companyId){ startNoticePolling(); loadMyClosings(); } // avisos novos no menu e meses fechados
+  if(typeof checkTermsGate === "function") checkTermsGate();
+  if(currentUser.companyId){ startNoticePolling(); loadMyClosings(); if(typeof pushSyncOnBoot === "function") pushSyncOnBoot(); } // avisos novos no menu e meses fechados
   maybeShowOnboarding(isCoordinator() ? "coordenador" : roleCategory());
 }
 
 // ---------- overlay close ----------
 function closeOverlays(){
-  document.querySelectorAll(".overlay").forEach(function(o){ o.classList.remove("open"); });
+  // o aceite dos termos nao fecha por fora: so some quando a pessoa aceita
+  document.querySelectorAll(".overlay:not(#termsGateOverlay)").forEach(function(o){ o.classList.remove("open"); });
   activeDayKey = null; activeVip = null; activeClientId = null;
 }
 document.querySelectorAll(".overlay").forEach(function(overlay){
-  overlay.addEventListener("click", function(e){ if(e.target === overlay) closeOverlays(); });
+  overlay.addEventListener("click", function(e){ if(e.target === overlay && overlay.id !== "termsGateOverlay") closeOverlays(); });
   overlay.querySelectorAll("[data-close]").forEach(function(b){ b.addEventListener("click", closeOverlays); });
 });
 

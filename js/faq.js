@@ -98,6 +98,12 @@ function faqGroupsFor(kind){
         ["Preciso trocar um plantão. E agora?", "Em \"Escala da equipe\", toque em \"Pedir troca\" no plantão. Escolha um colega (ele recebe o pedido e precisa aceitar) ou \"Sem substituto\" se só precisa sair; a coordenação decide quem cobre. Depois que o colega aceita, a coordenação aprova e a escala se atualiza sozinha. Você acompanha o andamento na própria tela e pode cancelar o pedido enquanto estiver aberto."]
       ]});
     }
+    groups.push({ title: "Privacidade e avisos no celular", items: [
+      ["Como recebo os avisos na tela do celular?", "Em \"Avisos\", toque em \"Ativar neste aparelho\" e permita as notificações. Você passa a ser avisado quando a escala sai ou muda, quando alguém pede troca e quando o mês é fechado, mesmo com o app fechado. No iPhone, primeiro instale o app: no Safari, Compartilhar > \"Adicionar à Tela de Início\", e ative por lá. Dá para desligar quando quiser."],
+      ["Como baixo uma cópia dos meus dados?", "Em Minha conta > Privacidade e dados > \"Baixar meus dados\". Você recebe um arquivo com a sua conta, horas, escala, presença e avisos."],
+      ["Como apago a minha conta?", "Em Minha conta > Privacidade e dados > \"Excluir minha conta\", confirmando com a senha. Isso apaga tudo e não dá para desfazer. A conta administradora da academia não se apaga sozinha: fale com o suporte."],
+      ["Onde leio os Termos de uso e a Política de privacidade?", "Em Minha conta > Privacidade e dados, ou no cadastro."]
+    ]});
     groups.push({ title: "O que a academia enxerga", items: [
       ["Quem vê as minhas horas?", "Se você está ligado a uma academia, o dono, o sócio e o gerente veem o total das suas horas de sala no mês (grade + auxílio − consumo). Os alunos particulares nunca aparecem."],
       ["Quem define o meu horário de trabalho?", "Quando você está ligado a uma academia, o horário de segunda a sexta e o de fim de semana são definidos pelo gerente ou coordenador. Se precisar mudar, fale com eles."]
