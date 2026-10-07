@@ -119,6 +119,7 @@ function logout(){
   currentUser = null;
   resetSyncState();
   STORAGE_KEY = null;
+  if(typeof myClosings !== "undefined") myClosings = {};
   if(typeof noticeTimer !== "undefined") clearInterval(noticeTimer);
   if(typeof setNoticeBadge === "function") setNoticeBadge(0);
   if(typeof teardownNav === "function") teardownNav();

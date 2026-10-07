@@ -660,3 +660,7 @@
 .boot-splash p{ margin:0; max-width:280px; font-size:14px; color:#9fb0cc; }
 .boot-spinner{ width:30px; height:30px; border-radius:50%; border:3px solid rgba(255,255,255,.18); border-top-color:#e2352f; animation:bootspin .8s linear infinite; }
 @keyframes bootspin{ to{ transform:rotate(360deg); } }
+
+/* mes fechado */
+.month-lock{ margin:0 0 10px; padding:10px 12px; border-radius:10px; font-size:13px; line-height:1.4; border:1px solid var(--warn); color:var(--warn); background:var(--bg-panel-2); }
+.month-locked td, .month-locked th{ cursor:not-allowed; }

@@ -84,6 +84,7 @@
   }
 
   function openDayModal(dateKey){
+    if(typeof guardClosedMonth === "function" && guardClosedMonth(currentMonthKey)) return;
     activeDayKey = dateKey;
     var monthObj = ensureMonth(currentMonthKey);
     var dayObj = monthObj.days[dateKey];

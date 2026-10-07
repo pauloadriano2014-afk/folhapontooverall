@@ -378,6 +378,14 @@
         serverVersion = body.updated_at || serverVersion;
         syncedSnapshot = sentSnapshot;
         setSyncStatus("ok", "Sincronizado com o servidor");
+        // o servidor desfez uma alteracao num mes fechado: traz a versao dele
+        if(body.overridden){
+          fetchRemoteState().then(function(remote){
+            if(remote && remote.data){ adoptServerData(remote.data, remote.updated_at); refreshUIFromData(); }
+            showToast("Esse mês está fechado: a alteração não foi aceita.");
+            if(typeof loadMyClosings === "function") loadMyClosings();
+          }).catch(function(){});
+        }
       });
     }).catch(function(err){
       syncInFlight = false;

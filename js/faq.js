@@ -28,12 +28,13 @@ function faqGroupsFor(kind){
     }
     groups.push({ title: "Equipe e valores", items: team });
     var sched = [
-      ["Como funciona a escala planejada?", "Em \"Escala da equipe\", a coordenação escolhe quem faz cada turno nos fins de semana e feriados (por exemplo: estagiário de manhã, estagiário à tarde e professor das 10h às 14h) e depois publica o mês. A equipe só vê a escala publicada e as pessoas escaladas recebem um aviso. Os turnos e horários podem ser mudados em \"Turnos e horários\"."],
-      ["Como funciona a escala da equipe?", "Em \"Escala da equipe\", toque num dia do calendário para ver ou lançar quem trabalhou, faltou ou foi coberto, com observação se quiser. O relatório abaixo do calendário mostra quem ainda não trabalhou fim de semana/feriado no mês."],
+      ["Como funciona a escala planejada?", "Em \"Escala planejada\", a coordenação escolhe quem faz cada turno nos fins de semana e feriados (por exemplo: estagiário de manhã, estagiário à tarde e professor das 10h às 14h) e depois publica o mês. A equipe só vê a escala publicada e as pessoas escaladas recebem um aviso. Os turnos e horários podem ser mudados em \"Turnos e horários\"."],
+      ["Para que serve o Registro de presença?", "É o depois: em \"Registro de presença\", toque num dia que já passou para lançar quem trabalhou, faltou ou foi coberto, com observação se quiser. Dia que ainda não aconteceu leva você para a escala planejada. As etiquetas abaixo do calendário mostram quantos fins de semana/feriados cada pessoa já trabalhou."],
+      ["Como funciona o fechamento do mês?", "Em \"Fechamento do mês\", escolha o mês, confira as horas de cada pessoa e toque em Fechar (ou \"Fechar todos os abertos\"). Depois de fechado, ninguém consegue alterar as horas e valores daquele mês, e a pessoa recebe um aviso. Para corrigir algo, o dono ou o gerente reabre o mês daquela pessoa; isso fica no histórico. Coordenador vê só horas, nunca valores em reais."],
       ["Quem pode lançar e quem só acompanha?", kind === "socio"
         ? "Como sócio(a), você só acompanha: vê o calendário e os relatórios, sem lançar nem editar nada."
         : "Dono, gerente e coordenador(a) lançam a escala. Sócio(a) só acompanha."],
-      ["Quem altera o horário semanal de cada profissional?", "O(a) gerente e o(a) coordenador(a), na parte \"Horário de trabalho da equipe\" da escala. Dono e sócio(a) só acompanham, para evitar mudanças sem querer."]
+      ["Quem altera o horário semanal de cada profissional?", "O(a) gerente e o(a) coordenador(a), na aba \"Minha equipe\" (para dono, gerente e sócio(a): \"Horários e plantões\"), no botão Editar horário de cada pessoa. Dono e sócio(a) só acompanham, para evitar mudanças sem querer."]
     ];
     groups.push({ title: "Escala", items: sched });
     if(kind !== "socio"){
@@ -75,13 +76,14 @@ function faqGroupsFor(kind){
     }
     if(kind === "coordenador"){
       groups.push({ title: "Montar a escala de fim de semana", items: [
-        ["Como monto a escala?", "Em \"Escala da equipe\", escolha o mês e toque num dia. Para cada turno (estagiário de manhã, estagiário à tarde, professor das 10h às 14h) escolha quem faz. O app só mostra, em cada turno, as pessoas que podem fazê-lo: estagiário nos turnos de estagiário e professor nos de professor. O número no calendário (ex.: 3/3) mostra quantos turnos do dia já têm alguém."],
+        ["Como monto a escala?", "Em \"Escala planejada\", escolha o mês e toque num dia. Para cada turno (estagiário de manhã, estagiário à tarde, professor das 10h às 14h) escolha as pessoas no seletor e, no fim, toque em \"Salvar escala do dia\" (uma vez só para o dia todo). O app só mostra, em cada turno, as pessoas que podem fazê-lo: estagiário nos turnos de estagiário e professor nos de professor. O número no calendário (ex.: 3/3) mostra quantos turnos do dia já têm alguém."],
         ["Como a equipe fica sabendo?", "Quando a escala está pronta, toque em \"Publicar escala\". A equipe passa a ver em \"Escala da equipe\" e cada pessoa escalada recebe um aviso (no app e, se o e-mail estiver configurado, por e-mail). Se você mudar algo depois, o app mostra \"alterações ainda não publicadas\": publique de novo e só quem mudou é avisado."],
         ["Como mudo os horários dos turnos?", "Toque em \"Turnos e horários\". Dá para trocar o nome e o horário, escolher para quem é o turno (estagiário, professor ou qualquer pessoa), criar turnos novos e excluir. Excluir um turno também tira as pessoas escaladas nele."],
         ["O que o relatório de plantões mostra?", "A lista de quantos plantões cada pessoa tem no mês, para você equilibrar. Quem está com zero aparece em destaque."]
       ]});
       groups.push({ title: "Escala da equipe", items: [
-        ["O que eu faço em \"Escala da equipe\"?", "Toque num dia do calendário para lançar quem trabalhou, faltou ou foi coberto (com observação, se quiser). O relatório mostra quem ainda não trabalhou fim de semana/feriado no mês. Você também ajusta o horário semanal de cada profissional ali."],
+        ["O que eu faço em \"Registro de presença\"?", "Toque num dia que já passou para lançar quem trabalhou, faltou ou foi coberto (com observação, se quiser). As etiquetas mostram quem já trabalhou fim de semana/feriado no mês. O horário semanal de cada profissional você ajusta em \"Minha equipe\"."],
+        ["Como fecho o mês?", "Em \"Fechamento do mês\", confira as horas de cada pessoa e toque em Fechar. Depois de fechado, as horas daquele mês ficam travadas. Quem reabre é o dono ou o gerente. O seu próprio mês, quem fecha é a gerência."],
         ["Vejo o salário da equipe?", "Não. Os valores financeiros da equipe ficam só com o dono e o(a) sócio(a). Você bate ponto e usa a grade normalmente, como qualquer profissional."]
       ]});
     }
@@ -89,6 +91,7 @@ function faqGroupsFor(kind){
       groups.push({ title: "Escala e avisos", items: [
         ["Onde vejo quando vou trabalhar no fim de semana?", "Em \"Escala da equipe\" no menu. Lá aparecem os seus plantões do mês (com dia e horário, e o próximo em destaque) e a escala da equipe inteira. A escala só aparece depois que a coordenação publica."],
         ["Como sou avisado?", "Em \"Avisos\". Quando a escala sai ou a sua muda, o app mostra um aviso e um número vermelho no menu. Se o e-mail da academia estiver configurado, você também recebe por e-mail."],
+        ["O que é \"mês fechado\"?", "Quando a coordenação ou a gerência confere suas horas e fecha o mês, você recebe um aviso e a grade daquele mês fica com um cadeado: não dá mais para alterar horas nem valores. Se algo estiver errado, fale com a gerência para reabrir."],
         ["Preciso trocar um plantão. E agora?", "Fale com o(a) coordenador(a). Ele ajusta a escala e publica de novo, e você recebe um aviso com a mudança."]
       ]});
     }

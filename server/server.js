@@ -25,6 +25,8 @@
 //   DELETE /api/company/staff/:id         -> tira alguem da academia (a conta e os dados dela continuam dela)
 //   POST   /api/company/invite-code/rotate -> gera um novo codigo de convite (o antigo para de valer)
 //   GET    /api/company/audit             -> historico das alteracoes de equipe
+//   GET/POST /api/company/closings, DELETE /api/company/closings/:userId/:month -> fechamento do mes
+//   GET    /api/me/closings               -> meses fechados da propria pessoa
 //
 // Escala planejada por turno e avisos:
 //   GET    /api/company/roster?month=     -> rascunho + estado da publicacao (dono/gerente/coordenador/socio)
@@ -294,6 +296,21 @@ async function ensureTables() {
     );
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user ON user_notifications(user_id, read_at);`);
+  // Fechamento do mes: foto (snapshot) das horas de uma pessoa naquele mes.
+  // Enquanto existir, o servidor nao deixa as horas/valores desse mes mudarem.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS company_month_closings (
+      company_id integer NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      month text NOT NULL,
+      closed_at timestamptz NOT NULL DEFAULT now(),
+      closed_by integer REFERENCES users(id) ON DELETE SET NULL,
+      snapshot jsonb NOT NULL,
+      hours integer NOT NULL DEFAULT 0,
+      total numeric NOT NULL DEFAULT 0,
+      PRIMARY KEY (user_id, month)
+    );
+  `);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS company_schedule (
       id serial PRIMARY KEY,
@@ -1731,6 +1748,205 @@ app.post("/api/reset-password", limitReset, async (req, res) => {
   }
 });
 
+
+// ---------- Fechamento do mes ----------
+// Quem confere e fecha: dono, gerente e coordenador(a). Quem reabre: dono e
+// gerente. Socio(a) so acompanha. Valores em R$ so aparecem para dono, gerente e
+// socio(a) — o coordenador ve horas, nunca dinheiro.
+function canCloseMonth(role) { return role === "owner" || role === "manager" || role === "coordinator"; }
+function canReopenMonth(role) { return role === "owner" || role === "manager"; }
+function seesClosingValues(role) { return role === "owner" || role === "manager" || role === "partner"; }
+
+function currentMonthBr() {
+  var d = new Date(Date.now() - 3 * 3600 * 1000); // horario de Brasilia, aproximado
+  return d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0");
+}
+
+// Mesma conta da grade do app: soma dos valores dos horarios + auxilio - consumo.
+function gradeSummary(stateData, month) {
+  var m = stateData && stateData.months && stateData.months[month];
+  if (!m || typeof m !== "object") return { hours: 0, total: 0, month: null };
+  var ts = stateData.settings && stateData.settings.timeSlots;
+  var n = Array.isArray(ts) && ts.length ? ts.length : 6;
+  var sum = 0, hours = 0;
+  Object.keys(m.days || {}).forEach(function (k) {
+    var d = m.days[k];
+    if (!d || !Array.isArray(d.slots)) return;
+    for (var i = 0; i < n; i++) {
+      if (typeof d.slots[i] === "number") { sum += d.slots[i]; if (d.slots[i] > 0) hours++; }
+    }
+  });
+  return { hours: hours, total: sum + (Number(m.auxilio) || 0) - (Number(m.consumo) || 0), month: m };
+}
+
+// So o que muda dinheiro: valores de cada horario, turno do dia, auxilio e consumo.
+// (observacoes e o "marcar como pago" continuam livres.)
+function monthCore(m) {
+  var days = {};
+  Object.keys((m && m.days) || {}).sort().forEach(function (k) {
+    var d = m.days[k] || {};
+    var slots = Array.isArray(d.slots) ? d.slots.map(function (v) { return v === "" || v === undefined ? null : v; }) : [];
+    var shift = d.shift === undefined ? null : d.shift;
+    if (shift === null && slots.every(function (v) { return v === null; })) return;
+    days[k] = { slots: slots, shift: shift };
+  });
+  return JSON.stringify({ days: days, auxilio: Number(m && m.auxilio) || 0, consumo: Number(m && m.consumo) || 0 });
+}
+
+// Antes de gravar o estado de alguem: se algum mes dele esta fechado, devolve a
+// versao fechada (menos o "pago"). Retorna true se precisou corrigir.
+async function applyClosedMonths(userId, payload) {
+  var r = await pool.query(
+    `SELECT c.month, c.snapshot FROM company_month_closings c
+     JOIN users u ON u.id = c.user_id AND u.company_id = c.company_id WHERE c.user_id = $1`, [userId]);
+  if (r.rows.length === 0) return false;
+  if (!payload.months || typeof payload.months !== "object") payload.months = {};
+  var overridden = false;
+  r.rows.forEach(function (row) {
+    var cur = payload.months[row.month];
+    if (cur && monthCore(cur) === monthCore(row.snapshot)) return;
+    var paid = cur && typeof cur.paid === "boolean" ? cur.paid : !!row.snapshot.paid;
+    payload.months[row.month] = Object.assign({}, row.snapshot, { paid: paid });
+    overridden = true;
+  });
+  return overridden;
+}
+
+function closingMembers(companyId) {
+  return pool.query(
+    `SELECT u.id, u.name, u.role, u.company_role, us.data
+     FROM users u LEFT JOIN user_state us ON us.user_id = u.id
+     WHERE u.company_id = $1 AND (u.company_role IS NULL OR u.company_role = 'coordinator')
+     ORDER BY u.name ASC`, [companyId]);
+}
+
+app.get("/api/company/closings", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id || !isScheduleViewer(me.company_role)) {
+      return res.status(403).json({ error: "not_allowed", message: "Você não tem acesso ao fechamento do mês." });
+    }
+    var month = String(req.query.month || "").trim();
+    if (!validMonth(month)) return res.status(400).json({ error: "invalid_month" });
+    var values = seesClosingValues(me.company_role);
+    var members = await closingMembers(me.company_id);
+    var closed = await pool.query(
+      `SELECT c.user_id, c.closed_at, c.hours, c.total, b.name AS closed_by_name
+       FROM company_month_closings c LEFT JOIN users b ON b.id = c.closed_by
+       WHERE c.company_id = $1 AND c.month = $2`, [me.company_id, month]);
+    var byUser = {}; closed.rows.forEach(function (c) { byUser[c.user_id] = c; });
+    res.json({
+      canClose: canCloseMonth(me.company_role),
+      canReopen: canReopenMonth(me.company_role),
+      showValues: values,
+      myId: req.userId,
+      isCurrentOrFuture: month >= currentMonthBr(),
+      isFuture: month > currentMonthBr(),
+      members: members.rows.map(function (u) {
+        var c = byUser[u.id];
+        var live = gradeSummary(u.data, month);
+        var out = {
+          id: u.id, name: u.name, role: u.role || "", companyRole: u.company_role || null,
+          status: c ? "closed" : "open",
+          hours: c ? c.hours : live.hours,
+          closedAt: c ? c.closed_at : null,
+          closedByName: c ? c.closed_by_name : null,
+          hasData: !!live.month || !!c,
+        };
+        if (values) out.total = c ? Number(c.total) : live.total;
+        return out;
+      }),
+    });
+  } catch (err) {
+    console.error("Erro no GET /api/company/closings:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+app.post("/api/company/closings", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id || !canCloseMonth(me.company_role)) {
+      return res.status(403).json({ error: "not_allowed", message: "Só dono, gerente e coordenador(a) fecham o mês." });
+    }
+    var body = req.body || {};
+    var month = String(body.month || "").trim();
+    if (!validMonth(month)) return res.status(400).json({ error: "invalid_month" });
+    if (month > currentMonthBr()) return res.status(400).json({ error: "future_month", message: "Esse mês ainda não começou, não dá para fechar." });
+    var members = (await closingMembers(me.company_id)).rows;
+    var ids = Array.isArray(body.userIds) ? body.userIds.map(function (x) { return parseInt(x, 10); }) : null;
+    var already = await pool.query("SELECT user_id FROM company_month_closings WHERE company_id = $1 AND month = $2", [me.company_id, month]);
+    var isClosed = {}; already.rows.forEach(function (r) { isClosed[r.user_id] = true; });
+    var targets = members.filter(function (u) {
+      if (isClosed[u.id]) return false;
+      if (ids && ids.indexOf(u.id) < 0) return false;
+      if (me.company_role === "coordinator" && u.id === me.id) return false; // ninguem fecha o proprio mes sozinho
+      return !!gradeSummary(u.data, month).month; // sem horas lancadas nao ha o que fechar
+    });
+    var monthName = monthNamePt(month), closedNames = [];
+    for (var i = 0; i < targets.length; i++) {
+      var u = targets[i], sum = gradeSummary(u.data, month);
+      await pool.query(
+        `INSERT INTO company_month_closings (company_id, user_id, month, closed_by, snapshot, hours, total)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (user_id, month) DO NOTHING`,
+        [me.company_id, u.id, month, me.id, sum.month, sum.hours, sum.total]);
+      await pool.query(
+        "INSERT INTO user_notifications (user_id, company_id, kind, title, body) VALUES ($1, $2, 'closing', $3, $4)",
+        [u.id, me.company_id, "Seu mês de " + monthName + " foi fechado", "Conferido por " + me.name + ". As horas desse mês não podem mais ser alteradas. Se algo estiver errado, fale com a gerência para reabrir."]);
+      closedNames.push(u.name);
+    }
+    if (targets.length) {
+      await audit(me.company_id, me.id, "month_closed", targets.length === 1 ? targets[0].id : null,
+        targets.length === 1 ? targets[0].name : null, monthName + " · " + targets.length + " pessoa(s)");
+    }
+    res.json({ ok: true, closed: targets.length, names: closedNames });
+  } catch (err) {
+    console.error("Erro no POST /api/company/closings:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+app.delete("/api/company/closings/:userId/:month", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id || !canReopenMonth(me.company_role)) {
+      return res.status(403).json({ error: "not_allowed", message: "Só o dono ou o gerente podem reabrir um mês fechado." });
+    }
+    var uid = parseInt(req.params.userId, 10), month = String(req.params.month || "");
+    if (!uid || !validMonth(month)) return res.status(400).json({ error: "invalid_input" });
+    var del = await pool.query(
+      `DELETE FROM company_month_closings WHERE company_id = $1 AND user_id = $2 AND month = $3 RETURNING user_id`,
+      [me.company_id, uid, month]);
+    if (del.rows.length === 0) return res.status(404).json({ error: "not_found" });
+    var tu = await pool.query("SELECT name FROM users WHERE id = $1", [uid]);
+    var monthName = monthNamePt(month);
+    await pool.query(
+      "INSERT INTO user_notifications (user_id, company_id, kind, title, body) VALUES ($1, $2, 'closing', $3, $4)",
+      [uid, me.company_id, "Seu mês de " + monthName + " foi reaberto", me.name + " reabriu o mês para ajustes. Você será avisado(a) quando for fechado de novo."]);
+    await audit(me.company_id, me.id, "month_reopened", uid, tu.rows[0] ? tu.rows[0].name : null, monthName);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro no DELETE /api/company/closings:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Os meses fechados da propria pessoa (o app trava a edicao deles).
+app.get("/api/me/closings", auth, async (req, res) => {
+  try {
+    var r = await pool.query(
+      `SELECT c.month, c.closed_at, b.name AS closed_by_name
+       FROM company_month_closings c
+       JOIN users u ON u.id = c.user_id AND u.company_id = c.company_id
+       LEFT JOIN users b ON b.id = c.closed_by
+       WHERE c.user_id = $1 ORDER BY c.month DESC`, [req.userId]);
+    res.json({ closings: r.rows.map(function (x) { return { month: x.month, closedAt: x.closed_at, closedByName: x.closed_by_name }; }) });
+  } catch (err) {
+    console.error("Erro no GET /api/me/closings:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
 app.get("/api/state", auth, async (req, res) => {
   try {
     var result = await pool.query("SELECT data, updated_at FROM user_state WHERE user_id = $1", [req.userId]);
@@ -1757,6 +1973,7 @@ app.put("/api/state", auth, async (req, res) => {
   }
   var base = req.header("x-base-version");
   try {
+    var overridden = await applyClosedMonths(req.userId, payload);
     var result;
     if (!base) {
       result = await pool.query(
@@ -1793,7 +2010,7 @@ app.put("/api/state", auth, async (req, res) => {
         updated_at: current.rows[0] ? current.rows[0].updated_at : null,
       });
     }
-    res.json({ ok: true, updated_at: result.rows[0].updated_at });
+    res.json({ ok: true, updated_at: result.rows[0].updated_at, overridden: overridden });
   } catch (err) {
     console.error("Erro no PUT /api/state:", err);
     res.status(500).json({ error: "internal_error" });

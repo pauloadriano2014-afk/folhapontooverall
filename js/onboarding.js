@@ -35,7 +35,7 @@ function onboardingSteps(kind){
   if(kind === "gerente"){
     return [
       { icon: "🛠️", title: "Gerencie a equipe", text: "Em Gestão da equipe você altera e remove profissionais e coordenadores. Em Convites você chama gente nova por e-mail ou pelo código." },
-      { icon: "📅", title: "Cuide da escala", text: "Lance a escala de fim de semana e feriado e ajuste o horário de cada profissional." },
+      { icon: "📅", title: "Escala e fechamento do mês", text: "Monte a escala de fim de semana e feriado, ajuste o horário de cada profissional e, no fim do mês, confira e feche as horas em Fechamento do mês." },
       { icon: "💼", title: "Seu salário", text: "Você não bate ponto: seu valor é um salário mensal fixo, definido pelo dono. Você vê só o seu." },
       { icon: "🔒", title: "Privacidade dos alunos", text: "Você vê só o valor das horas de sala. Aluno particular é renda pessoal e não aparece pra ninguém da academia." },
       { icon: "🏋️", title: "Atende alunos particulares?", text: "Ligue \"Também atendo alunos particulares\" em Minha conta. A tela aparece no menu e é só sua: o dono e os sócios nunca veem esses dados." }
@@ -44,9 +44,9 @@ function onboardingSteps(kind){
   if(kind === "coordenador"){
     return [
       { icon: "⏱️", title: "Bate ponto como todo mundo", text: "Sua grade de horas funciona igual à dos outros profissionais." },
-      { icon: "📅", title: "Monte a escala", text: "Em Escala da equipe, toque num dia e escolha quem faz cada turno: estagiário de manhã, estagiário à tarde e professor das 10h às 14h. Os horários você ajusta quando quiser." },
+      { icon: "📅", title: "Monte a escala", text: "Em Escala planejada, toque num dia, escolha quem faz cada turno e salve: estagiário de manhã, estagiário à tarde e professor das 10h às 14h. Os horários você ajusta quando quiser." },
       { icon: "📣", title: "Publique e avise", text: "Ao publicar, a equipe vê a escala e cada pessoa escalada recebe um aviso. Mudou algo? Publique de novo e só quem mudou é avisado." },
-      { icon: "🔍", title: "Equilíbrio e registro", text: "Veja quantos plantões cada um tem e, depois do dia, registre quem trabalhou, faltou ou foi coberto." },
+      { icon: "🔍", title: "Equilíbrio, presença e fechamento", text: "Veja quantos plantões cada um tem, registre depois do dia quem trabalhou, faltou ou foi coberto e, no fim do mês, confira e feche em Fechamento do mês." },
       { icon: "🔒", title: "Valores só com a gestão", text: "Você não vê o salário da equipe. Isso fica com o dono e os sócios. Atende alunos particulares? Ligue o módulo em Minha conta." }
     ];
   }

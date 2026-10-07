@@ -39,6 +39,11 @@ function shiftAllows(kind, role){
 function mountRosterCard(parentMain){
   var card = document.getElementById("rosterCard");
   if(!card || !parentMain) return;
+  var closingCard = document.getElementById("closingCard");
+  if(closingCard){
+    if(closingCard.parentElement !== parentMain) parentMain.appendChild(closingCard);
+    closingCard.style.display = "";
+  }
   var teamCard = document.getElementById("coordTeamCard");
   if(teamCard){
     if(teamCard.parentElement !== parentMain) parentMain.appendChild(teamCard);

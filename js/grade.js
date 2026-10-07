@@ -231,6 +231,7 @@
     inputConsumo.value = monthObj.consumo;
     obsField.value = monthObj.obs || "";
     inputPaid.checked = !!monthObj.paid;
+    if(typeof applyMonthLockUI === "function") applyMonthLockUI(currentMonthKey);
 
     var total = monthTotal(monthObj);
     var salario = total + (Number(monthObj.auxilio) || 0) - (Number(monthObj.consumo) || 0);
@@ -296,6 +297,7 @@
   });
 
   document.getElementById("btnApplyHolidays").addEventListener("click", function(){
+    if(typeof guardClosedMonth === "function" && guardClosedMonth(currentMonthKey)) return;
     var count = applyHolidaysToMonth(currentMonthKey);
     if(count > 0){
       renderGrid();

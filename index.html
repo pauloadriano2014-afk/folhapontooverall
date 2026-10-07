@@ -115,6 +115,7 @@
     <button type="button" class="nav-item" data-view="escala" hidden><span class="nav-ico" aria-hidden="true">📅</span><span class="nav-label"><span class="l-long">Escala planejada</span><span class="l-short">Escala</span></span></button>
     <button type="button" class="nav-item" data-view="minhaequipe" hidden><span class="nav-ico" aria-hidden="true">👥</span><span class="nav-label"><span class="l-long">Minha equipe</span><span class="l-short">Equipe</span></span></button>
     <button type="button" class="nav-item" data-view="presenca" hidden><span class="nav-ico" aria-hidden="true">✅</span><span class="nav-label"><span class="l-long">Registro de presença</span><span class="l-short">Presença</span></span></button>
+    <button type="button" class="nav-item" data-view="fechamento" hidden><span class="nav-ico" aria-hidden="true">🔒</span><span class="nav-label"><span class="l-long">Fechamento do mês</span><span class="l-short">Fechar mês</span></span></button>
     <button type="button" class="nav-item" data-view="convites" hidden><span class="nav-ico" aria-hidden="true">✉️</span><span class="nav-label"><span class="l-long">Convites</span><span class="l-short">Convites</span></span></button>
     <button type="button" class="nav-item" data-view="minhaescala" hidden><span class="nav-ico" aria-hidden="true">📅</span><span class="nav-label"><span class="l-long">Escala da equipe</span><span class="l-short">Escala</span></span></button>
     <button type="button" class="nav-item" data-view="avisos" hidden><span class="nav-ico" aria-hidden="true">🔔</span><span class="nav-label"><span class="l-long">Avisos</span><span class="l-short">Avisos</span></span><span class="nav-badge" id="avisosBadge" hidden></span></button>
@@ -174,6 +175,7 @@
 
   <div class="card" id="gradeCard" data-view="grade">
     <h2>Grade de horários</h2>
+    <div class="month-lock" id="monthLockBanner" style="display:none;"></div>
     <p class="account-section-hint" style="margin:-4px 0 10px;">Toque no número de um dia para lançar o valor de cada horário. Em telas pequenas, arraste a tabela para o lado para ver os outros dias.</p>
     <div class="legend">
       <button type="button" class="legend-item legend-item-btn no-print" id="btnQuickValuesChip" title="Toque para adicionar, alterar ou remover">
@@ -370,6 +372,26 @@
       <h2>Histórico de alterações</h2>
       <p class="account-section-hint" style="margin:-4px 0 10px;">Quem alterou a equipe, o quê e quando (últimas 50 ações).</p>
       <div id="teamAuditList"></div>
+    </div>
+
+    <div class="card no-print" id="closingCard" data-view="fechamento" style="display:none;">
+      <h2>Fechamento do mês</h2>
+      <p class="account-section-hint" style="margin:-4px 0 10px;">
+        Confira as horas de cada pessoa e <strong>feche o mês</strong>. Depois de fechado, as horas e valores daquele mês não podem mais ser alterados por ninguém. Se precisar corrigir algo, o dono ou o gerente reabre o mês de uma pessoa (fica registrado no histórico).
+      </p>
+      <div class="month-bar" style="margin-bottom:8px;">
+        <button class="small" id="btnClosingPrev" aria-label="Mês anterior">‹</button>
+        <strong id="closingMonthLabel" style="flex:1;text-align:center;"></strong>
+        <button class="small" id="btnClosingNext" aria-label="Próximo mês">›</button>
+      </div>
+      <div class="roster-pub">
+        <span id="closingStatus" class="pill pill-off">Carregando…</span>
+        <div class="row-actions" style="margin-top:0;">
+          <button class="small primary" id="btnClosingAll">Fechar todos os abertos</button>
+        </div>
+      </div>
+      <div class="auth-error" id="closingError"></div>
+      <div id="closingList"></div>
     </div>
 
     <div class="card no-print" id="coordTeamCard" data-view="minhaequipe" style="display:none;">
@@ -902,6 +924,7 @@
 <script src="js/faq.js"></script>
 <script src="js/team.js"></script>
 <script src="js/roster.js"></script>
+<script src="js/closing.js"></script>
 <script src="js/nav.js"></script>
 <script src="js/app.js"></script>
 </body>

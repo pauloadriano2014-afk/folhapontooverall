@@ -214,7 +214,7 @@ async function bootAppInner(){
   }
   renderFaq();
   setupNav();
-  if(currentUser.companyId) startNoticePolling(); // selo de avisos novos no menu
+  if(currentUser.companyId){ startNoticePolling(); loadMyClosings(); } // avisos novos no menu e meses fechados
   maybeShowOnboarding(isCoordinator() ? "coordenador" : roleCategory());
 }
 
