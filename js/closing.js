@@ -169,3 +169,106 @@ function renderClosing(){
   if(prev) prev.addEventListener("click", function(){ closingMonthKey = shiftMonthKey(closingMonth(), -1); loadClosing(); });
   if(next) next.addEventListener("click", function(){ closingMonthKey = shiftMonthKey(closingMonth(), 1); loadClosing(); });
 })();
+
+// ---------- folha do mes (Excel / PDF) ----------
+function fetchClosingSheet(){
+  return authFetch("/api/company/closings/sheet?month=" + encodeURIComponent(closingMonth())).then(function(res){
+    if(res.status === 401){ handleAuthExpired(); throw new Error("auth_expired"); }
+    return res.json().then(function(b){ if(!res.ok) throw new Error((b && b.message) || "load"); return b; });
+  });
+}
+
+function sheetRoleLabel(m){
+  return m.companyRole === "coordinator" ? (m.role ? m.role + " · Coordenador(a)" : "Coordenador(a)") : (roleIsTrainee(m.role) ? "Estagiário" : "Professor");
+}
+function sheetStatusLabel(m){ return m.status === "closed" ? "Fechado" : "Aberto (provisório)"; }
+function sheetClosedInfo(m){ return m.status === "closed" ? fmtDateBr(m.closedAt) + (m.closedByName ? " por " + m.closedByName : "") : "—"; }
+
+function exportClosingSheetXlsx(){
+  showToast("Gerando Excel...");
+  fetchClosingSheet().then(function(d){
+    if(!d.members.length){ showToast("Ninguém tem horas lançadas neste mês."); return; }
+    loadExcelJs(function(){
+      var money = '"R$" #,##0.00';
+      var wb = new window.ExcelJS.Workbook();
+      var ws = wb.addWorksheet("Resumo");
+      var cols = ["Nome", "Função", "Situação", "Fechado em/por", "Horários lançados"].concat(d.showValues ? ["Auxílio (R$)", "Consumo (R$)", "Valor do mês (R$)"] : []);
+      var widths = [30, 26, 20, 34, 18, 14, 14, 18];
+      cols.forEach(function(_, i){ ws.getColumn(i + 1).width = widths[i]; });
+      ws.mergeCells(1, 1, 1, cols.length);
+      var t = ws.getCell(1, 1);
+      t.value = "FOLHA DO MÊS — " + monthLabel(d.month).toUpperCase();
+      t.font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } }; t.fill = fill(FILL_TITLE);
+      ws.getRow(1).height = 26;
+      ws.mergeCells(2, 1, 2, cols.length);
+      ws.getCell(2, 1).value = d.company + " · gerado em " + new Date().toLocaleDateString("pt-BR") + " · meses abertos são provisórios";
+      ws.getCell(2, 1).font = { size: 9, color: { argb: "FF666666" } };
+      cols.forEach(function(h, i){
+        var c = ws.getCell(4, i + 1);
+        c.value = h; c.font = { bold: true, color: { argb: "FF3B0764" } }; c.fill = fill(FILL_HEADER); c.border = THIN_BOX;
+        if(i >= 4) c.alignment = { horizontal: "right" };
+      });
+      var r = 5, sumHours = 0, sumTotal = 0;
+      d.members.forEach(function(m){
+        var vals = [m.name, sheetRoleLabel(m), sheetStatusLabel(m), sheetClosedInfo(m), m.hours];
+        if(d.showValues) vals = vals.concat([m.auxilio, m.consumo, m.total]);
+        vals.forEach(function(v, i){
+          var c = ws.getCell(r, i + 1); c.value = v; c.border = THIN_BOX;
+          if(i >= 4) c.alignment = { horizontal: "right" };
+          if(i >= 5) c.numFmt = money;
+          if(m.status !== "closed" && i === 2) c.font = { italic: true, color: { argb: "FFB45309" } };
+        });
+        sumHours += m.hours; if(d.showValues) sumTotal += m.total;
+        r++;
+      });
+      ws.mergeCells(r, 1, r, 4);
+      var tl = ws.getCell(r, 1); tl.value = "TOTAL"; tl.font = { bold: true }; tl.alignment = { horizontal: "right" }; tl.fill = fill(FILL_TOTAL);
+      var th = ws.getCell(r, 5); th.value = sumHours; th.font = { bold: true }; th.alignment = { horizontal: "right" }; th.fill = fill(FILL_TOTAL); th.border = THIN_BOX;
+      if(d.showValues){
+        [6, 7].forEach(function(col){ ws.getCell(r, col).fill = fill(FILL_TOTAL); });
+        var tv = ws.getCell(r, 8); tv.value = sumTotal; tv.numFmt = money; tv.font = { bold: true, color: { argb: "FF059669" } }; tv.alignment = { horizontal: "right" }; tv.fill = fill(FILL_TOTAL); tv.border = THIN_BOX;
+      }
+      var wd = wb.addWorksheet("Detalhe");
+      var dcols = ["Nome", "Dia", "Horário"].concat(d.showValues ? ["Valor (R$)"] : []);
+      [30, 14, 18, 16].forEach(function(w, i){ wd.getColumn(i + 1).width = w; });
+      dcols.forEach(function(h, i){
+        var c = wd.getCell(1, i + 1); c.value = h; c.font = { bold: true, color: { argb: "FF3B0764" } }; c.fill = fill(FILL_HEADER); c.border = THIN_BOX;
+        if(i === 3) c.alignment = { horizontal: "right" };
+      });
+      var dr = 2;
+      d.members.forEach(function(m){
+        m.days.forEach(function(day){
+          day.items.forEach(function(it){
+            var row = [m.name, day.date.slice(8, 10) + "/" + day.date.slice(5, 7) + "/" + day.date.slice(0, 4), it.slot].concat(d.showValues ? [it.value] : []);
+            row.forEach(function(v, i){ var c = wd.getCell(dr, i + 1); c.value = v; c.border = THIN_BOX; if(i === 3){ c.numFmt = money; c.alignment = { horizontal: "right" }; } });
+            dr++;
+          });
+        });
+      });
+      downloadWorkbook(wb, "folha-overall-" + d.month + ".xlsx").catch(function(){ showToast("Não consegui gerar o Excel."); });
+    });
+  }).catch(function(err){ if(!err || err.message !== "auth_expired") showToast("Não consegui montar a folha agora."); });
+}
+
+function exportClosingSheetPdf(){
+  fetchClosingSheet().then(function(d){
+    if(!d.members.length){ showToast("Ninguém tem horas lançadas neste mês."); return; }
+    var headers = ["Nome", "Função", "Situação", "Horários"].concat(d.showValues ? ["Valor do mês"] : []);
+    var sumHours = 0, sumTotal = 0;
+    var rows = d.members.map(function(m){
+      sumHours += m.hours; if(d.showValues) sumTotal += m.total;
+      var line = [m.name, sheetRoleLabel(m), m.status === "closed" ? "Fechado em " + sheetClosedInfo(m) : "Aberto (provisório)", String(m.hours)];
+      return d.showValues ? line.concat([fmtMoney(m.total)]) : line;
+    });
+    renderSheetTable(document.getElementById("teamPrintSheet"),
+      "Folha do mês — " + monthLabel(d.month), d.company, headers, rows,
+      "Total", d.showValues ? fmtMoney(sumTotal) : String(sumHours));
+    printSheet("team");
+  }).catch(function(err){ if(!err || err.message !== "auth_expired") showToast("Não consegui montar a folha agora."); });
+}
+
+(function(){
+  var x = document.getElementById("btnClosingSheetXlsx"), p = document.getElementById("btnClosingSheetPdf");
+  if(x) x.addEventListener("click", exportClosingSheetXlsx);
+  if(p) p.addEventListener("click", exportClosingSheetPdf);
+})();

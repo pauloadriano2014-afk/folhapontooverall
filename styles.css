@@ -685,3 +685,20 @@
 .push-box{ margin:0 0 12px; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:var(--bg-panel-2); font-size:13px; }
 .push-box .push-line{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
 .push-box .push-hint{ margin:6px 0 0; font-size:12px; color:var(--text-dim); }
+
+/* historico da equipe */
+.history-controls{ display:flex; gap:10px; flex-wrap:wrap; }
+.history-controls label{ display:flex; flex-direction:column; gap:3px; font-size:12px; color:var(--text-dim); }
+.history-controls select{ flex:none; width:auto; min-width:150px; }
+.history-table{ width:100%; border-collapse:collapse; font-size:13px; min-width:480px; }
+.history-table th, .history-table td{ padding:8px 10px; border-bottom:1px solid var(--border); text-align:right; white-space:nowrap; }
+.history-table th:first-child, .history-table td:first-child{ text-align:left; position:sticky; left:0; background:var(--bg-panel); font-weight:700; }
+.history-table td.open{ font-style:italic; color:var(--text-dim); }
+.history-table td.zero{ color:var(--text-dim); opacity:.6; }
+.history-table tfoot td{ font-weight:800; border-top:2px solid var(--border); }
+.history-bars{ display:flex; align-items:flex-end; gap:10px; height:120px; margin:6px 0 14px; }
+.history-bar{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:4px; min-width:0; }
+.history-bar .bar{ width:100%; max-width:56px; background:var(--accent); border-radius:6px 6px 0 0; min-height:3px; }
+.history-bar .bar.open{ opacity:.45; }
+.history-bar .v{ font-size:11px; font-weight:700; }
+.history-bar .m{ font-size:11px; color:var(--text-dim); }

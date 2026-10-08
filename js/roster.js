@@ -44,6 +44,11 @@ function mountRosterCard(parentMain){
     if(swapsCard.parentElement !== parentMain) parentMain.appendChild(swapsCard);
     swapsCard.style.display = "";
   }
+  var historyCard = document.getElementById("historyCard");
+  if(historyCard){
+    if(historyCard.parentElement !== parentMain) parentMain.appendChild(historyCard);
+    historyCard.style.display = "";
+  }
   var closingCard = document.getElementById("closingCard");
   if(closingCard){
     if(closingCard.parentElement !== parentMain) parentMain.appendChild(closingCard);

@@ -26,6 +26,8 @@
 //   POST   /api/company/invite-code/rotate -> gera um novo codigo de convite (o antigo para de valer)
 //   GET    /api/company/audit             -> historico das alteracoes de equipe
 //   GET/POST /api/company/closings, DELETE /api/company/closings/:userId/:month -> fechamento do mes
+//   GET    /api/company/closings/sheet    -> folha do mes (Excel/PDF)
+//   GET    /api/company/history?months=   -> historico mes a mes (dono/gerente/socio)
 //   GET    /api/me/closings               -> meses fechados da propria pessoa
 //
 // Escala planejada por turno e avisos:
@@ -612,6 +614,11 @@ var limitReset = rateLimit({ windowMs: 60 * MIN, max: 15, key: function (r) { re
 var limitChangePassword = rateLimit({ windowMs: 15 * MIN, max: 10, key: function (r) { return "chpw:" + r.ip; }, message: "Muitas tentativas. Aguarde alguns minutos." });
 var limitInvite = rateLimit({ windowMs: 60 * MIN, max: 40, key: function (r) { return "invite:" + r.ip; }, message: "Muitos convites em pouco tempo. Tente de novo mais tarde." });
 
+var limitClientError = rateLimit({ windowMs: 10 * MIN, max: 30, key: function (r) { return "clienterr:" + r.ip; }, message: "Muitos relatórios de erro." });
+
+// Falhas de promessa sem tratamento aparecem no log (em vez de passarem em silencio).
+process.on("unhandledRejection", function (err) { console.error("Erro nao tratado (promessa):", err && err.stack ? err.stack : err); });
+
 const app = express();
 app.set("trust proxy", 1); // atras do proxy do Render: r.ip e o IP real de quem chamou
 app.use(cors());
@@ -657,6 +664,19 @@ async function auth(req, res, next) {
     res.status(500).json({ error: "internal_error" });
   }
 }
+
+// Erros que acontecem no navegador de alguem chegam aqui e ficam no log do servidor
+// (Render > Logs, busque por "[client-error]"). Sem login de proposito: o erro pode
+// acontecer justamente antes de logar. Tamanhos limitados para nao encher o log.
+app.post("/api/client-error", limitClientError, (req, res) => {
+  var b = req.body || {};
+  var cut = function (v, n) { return String(v == null ? "" : v).replace(/[\r\n]+/g, " ").slice(0, n); };
+  console.error("[client-error] " + JSON.stringify({
+    msg: cut(b.message, 300), src: cut(b.source, 200), line: cut(b.line, 10), stack: cut(b.stack, 600),
+    user: cut(b.userId, 12), page: cut(b.page, 120), ua: cut(req.header("user-agent"), 160), build: cut(b.build, 20),
+  }));
+  res.status(204).end();
+});
 
 app.get("/health", (req, res) => {
   res.json({ ok: true });
@@ -2209,6 +2229,109 @@ app.get("/api/company/closings", auth, async (req, res) => {
     });
   } catch (err) {
     console.error("Erro no GET /api/company/closings:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+
+// Folha do mes (para Excel/PDF): por pessoa, situacao, horas, (valores) e o detalhe dia a dia.
+app.get("/api/company/closings/sheet", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id || !isScheduleViewer(me.company_role)) {
+      return res.status(403).json({ error: "not_allowed", message: "Você não tem acesso à folha do mês." });
+    }
+    var month = String(req.query.month || "").trim();
+    if (!validMonth(month)) return res.status(400).json({ error: "invalid_month" });
+    var values = seesClosingValues(me.company_role);
+    var comp = (await pool.query("SELECT name FROM companies WHERE id = $1", [me.company_id])).rows[0];
+    var members = (await closingMembers(me.company_id)).rows;
+    var closed = await pool.query(
+      `SELECT c.user_id, c.closed_at, c.hours, c.total, c.snapshot, b.name AS closed_by_name
+       FROM company_month_closings c LEFT JOIN users b ON b.id = c.closed_by
+       WHERE c.company_id = $1 AND c.month = $2`, [me.company_id, month]);
+    var byUser = {}; closed.rows.forEach(function (c) { byUser[c.user_id] = c; });
+    var out = [];
+    members.forEach(function (u) {
+      var c = byUser[u.id];
+      var live = gradeSummary(u.data, month);
+      var m = c ? c.snapshot : live.month;
+      if (!m) return; // sem horas neste mes
+      var ts = u.data && u.data.settings && u.data.settings.timeSlots;
+      var labels = Array.isArray(ts) && ts.length ? ts : ["17:00–18:00", "18:00–19:00", "19:00–20:00", "20:00–21:00", "21:00–22:00", "22:00–23:00"];
+      var days = [];
+      Object.keys(m.days || {}).sort().forEach(function (k) {
+        var d = m.days[k], items = [];
+        if (!d || !Array.isArray(d.slots)) return;
+        for (var i = 0; i < labels.length; i++) {
+          if (typeof d.slots[i] === "number" && d.slots[i] > 0) {
+            var it = { slot: labels[i] };
+            if (values) it.value = d.slots[i];
+            items.push(it);
+          }
+        }
+        if (items.length) days.push({ date: k, items: items });
+      });
+      var row = {
+        id: u.id, name: u.name, role: u.role || "", companyRole: u.company_role || null,
+        status: c ? "closed" : "open",
+        closedAt: c ? c.closed_at : null, closedByName: c ? c.closed_by_name : null,
+        hours: c ? c.hours : live.hours, days: days,
+      };
+      if (values) { row.auxilio = Number(m.auxilio) || 0; row.consumo = Number(m.consumo) || 0; row.total = c ? Number(c.total) : live.total; }
+      out.push(row);
+    });
+    res.json({ month: month, company: comp ? comp.name : "", generatedAt: new Date().toISOString(), showValues: values, members: out });
+  } catch (err) {
+    console.error("Erro no GET /api/company/closings/sheet:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Historico mes a mes (dono, gerente e socio): horas, valores, plantoes e faltas por pessoa.
+app.get("/api/company/history", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id || !seesClosingValues(me.company_role)) {
+      return res.status(403).json({ error: "not_allowed", message: "O histórico é para dono, gerente e sócio(a)." });
+    }
+    var n = Math.min(Math.max(parseInt(req.query.months, 10) || 6, 1), 12);
+    var months = [], cur = currentMonthBr().split("-");
+    var y = parseInt(cur[0], 10), mo = parseInt(cur[1], 10);
+    for (var i = 0; i < n; i++) { months.unshift(y + "-" + String(mo).padStart(2, "0")); mo--; if (mo === 0) { mo = 12; y--; } }
+    var members = (await closingMembers(me.company_id)).rows;
+    var closed = await pool.query("SELECT user_id, month, hours, total FROM company_month_closings WHERE company_id = $1 AND month = ANY($2::text[])", [me.company_id, months]);
+    var closedMap = {}; closed.rows.forEach(function (c) { closedMap[c.user_id + "|" + c.month] = c; });
+    var shifts = await pool.query(
+      "SELECT user_id, substr(date, 1, 7) AS month, COUNT(*)::int AS n FROM company_roster_entries WHERE company_id = $1 AND substr(date, 1, 7) = ANY($2::text[]) GROUP BY 1, 2", [me.company_id, months]);
+    var shiftMap = {}; shifts.rows.forEach(function (r) { shiftMap[r.user_id + "|" + r.month] = r.n; });
+    var att = await pool.query(
+      "SELECT user_id, substr(date, 1, 7) AS month, status, COUNT(*)::int AS n FROM company_schedule WHERE company_id = $1 AND substr(date, 1, 7) = ANY($2::text[]) GROUP BY 1, 2, 3", [me.company_id, months]);
+    var absMap = {}, coverMap = {};
+    att.rows.forEach(function (r) {
+      if (r.status === "falta") absMap[r.user_id + "|" + r.month] = r.n;
+      if (r.status === "coberto") coverMap[r.user_id + "|" + r.month] = r.n;
+    });
+    var totals = {}; months.forEach(function (m) { totals[m] = { total: 0, hours: 0, shifts: 0, absences: 0 }; });
+    var outMembers = members.map(function (u) {
+      var per = {};
+      months.forEach(function (m) {
+        var k = u.id + "|" + m, c = closedMap[k], live = gradeSummary(u.data, m);
+        var cell = {
+          status: c ? "closed" : "open",
+          hours: c ? c.hours : live.hours,
+          total: c ? Number(c.total) : live.total,
+          shifts: shiftMap[k] || 0, absences: absMap[k] || 0, covered: coverMap[k] || 0,
+          hasData: !!c || !!live.month,
+        };
+        per[m] = cell;
+        totals[m].total += cell.total; totals[m].hours += cell.hours; totals[m].shifts += cell.shifts; totals[m].absences += cell.absences;
+      });
+      return { id: u.id, name: u.name, role: u.role || "", companyRole: u.company_role || null, months: per };
+    });
+    res.json({ months: months, members: outMembers, totals: totals });
+  } catch (err) {
+    console.error("Erro no GET /api/company/history:", err);
     res.status(500).json({ error: "internal_error" });
   }
 });

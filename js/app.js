@@ -303,3 +303,29 @@ if(pendingResetToken){
 } else {
   resumeSession();
 }
+
+
+// ---------- relatorio de erros ----------
+// Erros de JavaScript no aparelho de alguem sao avisados ao servidor (ficam no log),
+// para a gente descobrir problemas que ninguem reportou. No maximo 5 por abertura.
+(function(){
+  var sent = 0, seen = {};
+  function report(message, source, line, stack){
+    var key = String(message) + "|" + line;
+    if(sent >= 5 || seen[key]) return;
+    seen[key] = true; sent++;
+    try{
+      fetch(API_BASE + "/api/client-error", {
+        method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
+        body: JSON.stringify({ message: message, source: source, line: line, stack: stack, userId: currentUser ? currentUser.id : "", page: location.pathname + (document.body.getAttribute("data-view") || ""), build: (window.APP_BUILD || "") })
+      }).catch(function(){});
+    }catch(e){}
+  }
+  window.addEventListener("error", function(e){
+    if(e && e.message) report(e.message, e.filename, e.lineno, e.error && e.error.stack);
+  });
+  window.addEventListener("unhandledrejection", function(e){
+    var r = e && e.reason;
+    report(r && r.message ? r.message : String(r), "promise", "", r && r.stack);
+  });
+})();

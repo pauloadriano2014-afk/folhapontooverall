@@ -1,0 +1,52 @@
+name: Testes
+
+# Roda a cada envio para a branch principal e em todo pull request.
+# Falhou? Abra a execucao e baixe o artefato "testes-saida" (logs e prints das telas).
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ponto_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/ponto_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Instalar o servidor
+        run: npm ci
+        working-directory: server
+      - name: Instalar os testes
+        run: npm install --no-audit --no-fund
+        working-directory: tests
+      - name: Instalar o navegador de teste
+        run: npx playwright install --with-deps chromium
+        working-directory: tests
+      - name: Rodar os testes
+        run: bash tests/run-all.sh
+      - name: Guardar logs e prints
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testes-saida
+          path: tests/.out
+          retention-days: 7

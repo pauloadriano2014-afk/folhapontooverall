@@ -120,6 +120,7 @@
     <button type="button" class="nav-item" data-view="minhaequipe" hidden><span class="nav-ico" aria-hidden="true">👥</span><span class="nav-label"><span class="l-long">Minha equipe</span><span class="l-short">Equipe</span></span></button>
     <button type="button" class="nav-item" data-view="presenca" hidden><span class="nav-ico" aria-hidden="true">✅</span><span class="nav-label"><span class="l-long">Registro de presença</span><span class="l-short">Presença</span></span></button>
     <button type="button" class="nav-item" data-view="fechamento" hidden><span class="nav-ico" aria-hidden="true">🔒</span><span class="nav-label"><span class="l-long">Fechamento do mês</span><span class="l-short">Fechar mês</span></span></button>
+    <button type="button" class="nav-item" data-view="historico" hidden><span class="nav-ico" aria-hidden="true">📈</span><span class="nav-label"><span class="l-long">Histórico da equipe</span><span class="l-short">Histórico</span></span></button>
     <button type="button" class="nav-item" data-view="convites" hidden><span class="nav-ico" aria-hidden="true">✉️</span><span class="nav-label"><span class="l-long">Convites</span><span class="l-short">Convites</span></span></button>
     <button type="button" class="nav-item" data-view="minhaescala" hidden><span class="nav-ico" aria-hidden="true">📅</span><span class="nav-label"><span class="l-long">Escala da equipe</span><span class="l-short">Escala</span></span></button>
     <button type="button" class="nav-item" data-view="avisos" hidden><span class="nav-ico" aria-hidden="true">🔔</span><span class="nav-label"><span class="l-long">Avisos</span><span class="l-short">Avisos</span></span><span class="nav-badge" id="avisosBadge" hidden></span></button>
@@ -381,6 +382,34 @@
       <div id="teamAuditList"></div>
     </div>
 
+    <div class="card no-print" id="historyCard" data-view="historico" style="display:none;">
+      <h2>Histórico da equipe</h2>
+      <p class="account-section-hint" style="margin:-4px 0 10px;">Compare os meses: valor a pagar, horários lançados, plantões e faltas de cada pessoa. O cadeado marca mês já fechado; sem cadeado é provisório.</p>
+      <div class="roster-pub">
+        <div class="history-controls">
+          <label>Mostrar
+            <select id="historyMetric">
+              <option value="total">Valor a pagar (R$)</option>
+              <option value="hours">Horários lançados</option>
+              <option value="shifts">Plantões de fim de semana</option>
+              <option value="absences">Faltas</option>
+            </select>
+          </label>
+          <label>Período
+            <select id="historyRange">
+              <option value="3">3 meses</option>
+              <option value="6" selected>6 meses</option>
+              <option value="12">12 meses</option>
+            </select>
+          </label>
+        </div>
+        <div class="row-actions" style="margin-top:0;"><button class="small primary" id="btnHistoryXlsx">Baixar Excel</button></div>
+      </div>
+      <div id="historyBars" class="history-bars"></div>
+      <div class="table-wrap"><table id="historyTable" class="history-table"></table></div>
+      <p class="account-section-hint" id="historyNote" style="margin-top:8px;"></p>
+    </div>
+
     <div class="card no-print" id="closingCard" data-view="fechamento" style="display:none;">
       <h2>Fechamento do mês</h2>
       <p class="account-section-hint" style="margin:-4px 0 10px;">
@@ -399,6 +428,12 @@
       </div>
       <div class="auth-error" id="closingError"></div>
       <div id="closingList"></div>
+      <h3 style="margin:18px 0 6px;font-size:13px;color:var(--text-dim);">Folha do mês</h3>
+      <p class="account-section-hint" style="margin:0 0 8px;">Planilha ou PDF do mês acima, com a situação de cada pessoa (fechado ou aberto), as horas e o detalhe dia a dia. Serve de comprovante para pagar a equipe. Meses ainda abertos saem marcados como provisórios.</p>
+      <div class="row-actions" style="margin-top:0;">
+        <button class="small primary" id="btnClosingSheetXlsx">Baixar Excel</button>
+        <button class="small primary" id="btnClosingSheetPdf">Gerar PDF</button>
+      </div>
     </div>
 
     <div class="card no-print" id="coordTeamCard" data-view="minhaequipe" style="display:none;">
@@ -1055,6 +1090,7 @@
 <script src="js/team.js"></script>
 <script src="js/roster.js"></script>
 <script src="js/closing.js"></script>
+<script src="js/history.js"></script>
 <script src="js/swaps.js"></script>
 <script src="js/legal.js"></script>
 <script src="js/push.js"></script>

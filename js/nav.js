@@ -13,7 +13,7 @@ var currentView = null;
 // Quais categorias cada perfil enxerga, na ordem do menu. O primeiro é a tela inicial.
 function navItemsForCurrentUser(){
   if(typeof isCompanyAdminView === "function" && isCompanyAdminView()){
-    var items = ["equipe", "minhaequipe", "escala", "presenca", "fechamento"];
+    var items = ["equipe", "minhaequipe", "escala", "presenca", "fechamento", "historico"];
     if(!isPartner()) items.push("gestao", "convites");
     if(isGerente() && currentUser.personalModule) items.push("clientes");
     items.push("exportacao", "duvidas");
@@ -59,6 +59,7 @@ function showView(view){
   });
   document.body.setAttribute("data-view", view);
   if(view === "gestao" && typeof loadTeamAudit === "function") loadTeamAudit();
+  if(view === "historico" && typeof loadHistory === "function") loadHistory();
   if(view === "fechamento" && typeof loadClosing === "function") loadClosing();
   if(view === "minhaequipe" && typeof loadCoordTeam === "function") loadCoordTeam();
   if(view === "presenca" && typeof loadScheduleMonth === "function") loadScheduleMonth(currentScheduleMonthKey());
