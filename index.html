@@ -121,6 +121,7 @@
     <button type="button" class="nav-item" data-view="presenca" hidden><span class="nav-ico" aria-hidden="true">✅</span><span class="nav-label"><span class="l-long">Registro de presença</span><span class="l-short">Presença</span></span></button>
     <button type="button" class="nav-item" data-view="fechamento" hidden><span class="nav-ico" aria-hidden="true">🔒</span><span class="nav-label"><span class="l-long">Fechamento do mês</span><span class="l-short">Fechar mês</span></span></button>
     <button type="button" class="nav-item" data-view="historico" hidden><span class="nav-ico" aria-hidden="true">📈</span><span class="nav-label"><span class="l-long">Histórico da equipe</span><span class="l-short">Histórico</span></span></button>
+    <button type="button" class="nav-item" data-view="unidades" hidden><span class="nav-ico" aria-hidden="true">🏢</span><span class="nav-label"><span class="l-long">Unidades</span><span class="l-short">Unidades</span></span></button>
     <button type="button" class="nav-item" data-view="convites" hidden><span class="nav-ico" aria-hidden="true">✉️</span><span class="nav-label"><span class="l-long">Convites</span><span class="l-short">Convites</span></span></button>
     <button type="button" class="nav-item" data-view="minhaescala" hidden><span class="nav-ico" aria-hidden="true">📅</span><span class="nav-label"><span class="l-long">Escala da equipe</span><span class="l-short">Escala</span></span></button>
     <button type="button" class="nav-item" data-view="avisos" hidden><span class="nav-ico" aria-hidden="true">🔔</span><span class="nav-label"><span class="l-long">Avisos</span><span class="l-short">Avisos</span></span><span class="nav-badge" id="avisosBadge" hidden></span></button>
@@ -354,6 +355,14 @@
         <h3 style="margin:0 0 6px;font-size:13px;color:var(--text-dim);">Convites pendentes</h3>
         <div id="companyPendingInvitesList"></div>
       </div>
+    </div>
+
+    <div class="card no-print" id="unitsCard" data-view="unidades">
+      <h2>Unidades da rede</h2>
+      <div id="unitsIntro"></div>
+      <div id="unitsBody"></div>
+      <div class="auth-error" id="unitsError"></div>
+      <div class="row-actions" id="unitsActions"></div>
     </div>
 
     <div class="card" id="companyStaffCard" data-view="equipe">
@@ -1091,6 +1100,7 @@
 <script src="js/roster.js"></script>
 <script src="js/closing.js"></script>
 <script src="js/history.js"></script>
+<script src="js/units.js"></script>
 <script src="js/swaps.js"></script>
 <script src="js/legal.js"></script>
 <script src="js/push.js"></script>

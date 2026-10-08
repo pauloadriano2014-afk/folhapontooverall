@@ -10,13 +10,22 @@ Aplicativo (PWA) de ponto e escala para a equipe de uma academia: cada profissio
 
 | Nível | Pode |
 | --- | --- |
-| Dono | Tudo: equipe, convites, valores, escala, fechamento e reabertura, histórico |
+| Dono | Tudo: equipe, convites, valores, escala, fechamento e reabertura, histórico e, se tiver mais de uma academia, as unidades |
 | Gerente | Equipe, convites, escala, fechamento e reabertura, histórico |
 | Sócio(a) | Só acompanha (valores, escala, histórico), sem editar |
 | Coordenador(a) | Escala, presença, horários da equipe, fecha o mês (nunca o próprio). Vê horas, não valores em R$ |
 | Professor / Estagiário | Lança as próprias horas, vê a escala, dá o "ciente" e pede troca de plantão |
 
 Alunos particulares (módulo opcional do professor) são sempre privados: nenhum nível da academia vê nomes, valores nem totais.
+
+## Várias unidades
+
+Cada unidade é uma academia (`companies`) com equipe, escala, fechamento e código de convite próprios. Uma **rede** (`organizations`) agrupa as unidades de um mesmo dono (`organization_owners`):
+
+- O dono ativa a rede em **Unidades > Adicionar unidade** (cria a rede e a nova unidade).
+- Ele **alterna** entre as unidades com "Entrar" (a conta dele passa a estar na unidade escolhida, sempre como dono) e vê um **comparativo do mês** (pessoas, horários, valor, plantões, faltas, fechamento).
+- `organizations.max_units` e `plan` são o ponto de encaixe da cobrança: hoje o limite padrão é 5 unidades; para vender planos, basta alterar esse valor por rede.
+- Ainda não existe: mudar uma pessoa de unidade mantendo o histórico, gerente de rede (um gerente que cuida de várias unidades), relatórios consolidados em Excel e cobrança por unidade.
 
 ## Estrutura
 

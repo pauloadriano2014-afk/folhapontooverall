@@ -26,6 +26,7 @@
 //   POST   /api/company/invite-code/rotate -> gera um novo codigo de convite (o antigo para de valer)
 //   GET    /api/company/audit             -> historico das alteracoes de equipe
 //   GET/POST /api/company/closings, DELETE /api/company/closings/:userId/:month -> fechamento do mes
+//   GET/POST /api/org, /api/org/units, PUT /api/org/units/:id, POST /api/org/switch, GET /api/org/overview -> varias unidades (rede)
 //   GET    /api/company/closings/sheet    -> folha do mes (Excel/PDF)
 //   GET    /api/company/history?months=   -> historico mes a mes (dono/gerente/socio)
 //   GET    /api/me/closings               -> meses fechados da propria pessoa
@@ -321,6 +322,27 @@ async function ensureTables() {
     );
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_notifications_user ON user_notifications(user_id, read_at);`);
+  // Varias unidades: uma "rede" (organizations) agrupa as unidades (companies).
+  // Quem e dono de uma unidade pode ativar a rede, criar novas unidades e alternar
+  // entre elas. Tudo que ja existe continua funcionando por unidade (company_id).
+  // plan/max_units sao o ponto de encaixe da cobranca futura (limite de unidades).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS organizations (
+      id serial PRIMARY KEY,
+      name text NOT NULL,
+      plan text NOT NULL DEFAULT 'trial',
+      max_units integer NOT NULL DEFAULT 5,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS organization_owners (
+      organization_id integer NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      PRIMARY KEY (organization_id, user_id)
+    );
+  `);
+  await pool.query("ALTER TABLE companies ADD COLUMN IF NOT EXISTS organization_id integer REFERENCES organizations(id) ON DELETE SET NULL");
   // Termos/privacidade aceitos (versao + data) e aparelhos com notificacao push.
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version text");
   await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at timestamptz");
@@ -2233,6 +2255,146 @@ app.get("/api/company/closings", auth, async (req, res) => {
   }
 });
 
+
+
+// ---------- Varias unidades (rede) ----------
+// Dono de uma unidade ativa a rede ao criar a 2a unidade. Ele alterna entre as
+// unidades (o "company_id" da conta dele muda) e ve um comparativo. Cada unidade
+// tem a propria equipe, escala, fechamento e codigo de convite.
+async function orgOfUser(userId) {
+  var r = await pool.query(
+    `SELECT o.id, o.name, o.plan, o.max_units FROM organization_owners oo JOIN organizations o ON o.id = oo.organization_id WHERE oo.user_id = $1`, [userId]);
+  return r.rows[0] || null;
+}
+
+app.get("/api/org", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id || me.company_role !== "owner") return res.status(403).json({ error: "not_allowed", message: "As unidades são gerenciadas pelo dono." });
+    var org = await orgOfUser(me.id);
+    var cur = (await pool.query("SELECT id, name, invite_code FROM companies WHERE id = $1", [me.company_id])).rows[0];
+    var units = [];
+    if (org) {
+      var u = await pool.query(
+        `SELECT c.id, c.name, c.invite_code,
+           (SELECT COUNT(*)::int FROM users x WHERE x.company_id = c.id) AS members
+         FROM companies c WHERE c.organization_id = $1 ORDER BY c.id`, [org.id]);
+      units = u.rows.map(function (r) { return { id: r.id, name: r.name, inviteCode: r.invite_code, members: r.members, isCurrent: r.id === me.company_id }; });
+    }
+    res.json({
+      enabled: !!org, org: org ? { id: org.id, name: org.name, plan: org.plan, maxUnits: org.max_units } : null,
+      current: { id: cur.id, name: cur.name }, units: units,
+    });
+  } catch (err) {
+    console.error("Erro no GET /api/org:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Cria uma unidade nova (e ativa a rede se ainda nao existe).
+app.post("/api/org/units", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id || me.company_role !== "owner") return res.status(403).json({ error: "not_allowed", message: "Só o dono cria unidades." });
+    var name = String((req.body && req.body.name) || "").trim().slice(0, 80);
+    if (!name) return res.status(400).json({ error: "invalid_input", message: "Informe o nome da nova unidade." });
+    var org = await orgOfUser(me.id);
+    if (!org) {
+      var cur = (await pool.query("SELECT name FROM companies WHERE id = $1", [me.company_id])).rows[0];
+      org = (await pool.query("INSERT INTO organizations (name) VALUES ($1) RETURNING id, name, plan, max_units", [cur.name])).rows[0];
+      await pool.query("INSERT INTO organization_owners (organization_id, user_id) VALUES ($1, $2)", [org.id, me.id]);
+      await pool.query("UPDATE companies SET organization_id = $1 WHERE id = $2", [org.id, me.company_id]);
+    }
+    var count = (await pool.query("SELECT COUNT(*)::int AS n FROM companies WHERE organization_id = $1", [org.id])).rows[0].n;
+    if (count >= org.max_units) {
+      return res.status(400).json({ error: "unit_limit", message: "O plano atual permite até " + org.max_units + " unidade(s). Fale com o suporte para aumentar." });
+    }
+    var dup = await pool.query("SELECT 1 FROM companies WHERE organization_id = $1 AND lower(name) = lower($2)", [org.id, name]);
+    if (dup.rows.length) return res.status(409).json({ error: "duplicate", message: "Já existe uma unidade com esse nome." });
+    var unit = await createCompanyForOwner(me.id, name);
+    await pool.query("UPDATE companies SET organization_id = $1 WHERE id = $2", [org.id, unit.id]);
+    await audit(me.company_id, me.id, "unit_created", null, name, "Nova unidade da rede");
+    res.json({ ok: true, unit: { id: unit.id, name: unit.name, inviteCode: unit.invite_code } });
+  } catch (err) {
+    console.error("Erro no POST /api/org/units:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+async function ownerUnit(req, res, unitId) {
+  var me = await rosterActor(req.userId);
+  if (!me || !me.company_id || me.company_role !== "owner") { res.status(403).json({ error: "not_allowed", message: "Só o dono gerencia as unidades." }); return null; }
+  var org = await orgOfUser(me.id);
+  if (!org) { res.status(400).json({ error: "no_org", message: "Ative as várias unidades primeiro." }); return null; }
+  var unit = (await pool.query("SELECT id, name FROM companies WHERE id = $1 AND organization_id = $2", [unitId, org.id])).rows[0];
+  if (!unit) { res.status(404).json({ error: "not_found", message: "Unidade não encontrada na sua rede." }); return null; }
+  return { me: me, org: org, unit: unit };
+}
+
+app.put("/api/org/units/:id", auth, async (req, res) => {
+  try {
+    var ctx = await ownerUnit(req, res, parseInt(req.params.id, 10));
+    if (!ctx) return;
+    var name = String((req.body && req.body.name) || "").trim().slice(0, 80);
+    if (!name) return res.status(400).json({ error: "invalid_input", message: "Informe o nome da unidade." });
+    var dup = await pool.query("SELECT 1 FROM companies WHERE organization_id = $1 AND lower(name) = lower($2) AND id <> $3", [ctx.org.id, name, ctx.unit.id]);
+    if (dup.rows.length) return res.status(409).json({ error: "duplicate", message: "Já existe uma unidade com esse nome." });
+    await pool.query("UPDATE companies SET name = $2 WHERE id = $1", [ctx.unit.id, name]);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro no PUT /api/org/units/:id:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Entrar em outra unidade da rede (a conta do dono passa a "estar" nela).
+app.post("/api/org/switch", auth, async (req, res) => {
+  try {
+    var ctx = await ownerUnit(req, res, parseInt((req.body && req.body.companyId), 10));
+    if (!ctx) return;
+    await pool.query("UPDATE users SET company_id = $2, company_role = 'owner' WHERE id = $1", [ctx.me.id, ctx.unit.id]);
+    res.json({ ok: true, company: { id: ctx.unit.id, name: ctx.unit.name } });
+  } catch (err) {
+    console.error("Erro no POST /api/org/switch:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Comparativo entre as unidades no mes (padrao: mes passado).
+app.get("/api/org/overview", auth, async (req, res) => {
+  try {
+    var me = await rosterActor(req.userId);
+    if (!me || !me.company_id || me.company_role !== "owner") return res.status(403).json({ error: "not_allowed", message: "O comparativo é do dono." });
+    var org = await orgOfUser(me.id);
+    if (!org) return res.json({ enabled: false, units: [] });
+    var month = String(req.query.month || "").trim();
+    if (!validMonth(month)) { var c = currentMonthBr().split("-"), y = parseInt(c[0], 10), m = parseInt(c[1], 10) - 1; if (m === 0) { m = 12; y--; } month = y + "-" + String(m).padStart(2, "0"); }
+    var units = (await pool.query("SELECT id, name FROM companies WHERE organization_id = $1 ORDER BY id", [org.id])).rows;
+    var out = [];
+    for (var i = 0; i < units.length; i++) {
+      var cid = units[i].id;
+      var members = (await closingMembers(cid)).rows;
+      var closed = await pool.query("SELECT user_id, hours, total FROM company_month_closings WHERE company_id = $1 AND month = $2", [cid, month]);
+      var cm = {}; closed.rows.forEach(function (r) { cm[r.user_id] = r; });
+      var hours = 0, total = 0, withData = 0, closedN = 0;
+      members.forEach(function (u) {
+        var c2 = cm[u.id], live = gradeSummary(u.data, month);
+        if (!c2 && !live.month) return;
+        withData++;
+        if (c2) { closedN++; hours += c2.hours; total += Number(c2.total); } else { hours += live.hours; total += live.total; }
+      });
+      var sh = (await pool.query("SELECT COUNT(*)::int AS n FROM company_roster_entries WHERE company_id = $1 AND substr(date, 1, 7) = $2", [cid, month])).rows[0].n;
+      var ab = (await pool.query("SELECT COUNT(*)::int AS n FROM company_schedule WHERE company_id = $1 AND substr(date, 1, 7) = $2 AND status = 'falta'", [cid, month])).rows[0].n;
+      var sw = (await pool.query("SELECT COUNT(*)::int AS n FROM roster_swap_requests WHERE company_id = $1 AND status = 'pending_manager'", [cid])).rows[0].n;
+      var staffN = members.length;
+      out.push({ id: cid, name: units[i].name, isCurrent: cid === me.company_id, people: staffN, withHours: withData, closed: closedN, hours: hours, total: total, shifts: sh, absences: ab, pendingSwaps: sw });
+    }
+    res.json({ enabled: true, month: month, orgName: org.name, units: out });
+  } catch (err) {
+    console.error("Erro no GET /api/org/overview:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
 
 // Folha do mes (para Excel/PDF): por pessoa, situacao, horas, (valores) e o detalhe dia a dia.
 app.get("/api/company/closings/sheet", auth, async (req, res) => {

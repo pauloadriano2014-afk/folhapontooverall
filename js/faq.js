@@ -26,6 +26,10 @@ function faqGroupsFor(kind){
     if(kind === "gerente"){
       team.push(["Atendo alunos particulares também. Como faço?", "Em Minha conta, ligue \"Também atendo alunos particulares\". O menu ganha a categoria \"Alunos particulares\", só sua, e a Exportação passa a ter Excel e PDF deles. O dono e os sócios nunca veem nomes, valores nem totais desses alunos, e você pode desligar quando quiser (os dados continuam guardados)."]);
     }
+    if(kind === "empresa"){
+      team.push(["Minha academia tem mais de uma unidade. Como faço?", "Em \"Unidades\", toque em \"Adicionar unidade\" e dê um nome. A rede é ativada e cada unidade ganha equipe, escala, fechamento e código de convite próprios. Use \"Entrar\" para alternar entre elas; a tela mostra o nome da unidade em que você está. O quadro de Unidades compara as unidades no mês: pessoas, horários, valor, plantões, faltas e quantos já foram fechados."]);
+      team.push(["Como a equipe de cada unidade entra?", "Cada unidade tem o seu código de convite (aparece em Unidades). A pessoa cria a conta com o código da unidade onde trabalha. Para mudar alguém de unidade, por enquanto, remova da atual e convide na nova."]);
+    }
     groups.push({ title: "Equipe e valores", items: team });
     var sched = [
       ["Como funciona a escala planejada?", "Em \"Escala planejada\", a coordenação escolhe quem faz cada turno nos fins de semana e feriados (por exemplo: estagiário de manhã, estagiário à tarde e professor das 10h às 14h) e depois publica o mês. A equipe só vê a escala publicada e as pessoas escaladas recebem um aviso. Os turnos e horários podem ser mudados em \"Turnos e horários\"."],

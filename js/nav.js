@@ -15,6 +15,7 @@ function navItemsForCurrentUser(){
   if(typeof isCompanyAdminView === "function" && isCompanyAdminView()){
     var items = ["equipe", "minhaequipe", "escala", "presenca", "fechamento", "historico"];
     if(!isPartner()) items.push("gestao", "convites");
+    if(typeof isCompanyOwner === "function" && isCompanyOwner()) items.push("unidades");
     if(isGerente() && currentUser.personalModule) items.push("clientes");
     items.push("exportacao", "duvidas");
     return items;
@@ -59,6 +60,7 @@ function showView(view){
   });
   document.body.setAttribute("data-view", view);
   if(view === "gestao" && typeof loadTeamAudit === "function") loadTeamAudit();
+  if(view === "unidades" && typeof loadUnits === "function") loadUnits();
   if(view === "historico" && typeof loadHistory === "function") loadHistory();
   if(view === "fechamento" && typeof loadClosing === "function") loadClosing();
   if(view === "minhaequipe" && typeof loadCoordTeam === "function") loadCoordTeam();

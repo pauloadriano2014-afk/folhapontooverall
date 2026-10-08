@@ -702,3 +702,18 @@
 .history-bar .bar.open{ opacity:.45; }
 .history-bar .v{ font-size:11px; font-weight:700; }
 .history-bar .m{ font-size:11px; color:var(--text-dim); }
+
+/* varias unidades */
+.units-feat{ display:grid; gap:6px; margin:6px 0 14px; font-size:14px; }
+.unit-card{ border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:10px; background:var(--bg-panel-2); }
+.unit-card.current{ border-color:var(--accent); }
+.unit-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+.unit-head strong{ font-size:16px; }
+.unit-stats{ display:grid; grid-template-columns:repeat(auto-fit, minmax(92px, 1fr)); gap:8px; }
+.unit-stat{ display:flex; flex-direction:column; gap:2px; padding:8px 10px; border-radius:8px; background:var(--bg-panel); border:1px solid var(--border); }
+.unit-stat span{ font-size:11px; color:var(--text-dim); }
+.unit-stat b{ font-size:15px; }
+.unit-foot{ display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-top:10px; }
+.unit-total{ background:transparent; border-style:dashed; }
+
+.unit-total strong{ display:block; margin-bottom:8px; }
