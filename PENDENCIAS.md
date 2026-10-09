@@ -19,6 +19,9 @@ Nada disso foi feito ainda. O código está na branch `claude/auditoria-sync-pri
 
 ## 2. Configurações suas (infraestrutura)
 
+- [ ] **Aproximar o banco do servidor (principal causa da lentidão).** A API do Render está em **Oregon (EUA)** e o banco do Neon está em **São Paulo**: cada consulta ao banco atravessa o continente (~190 ms) e uma tela chega a fazer vários. A correção de maior efeito é colocar os dois na mesma região: criar um projeto novo no Neon na região **us-west-2 (Oregon)**, copiar os dados, trocar `DATABASE_URL` no Render. Decisão a combinar comigo antes (mexe no banco de produção; o app fica parado uns minutos). Depois, se quiser, ir para Ohio/Virgínia (mais perto do Brasil) recriando a API lá.
+- [ ] Plano pago do Render (a API gratuita tem CPU compartilhada pequena).
+
 - [ ] **Plano pago do Render** para a API (cerca de US$ 7 por mês) para o servidor nunca dormir.
 - [ ] **Retenção do backup no Neon** (hoje o histórico é de 1 dia): subir para 7 a 30 dias.
 - [ ] **E-mail com domínio próprio** (hoje é Gmail, com limite e risco de spam). Define quem recebe "esqueci minha senha" e os avisos por e-mail. Depois, configurar `SMTP_USER` e `SMTP_PASS` (ou outro SMTP) no Render.

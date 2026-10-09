@@ -33,6 +33,16 @@ function navItemsForCurrentUser(){
   return items2;
 }
 
+var VIEW_FRESH_MS = 20000;
+var viewLoadedAt = {};
+function loadFresh(view, fn){
+  var now = Date.now();
+  if(viewLoadedAt[view] && now - viewLoadedAt[view] < VIEW_FRESH_MS) return;
+  viewLoadedAt[view] = now;
+  fn();
+}
+function resetViewFreshness(){ viewLoadedAt = {}; }
+
 function activeDashboardEl(){
   var company = document.getElementById("companyDashboard");
   if(company && company.style.display === "block") return company;
@@ -59,14 +69,17 @@ function showView(view){
     }
   });
   document.body.setAttribute("data-view", view);
-  if(view === "gestao" && typeof loadTeamAudit === "function") loadTeamAudit();
-  if(view === "unidades" && typeof loadUnits === "function") loadUnits();
-  if(view === "historico" && typeof loadHistory === "function") loadHistory();
-  if(view === "fechamento" && typeof loadClosing === "function") loadClosing();
-  if(view === "minhaequipe" && typeof loadCoordTeam === "function") loadCoordTeam();
-  if(view === "presenca" && typeof loadScheduleMonth === "function") loadScheduleMonth(currentScheduleMonthKey());
-  if(view === "escala" && typeof loadRoster === "function") loadRoster();
-  if(view === "minhaescala" && typeof loadMyRoster === "function") loadMyRoster();
+  // Cada tela busca os dados no servidor, mas nao a cada toque: se ela foi carregada ha
+  // poucos segundos, mostra o que ja tem (instantaneo) e deixa para atualizar depois.
+  // As proprias telas se atualizam quando a pessoa salva algo.
+  if(view === "gestao" && typeof loadTeamAudit === "function") loadFresh(view, loadTeamAudit);
+  if(view === "unidades" && typeof loadUnits === "function") loadFresh(view, loadUnits);
+  if(view === "historico" && typeof loadHistory === "function") loadFresh(view, loadHistory);
+  if(view === "fechamento" && typeof loadClosing === "function") loadFresh(view, loadClosing);
+  if(view === "minhaequipe" && typeof loadCoordTeam === "function") loadFresh(view, loadCoordTeam);
+  if(view === "presenca" && typeof loadScheduleMonth === "function") loadFresh(view, function(){ loadScheduleMonth(currentScheduleMonthKey()); });
+  if(view === "escala" && typeof loadRoster === "function") loadFresh(view, loadRoster);
+  if(view === "minhaescala" && typeof loadMyRoster === "function") loadFresh(view, loadMyRoster);
   if(view === "avisos" && typeof loadNotices === "function") loadNotices();
   if(view === "avisos" && typeof renderPushBox === "function") renderPushBox();
   document.body.classList.toggle("hide-month", MONTH_VIEWS.indexOf(view) < 0);
@@ -109,6 +122,7 @@ function setupNav(){
 }
 
 function teardownNav(){
+  resetViewFreshness();
   var nav = document.getElementById("appNav");
   if(nav) nav.style.display = "none";
   document.body.classList.remove("has-nav", "hide-month");

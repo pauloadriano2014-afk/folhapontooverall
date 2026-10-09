@@ -55,6 +55,7 @@ const cors = require("cors");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
+const compression = require("compression");
 const webpush = require("web-push");
 const { Pool } = require("pg");
 
@@ -102,7 +103,15 @@ const pool = new Pool({
   connectionString: DATABASE_URL,
   // DATABASE_SSL=off so pra rodar com um Postgres local, sem SSL (testes).
   ssl: process.env.DATABASE_SSL === "off" ? false : { rejectUnauthorized: false },
+  // O banco fica longe do servidor (cada ida e volta custa tempo). Abrir uma conexao
+  // nova leva varias idas e voltas, entao mantemos as conexoes abertas por mais tempo
+  // (o padrao fecha em 10 segundos ociosas) e usamos keep-alive de TCP.
+  keepAlive: true,
+  idleTimeoutMillis: 5 * 60 * 1000,
+  max: 10,
 });
+// Uma consulta leve a cada 4 minutos mantem uma conexao quente e o banco acordado.
+setInterval(function () { pool.query("SELECT 1").catch(function () {}); }, 4 * 60 * 1000).unref();
 
 // O banco (Neon) derruba conexoes ociosas de vez em quando. Sem este tratamento,
 // o evento de erro de uma conexao parada derrubaria o servidor inteiro; com ele,
@@ -644,6 +653,7 @@ process.on("unhandledRejection", function (err) { console.error("Erro nao tratad
 const app = express();
 app.set("trust proxy", 1); // atras do proxy do Render: r.ip e o IP real de quem chamou
 app.use(cors());
+app.use(compression());
 app.use(express.json({ limit: "2mb" }));
 
 function publicUser(row) {
@@ -663,6 +673,12 @@ function signToken(row) {
   return jwt.sign({ uid: row.id, tv: row.token_version || 0 }, JWT_SECRET, { expiresIn: TOKEN_TTL });
 }
 
+// Quem esta logado e confere a cada pedido: guardamos o resultado por 30 segundos para nao
+// gastar uma ida e volta ao banco em todo pedido. Trocar a senha limpa o registro.
+var tokenVersionCache = new Map();
+var TOKEN_CACHE_MS = 30 * 1000;
+function forgetTokenVersion(userId) { tokenVersionCache.delete(userId); }
+
 async function auth(req, res, next) {
   var header = req.header("authorization") || "";
   var token = header.indexOf("Bearer ") === 0 ? header.slice(7) : null;
@@ -675,10 +691,17 @@ async function auth(req, res, next) {
   }
   try {
     // Token emitido antes de uma troca/redefinicao de senha deixa de valer.
-    var r = await pool.query("SELECT token_version FROM users WHERE id = $1", [payload.uid]);
-    if (r.rows.length === 0 || (r.rows[0].token_version || 0) !== (payload.tv || 0)) {
-      return res.status(401).json({ error: "invalid_token" });
+    var hit = tokenVersionCache.get(payload.uid);
+    var current;
+    if (hit && Date.now() - hit.at < TOKEN_CACHE_MS) {
+      current = hit.tv;
+    } else {
+      var r = await pool.query("SELECT token_version FROM users WHERE id = $1", [payload.uid]);
+      if (r.rows.length === 0) { tokenVersionCache.delete(payload.uid); return res.status(401).json({ error: "invalid_token" }); }
+      current = r.rows[0].token_version || 0;
+      tokenVersionCache.set(payload.uid, { tv: current, at: Date.now() });
     }
+    if (current !== (payload.tv || 0)) return res.status(401).json({ error: "invalid_token" });
     req.userId = payload.uid;
     next();
   } catch (err) {
@@ -889,17 +912,18 @@ app.get("/api/company/overview", auth, async (req, res) => {
       return res.status(403).json({ error: "not_owner", message: "Você não tem acesso a esse painel." });
     }
     var companyId = me.rows[0].company_id;
-    var company = await pool.query("SELECT id, name, invite_code FROM companies WHERE id = $1", [companyId]);
+    var [company, staff] = await Promise.all([
+      pool.query("SELECT id, name, invite_code FROM companies WHERE id = $1", [companyId]),
+      pool.query(
+        `SELECT u.id, u.name, u.role, u.email, u.company_role, u.monthly_salary, s.data
+         FROM users u
+         LEFT JOIN user_state s ON s.user_id = u.id
+         WHERE u.company_id = $1
+         ORDER BY (u.company_role = 'owner') DESC, u.name ASC`,
+        [companyId]
+      ),
+    ]);
     if (company.rows.length === 0) return res.status(404).json({ error: "not_found" });
-
-    var staff = await pool.query(
-      `SELECT u.id, u.name, u.role, u.email, u.company_role, u.monthly_salary, s.data
-       FROM users u
-       LEFT JOIN user_state s ON s.user_id = u.id
-       WHERE u.company_id = $1
-       ORDER BY (u.company_role = 'owner') DESC, u.name ASC`,
-      [companyId]
-    );
 
     res.json({
       viewerRole: myRole,
@@ -1336,9 +1360,11 @@ function kindAllows(kind, userRole) {
 }
 function validMonth(m) { return /^\d{4}-(0[1-9]|1[0-2])$/.test(String(m || "")); }
 
+var shiftTypesReady = new Set(); // empresas que ja tem turnos: nao precisa perguntar ao banco de novo
 async function ensureDefaultShiftTypes(companyId) {
+  if (shiftTypesReady.has(companyId)) return;
   var has = await pool.query("SELECT 1 FROM company_shift_types WHERE company_id = $1 LIMIT 1", [companyId]);
-  if (has.rows.length > 0) return;
+  if (has.rows.length > 0) { shiftTypesReady.add(companyId); return; }
   var defaults = [
     ["Estagiário — manhã", "08:00", "13:00", "estagiario"],
     ["Estagiário — tarde", "13:00", "18:00", "estagiario"],
@@ -1350,6 +1376,7 @@ async function ensureDefaultShiftTypes(companyId) {
       [companyId, defaults[i][0], defaults[i][1], defaults[i][2], defaults[i][3], i]
     );
   }
+  shiftTypesReady.add(companyId);
 }
 
 async function rosterTypes(companyId) {
@@ -1385,23 +1412,26 @@ app.get("/api/company/roster", auth, async (req, res) => {
     var month = String(req.query.month || "").trim();
     if (!validMonth(month)) return res.status(400).json({ error: "invalid_month" });
     await ensureDefaultShiftTypes(me.company_id);
-    var types = await rosterTypes(me.company_id);
-    var staff = await pool.query(
-      `SELECT id, name, role, company_role FROM users
-       WHERE company_id = $1 AND (company_role IS NULL OR company_role = 'coordinator') ORDER BY name ASC`,
-      [me.company_id]
-    );
-    var entries = await pool.query(
-      "SELECT id, date, shift_type_id, user_id FROM company_roster_entries WHERE company_id = $1 AND date LIKE $2 ORDER BY date, id",
-      [me.company_id, month + "-%"]
-    );
-    var mrow = await pool.query("SELECT published_at, snapshot FROM company_roster_months WHERE company_id = $1 AND month = $2", [me.company_id, month]);
+    // as consultas nao dependem umas das outras: saem juntas (cada ida e volta ao banco custa tempo)
+    var [types, staff, entries, mrow, ackRows, pendSw] = await Promise.all([
+      rosterTypes(me.company_id),
+      pool.query(
+        `SELECT id, name, role, company_role FROM users
+         WHERE company_id = $1 AND (company_role IS NULL OR company_role = 'coordinator') ORDER BY name ASC`,
+        [me.company_id]
+      ),
+      pool.query(
+        "SELECT id, date, shift_type_id, user_id FROM company_roster_entries WHERE company_id = $1 AND date LIKE $2 ORDER BY date, id",
+        [me.company_id, month + "-%"]
+      ),
+      pool.query("SELECT published_at, snapshot FROM company_roster_months WHERE company_id = $1 AND month = $2", [me.company_id, month]),
+      pool.query("SELECT user_id FROM company_roster_acks WHERE company_id = $1 AND month = $2", [me.company_id, month]),
+      pool.query("SELECT COUNT(*)::int AS n FROM roster_swap_requests WHERE company_id = $1 AND status = 'pending_manager'", [me.company_id]),
+    ]);
     var published = mrow.rows[0] && mrow.rows[0].published_at ? mrow.rows[0] : null;
     var current = entries.rows.map((e) => e.user_id + "|" + e.date + "|" + e.shift_type_id).sort();
     var pubUsers = {};
     if (published) (published.snapshot || []).forEach((k) => { pubUsers[parseInt(k.split("|")[0], 10)] = true; });
-    var ackRows = await pool.query("SELECT user_id FROM company_roster_acks WHERE company_id = $1 AND month = $2", [me.company_id, month]);
-    var pendSw = await pool.query("SELECT COUNT(*)::int AS n FROM roster_swap_requests WHERE company_id = $1 AND status = 'pending_manager'", [me.company_id]);
     res.json({
       publishedUserIds: Object.keys(pubUsers).map((u) => parseInt(u, 10)),
       ackedUserIds: ackRows.rows.map((r) => r.user_id),
@@ -1429,12 +1459,15 @@ app.get("/api/me/roster", auth, async (req, res) => {
     if (!me || !me.company_id) return res.status(403).json({ error: "not_allowed", message: "Você não está ligado a uma academia." });
     var month = String(req.query.month || "").trim();
     if (!validMonth(month)) return res.status(400).json({ error: "invalid_month" });
-    var mrow = await pool.query("SELECT published_at, snapshot FROM company_roster_months WHERE company_id = $1 AND month = $2", [me.company_id, month]);
+    var [mrow, types, users, ack] = await Promise.all([
+      pool.query("SELECT published_at, snapshot FROM company_roster_months WHERE company_id = $1 AND month = $2", [me.company_id, month]),
+      rosterTypes(me.company_id),
+      pool.query("SELECT id, name, role FROM users WHERE company_id = $1 AND (company_role IS NULL OR company_role = 'coordinator')", [me.company_id]),
+      pool.query("SELECT acked_at FROM company_roster_acks WHERE user_id = $1 AND month = $2", [me.id, month]),
+    ]);
     var row = mrow.rows[0];
     if (!row || !row.published_at) return res.json({ published: false, shiftTypes: [], entries: [] });
-    var types = await rosterTypes(me.company_id);
     var typeIds = {}; types.forEach((t) => { typeIds[t.id] = true; });
-    var users = await pool.query("SELECT id, name, role FROM users WHERE company_id = $1 AND (company_role IS NULL OR company_role = 'coordinator')", [me.company_id]);
     var names = {}; users.rows.forEach((u) => { names[u.id] = u.name; });
     var entries = [];
     (row.snapshot || []).forEach((k) => {
@@ -1443,7 +1476,6 @@ app.get("/api/me/roster", auth, async (req, res) => {
       if (names[uid] && typeIds[sid]) entries.push({ date: p[1], shiftTypeId: sid, userId: uid, userName: names[uid] });
     });
     entries.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.shiftTypeId - b.shiftTypeId));
-    var ack = await pool.query("SELECT acked_at FROM company_roster_acks WHERE user_id = $1 AND month = $2", [me.id, month]);
     var team = users.rows.filter((u) => u.id !== me.id).map((u) => ({ id: u.id, name: u.name, role: u.role || "" }));
     res.json({ published: true, publishedAt: row.published_at, shiftTypes: types, entries: entries, me: me.id,
       acked: ack.rows.length > 0, ackedAt: ack.rows[0] ? ack.rows[0].acked_at : null, team: team });
@@ -1724,9 +1756,11 @@ function swapOut(r, names, types) {
     note: r.note || "", status: r.status, createdAt: r.created_at, resolvedAt: r.resolved_at };
 }
 async function swapMaps(companyId) {
-  var us = await pool.query("SELECT id, name FROM users WHERE company_id = $1", [companyId]);
+  var [us, ts] = await Promise.all([
+    pool.query("SELECT id, name FROM users WHERE company_id = $1", [companyId]),
+    pool.query("SELECT id, name, start_time, end_time FROM company_shift_types WHERE company_id = $1", [companyId]),
+  ]);
   var names = {}; us.rows.forEach((u) => { names[u.id] = u.name; });
-  var ts = await pool.query("SELECT id, name, start_time, end_time FROM company_shift_types WHERE company_id = $1", [companyId]);
   var types = {}; ts.rows.forEach((t) => { types[t.id] = t; });
   return { names: names, types: types };
 }
@@ -1894,11 +1928,10 @@ app.post("/api/company/swaps/:id/decide", auth, async (req, res) => {
 // Avisos da pessoa logada.
 app.get("/api/me/notifications", auth, async (req, res) => {
   try {
-    var r = await pool.query(
-      "SELECT id, kind, title, body, created_at, read_at FROM user_notifications WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT 30",
-      [req.userId]
-    );
-    var unread = await pool.query("SELECT COUNT(*)::int AS n FROM user_notifications WHERE user_id = $1 AND read_at IS NULL", [req.userId]);
+    var [r, unread] = await Promise.all([
+      pool.query("SELECT id, kind, title, body, created_at, read_at FROM user_notifications WHERE user_id = $1 ORDER BY created_at DESC, id DESC LIMIT 30", [req.userId]),
+      pool.query("SELECT COUNT(*)::int AS n FROM user_notifications WHERE user_id = $1 AND read_at IS NULL", [req.userId]),
+    ]);
     res.json({
       unread: unread.rows[0].n,
       items: r.rows.map((n) => ({ id: n.id, kind: n.kind, title: n.title, body: n.body || "", createdAt: n.created_at, read: !!n.read_at })),
@@ -2061,6 +2094,7 @@ app.post("/api/change-password", auth, limitChangePassword, async (req, res) => 
       "UPDATE users SET password_hash = $1, token_version = token_version + 1 WHERE id = $2 RETURNING id, token_version",
       [hash, req.userId]
     );
+    forgetTokenVersion(req.userId);
     // As outras sessoes (outros aparelhos) caem; esta recebe um token novo.
     res.json({ ok: true, token: signToken(updated.rows[0]) });
   } catch (err) {
@@ -2133,6 +2167,7 @@ app.post("/api/reset-password", limitReset, async (req, res) => {
       "UPDATE users SET password_hash = $1, reset_token_hash = NULL, reset_token_expires = NULL, token_version = token_version + 1 WHERE id = $2",
       [hash, userId]
     );
+    forgetTokenVersion(userId);
     res.json({ ok: true });
   } catch (err) {
     console.error("Erro no /api/reset-password:", err);
@@ -2221,11 +2256,13 @@ app.get("/api/company/closings", auth, async (req, res) => {
     var month = String(req.query.month || "").trim();
     if (!validMonth(month)) return res.status(400).json({ error: "invalid_month" });
     var values = seesClosingValues(me.company_role);
-    var members = await closingMembers(me.company_id);
-    var closed = await pool.query(
-      `SELECT c.user_id, c.closed_at, c.hours, c.total, b.name AS closed_by_name
-       FROM company_month_closings c LEFT JOIN users b ON b.id = c.closed_by
-       WHERE c.company_id = $1 AND c.month = $2`, [me.company_id, month]);
+    var [members, closed] = await Promise.all([
+      closingMembers(me.company_id),
+      pool.query(
+        `SELECT c.user_id, c.closed_at, c.hours, c.total, b.name AS closed_by_name
+         FROM company_month_closings c LEFT JOIN users b ON b.id = c.closed_by
+         WHERE c.company_id = $1 AND c.month = $2`, [me.company_id, month]),
+    ]);
     var byUser = {}; closed.rows.forEach(function (c) { byUser[c.user_id] = c; });
     res.json({
       canClose: canCloseMonth(me.company_role),
@@ -2370,11 +2407,16 @@ app.get("/api/org/overview", auth, async (req, res) => {
     var month = String(req.query.month || "").trim();
     if (!validMonth(month)) { var c = currentMonthBr().split("-"), y = parseInt(c[0], 10), m = parseInt(c[1], 10) - 1; if (m === 0) { m = 12; y--; } month = y + "-" + String(m).padStart(2, "0"); }
     var units = (await pool.query("SELECT id, name FROM companies WHERE organization_id = $1 ORDER BY id", [org.id])).rows;
-    var out = [];
-    for (var i = 0; i < units.length; i++) {
-      var cid = units[i].id;
-      var members = (await closingMembers(cid)).rows;
-      var closed = await pool.query("SELECT user_id, hours, total FROM company_month_closings WHERE company_id = $1 AND month = $2", [cid, month]);
+    var out = await Promise.all(units.map(async function (unit) {
+      var cid = unit.id;
+      var [membersRes, closed, shRes, abRes, swRes] = await Promise.all([
+        closingMembers(cid),
+        pool.query("SELECT user_id, hours, total FROM company_month_closings WHERE company_id = $1 AND month = $2", [cid, month]),
+        pool.query("SELECT COUNT(*)::int AS n FROM company_roster_entries WHERE company_id = $1 AND substr(date, 1, 7) = $2", [cid, month]),
+        pool.query("SELECT COUNT(*)::int AS n FROM company_schedule WHERE company_id = $1 AND substr(date, 1, 7) = $2 AND status = 'falta'", [cid, month]),
+        pool.query("SELECT COUNT(*)::int AS n FROM roster_swap_requests WHERE company_id = $1 AND status = 'pending_manager'", [cid]),
+      ]);
+      var members = membersRes.rows;
       var cm = {}; closed.rows.forEach(function (r) { cm[r.user_id] = r; });
       var hours = 0, total = 0, withData = 0, closedN = 0;
       members.forEach(function (u) {
@@ -2383,12 +2425,8 @@ app.get("/api/org/overview", auth, async (req, res) => {
         withData++;
         if (c2) { closedN++; hours += c2.hours; total += Number(c2.total); } else { hours += live.hours; total += live.total; }
       });
-      var sh = (await pool.query("SELECT COUNT(*)::int AS n FROM company_roster_entries WHERE company_id = $1 AND substr(date, 1, 7) = $2", [cid, month])).rows[0].n;
-      var ab = (await pool.query("SELECT COUNT(*)::int AS n FROM company_schedule WHERE company_id = $1 AND substr(date, 1, 7) = $2 AND status = 'falta'", [cid, month])).rows[0].n;
-      var sw = (await pool.query("SELECT COUNT(*)::int AS n FROM roster_swap_requests WHERE company_id = $1 AND status = 'pending_manager'", [cid])).rows[0].n;
-      var staffN = members.length;
-      out.push({ id: cid, name: units[i].name, isCurrent: cid === me.company_id, people: staffN, withHours: withData, closed: closedN, hours: hours, total: total, shifts: sh, absences: ab, pendingSwaps: sw });
-    }
+      return { id: cid, name: unit.name, isCurrent: cid === me.company_id, people: members.length, withHours: withData, closed: closedN, hours: hours, total: total, shifts: shRes.rows[0].n, absences: abRes.rows[0].n, pendingSwaps: swRes.rows[0].n };
+    }));
     res.json({ enabled: true, month: month, orgName: org.name, units: out });
   } catch (err) {
     console.error("Erro no GET /api/org/overview:", err);
@@ -2406,12 +2444,15 @@ app.get("/api/company/closings/sheet", auth, async (req, res) => {
     var month = String(req.query.month || "").trim();
     if (!validMonth(month)) return res.status(400).json({ error: "invalid_month" });
     var values = seesClosingValues(me.company_role);
-    var comp = (await pool.query("SELECT name FROM companies WHERE id = $1", [me.company_id])).rows[0];
-    var members = (await closingMembers(me.company_id)).rows;
-    var closed = await pool.query(
-      `SELECT c.user_id, c.closed_at, c.hours, c.total, c.snapshot, b.name AS closed_by_name
-       FROM company_month_closings c LEFT JOIN users b ON b.id = c.closed_by
-       WHERE c.company_id = $1 AND c.month = $2`, [me.company_id, month]);
+    var [compRes, membersRes, closed] = await Promise.all([
+      pool.query("SELECT name FROM companies WHERE id = $1", [me.company_id]),
+      closingMembers(me.company_id),
+      pool.query(
+        `SELECT c.user_id, c.closed_at, c.hours, c.total, c.snapshot, b.name AS closed_by_name
+         FROM company_month_closings c LEFT JOIN users b ON b.id = c.closed_by
+         WHERE c.company_id = $1 AND c.month = $2`, [me.company_id, month]),
+    ]);
+    var comp = compRes.rows[0], members = membersRes.rows;
     var byUser = {}; closed.rows.forEach(function (c) { byUser[c.user_id] = c; });
     var out = [];
     members.forEach(function (u) {
@@ -2461,14 +2502,15 @@ app.get("/api/company/history", auth, async (req, res) => {
     var months = [], cur = currentMonthBr().split("-");
     var y = parseInt(cur[0], 10), mo = parseInt(cur[1], 10);
     for (var i = 0; i < n; i++) { months.unshift(y + "-" + String(mo).padStart(2, "0")); mo--; if (mo === 0) { mo = 12; y--; } }
-    var members = (await closingMembers(me.company_id)).rows;
-    var closed = await pool.query("SELECT user_id, month, hours, total FROM company_month_closings WHERE company_id = $1 AND month = ANY($2::text[])", [me.company_id, months]);
+    var [membersRes, closed, shifts, att] = await Promise.all([
+      closingMembers(me.company_id),
+      pool.query("SELECT user_id, month, hours, total FROM company_month_closings WHERE company_id = $1 AND month = ANY($2::text[])", [me.company_id, months]),
+      pool.query("SELECT user_id, substr(date, 1, 7) AS month, COUNT(*)::int AS n FROM company_roster_entries WHERE company_id = $1 AND substr(date, 1, 7) = ANY($2::text[]) GROUP BY 1, 2", [me.company_id, months]),
+      pool.query("SELECT user_id, substr(date, 1, 7) AS month, status, COUNT(*)::int AS n FROM company_schedule WHERE company_id = $1 AND substr(date, 1, 7) = ANY($2::text[]) GROUP BY 1, 2, 3", [me.company_id, months]),
+    ]);
+    var members = membersRes.rows;
     var closedMap = {}; closed.rows.forEach(function (c) { closedMap[c.user_id + "|" + c.month] = c; });
-    var shifts = await pool.query(
-      "SELECT user_id, substr(date, 1, 7) AS month, COUNT(*)::int AS n FROM company_roster_entries WHERE company_id = $1 AND substr(date, 1, 7) = ANY($2::text[]) GROUP BY 1, 2", [me.company_id, months]);
     var shiftMap = {}; shifts.rows.forEach(function (r) { shiftMap[r.user_id + "|" + r.month] = r.n; });
-    var att = await pool.query(
-      "SELECT user_id, substr(date, 1, 7) AS month, status, COUNT(*)::int AS n FROM company_schedule WHERE company_id = $1 AND substr(date, 1, 7) = ANY($2::text[]) GROUP BY 1, 2, 3", [me.company_id, months]);
     var absMap = {}, coverMap = {};
     att.rows.forEach(function (r) {
       if (r.status === "falta") absMap[r.user_id + "|" + r.month] = r.n;
@@ -2643,6 +2685,7 @@ app.delete("/api/me", auth, limitChangePassword, async (req, res) => {
     await pool.query("UPDATE company_invites SET redeemed_user_id = NULL WHERE redeemed_user_id = $1", [uid]);
     if (u.company_id) await audit(u.company_id, null, "account_deleted", null, "Pessoa que apagou a conta", "A própria pessoa apagou a conta e os dados dela");
     await pool.query("DELETE FROM users WHERE id = $1", [uid]);
+    forgetTokenVersion(uid);
     res.json({ ok: true });
   } catch (err) {
     console.error("Erro no DELETE /api/me:", err);
