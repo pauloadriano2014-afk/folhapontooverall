@@ -19,7 +19,8 @@ Nada disso foi feito ainda. O código está na branch `claude/auditoria-sync-pri
 
 ## 2. Configurações suas (infraestrutura)
 
-- [ ] **Aproximar o banco do servidor (principal causa da lentidão).** A API do Render está em **Oregon (EUA)** e o banco do Neon está em **São Paulo**: cada consulta ao banco atravessa o continente (~190 ms) e uma tela chega a fazer vários. A correção de maior efeito é colocar os dois na mesma região: criar um projeto novo no Neon na região **us-west-2 (Oregon)**, copiar os dados, trocar `DATABASE_URL` no Render. Decisão a combinar comigo antes (mexe no banco de produção; o app fica parado uns minutos). Depois, se quiser, ir para Ohio/Virgínia (mais perto do Brasil) recriando a API lá.
+- [x] **Banco aproximado do servidor (feito em 09/10/2026).** O banco foi copiado de São Paulo para **Oregon (us-west-2)**, na mesma região da API do Render. Projeto novo no Neon: `ponto-overall-oregon` (id `sweet-smoke-90957724`), com histórico de **7 dias** para restauração. `DATABASE_URL` da API já aponta para ele. Os dados foram conferidos (mesmo conteúdo, linha por linha, por soma de verificação).
+- [ ] **Depois de alguns dias de uso sem problema**, apagar o projeto antigo `ponto-overall` (São Paulo, id `sparkling-cell-41987870`) e suas branches de backup (`backup-antes-oregon`, `backup-antes-do-deploy`). Até lá ele fica intacto como plano B: para voltar atrás basta trocar o `DATABASE_URL` no Render pela conexão dele (mas dados criados depois da troca ficam só no banco novo).
 - [ ] Plano pago do Render (a API gratuita tem CPU compartilhada pequena).
 
 - [ ] **Plano pago do Render** para a API (cerca de US$ 7 por mês) para o servidor nunca dormir.
