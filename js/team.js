@@ -185,6 +185,9 @@ function auditText(entry){
   if(entry.action === "month_closed") return who + " fechou o mês" + (target ? " de " + target : "") + " (" + entry.detail + ")";
   if(entry.action === "month_reopened") return who + " reabriu o mês de " + target + " (" + entry.detail + ")";
   if(entry.action === "roster_published") return who + " publicou a escala (" + entry.detail + ")";
+  if(entry.action === "swap_auto") return "Troca de plantão feita entre colegas (" + entry.detail + ")";
+  if(entry.action === "swap_approved") return who + " aprovou uma troca de plantão (" + entry.detail + ")";
+  if(entry.action === "swap_rejected") return who + " recusou uma troca de plantão (" + entry.detail + ")";
   if(entry.action === "invite_code_rotated") return who + " gerou um novo código de convite";
   return who + " · " + entry.action;
 }

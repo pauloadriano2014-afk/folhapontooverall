@@ -45,7 +45,7 @@ function onboardingSteps(kind){
     return [
       { icon: "⏱️", title: "Bate ponto como todo mundo", text: "Sua grade de horas funciona igual à dos outros profissionais." },
       { icon: "📅", title: "Monte a escala", text: "Em Escala planejada, toque num dia, escolha quem faz cada turno e salve: estagiário de manhã, estagiário à tarde e professor das 10h às 14h. Os horários você ajusta quando quiser." },
-      { icon: "📣", title: "Publique e avise", text: "Ao publicar, a equipe vê a escala e cada pessoa escalada recebe um aviso e confirma com \"Estou ciente\". Mudou algo? Publique de novo. Pedidos de troca chegam para você aprovar." },
+      { icon: "📣", title: "Publique e avise", text: "Ao publicar, a equipe vê a escala e cada pessoa escalada recebe um aviso e confirma com \"Estou ciente\". Mudou algo? Publique de novo. Trocas entre estagiários, ou entre professores, são feitas direto pela equipe e você só é avisado; pedidos sem substituto chegam para você aprovar." },
       { icon: "🔍", title: "Equilíbrio, presença e fechamento", text: "Veja quantos plantões cada um tem, registre depois do dia quem trabalhou, faltou ou foi coberto e, no fim do mês, confira e feche em Fechamento do mês." },
       { icon: "🔒", title: "Valores só com a gestão", text: "Você não vê o salário da equipe. Isso fica com o dono e os sócios. Atende alunos particulares? Ligue o módulo em Minha conta." }
     ];

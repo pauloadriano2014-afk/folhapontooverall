@@ -510,7 +510,7 @@ function loadNotices(){
       box.innerHTML = "";
       if(!b.items.length){
         var e = document.createElement("p"); e.className = "account-section-hint"; e.textContent = (typeof isCoordinator === "function" && isCoordinator())
-          ? "Nenhum aviso por enquanto. Aqui chegam os avisos da gerência (como o fechamento ou a reabertura do seu mês) e os pedidos de troca de plantão que precisam da sua aprovação."
+          ? "Nenhum aviso por enquanto. Aqui chegam os avisos da gerência (como o fechamento ou a reabertura do seu mês) as trocas de plantão feitas entre colegas e os pedidos de troca que precisam da sua aprovação."
           : "Nenhum aviso por enquanto. Quando a coordenação publicar ou mudar a escala, ou a gerência fechar o seu mês, você é avisado aqui."; box.appendChild(e); return;
       }
       b.items.forEach(function(n){

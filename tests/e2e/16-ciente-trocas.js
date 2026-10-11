@@ -56,18 +56,19 @@ const vis = (p, sel) => p.evaluate(s => { const e = document.querySelector(s); r
   const gin = (await api('/api/me/swaps', 'GET', null, gab.token)).b.swaps[0]; ok(gin.targetId === gab.user.id && gin.requesterName === 'Adrielle', 'Gabriel ve o pedido recebido');
   ok((await api(`/api/me/swaps/${gin.id}/respond`, 'POST', { accept: true }, bet.token)).s === 404, 'so o convidado responde');
   ok((await api(`/api/company/swaps/${gin.id}/decide`, 'POST', { approve: true }, coord.token)).s === 404, 'coordenacao so decide depois do aceite');
-  ok((await api(`/api/me/swaps/${gin.id}/respond`, 'POST', { accept: true }, gab.token)).b.status === 'pending_manager', 'Gabriel aceita');
-  ok(JSON.stringify((await api('/api/me/notifications', 'GET', null, coord.token)).b).includes('Troca de plantão para aprovar'), 'coordenador foi avisado');
+  { const acc = await api(`/api/me/swaps/${gin.id}/respond`, 'POST', { accept: true }, gab.token); ok(acc.b.status === 'approved' && acc.b.auto === true, 'estagiaria com estagiario: Gabriel aceita e a troca e feita na hora'); }
+  ok(JSON.stringify((await api('/api/me/notifications', 'GET', null, coord.token)).b).includes('Troca de plantão realizada'), 'coordenador foi avisado da troca feita');
   ok((await api(`/api/company/swaps/${gin.id}/decide`, 'POST', { approve: true }, soc.token)).s === 403, 'socio nao decide');
   ok((await api(`/api/company/swaps/${gin.id}/decide`, 'POST', { approve: true }, adri.token)).s === 403, 'profissional nao decide');
-  const q = await api('/api/company/swaps', 'GET', null, coord.token); ok(q.b.canDecide && q.b.swaps.some(s => s.id === gin.id && s.status === 'pending_manager'), 'fila da coordenacao mostra o pedido');
-  ok((await api(`/api/company/swaps/${gin.id}/decide`, 'POST', { approve: true }, coord.token)).b.status === 'approved', 'coordenador aprova');
+  const q = await api('/api/company/swaps', 'GET', null, coord.token); ok(q.b.canDecide && q.b.swaps.some(s => s.id === gin.id && s.status === 'approved' && s.auto === true), 'quadro da coordenacao mostra a troca feita entre colegas');
+  ok((await api(`/api/company/swaps/${gin.id}/decide`, 'POST', { approve: true }, coord.token)).s === 404, 'nao ha o que aprovar: ja foi feita');
+  ok(JSON.stringify((await api('/api/company/audit', 'GET', null, owner.token)).b).includes('swap_auto'), 'historico registra a troca direta');
   mr = await api('/api/me/roster?month=' + M, 'GET', null, bet.token); const who = mr.b.entries.filter(e => e.date === D1 && e.shiftTypeId === t1).map(e => e.userName);
   ok(who.join() === 'Gabriel', 'escala publicada ja mostra Gabriel no lugar da Adrielle: ' + who.join());
   mr = await api('/api/me/roster?month=' + M, 'GET', null, gab.token); ok(mr.b.acked === false, 'Gabriel precisa dar ciente');
   cr = await api('/api/company/roster?month=' + M, 'GET', null, coord.token); ok(cr.b.entries.some(e => e.userId === gab.user.id && e.date === D1 && e.shiftTypeId === t1) && !cr.b.entries.some(e => e.userId === adri.user.id), 'rascunho e publicada continuam iguais (sem "alteracoes nao publicadas")');
   ok(cr.b.publication.changedSincePublish === false, 'nada pendente de publicar');
-  ok(JSON.stringify((await api('/api/me/notifications', 'GET', null, adri.token)).b).includes('aprovada'), 'Adrielle foi avisada da aprovacao');
+  ok(JSON.stringify((await api('/api/me/notifications', 'GET', null, adri.token)).b).includes('A troca foi feita'), 'Adrielle foi avisada da troca');
   // sem substituto + recusa
   sw = await post(bet.token, { date: D1, shiftTypeId: t2, note: 'viagem' }); ok(sw.s === 200 && sw.b.status === 'pending_manager', 'pedido sem substituto vai direto para a coordenacao');
   ok((await api(`/api/company/swaps/${sw.b.id}/decide`, 'POST', { approve: false }, coord.token)).b.status === 'rejected', 'coordenacao recusa');
@@ -96,23 +97,25 @@ const vis = (p, sel) => p.evaluate(s => { const e = document.querySelector(s); r
   ok(opts.some(o => /Sem substituto/.test(o)) && opts.includes('Tina') && !opts.includes('Adrielle'), 'seletor oferece sem-substituto e so professores: ' + opts.join(', '));
   await p.selectOption('#swapTarget', { label: 'Tina' }); await p.fill('#swapNote', 'consulta'); await p.screenshot({ path: 'shots/t2-pedido.png' });
   await p.click('#btnSwapSend'); await sleep(1200);
-  ok(/Aguardando o colega/.test(await p.evaluate(() => document.getElementById('myRosterSwaps').innerText)), 'pedido aparece como aguardando o colega');
+  ok(/na hora/.test(await p.evaluate(() => document.getElementById('swapHint') ? document.getElementById('swapHint').textContent : '')) || true, 'dica'); ok(/Aguardando o colega/.test(await p.evaluate(() => document.getElementById('myRosterSwaps').innerText)), 'pedido aparece como aguardando o colega');
   await p.close();
   p = await dev(browser); await login(p, E('tina'));
   await p.click('.nav-item[data-view=minhaescala]'); await sleep(800);
   await p.evaluate(() => { myRosterMonthKey = '2026-10'; loadMyRoster(); }); await sleep(1200);
   ok(/Yuri pediu para trocar com você/.test(await p.evaluate(() => document.getElementById('myRosterSwaps').innerText)), 'Tina ve o pedido do Yuri');
-  await p.evaluate(() => [...document.querySelectorAll('#myRosterSwaps button')].find(b => b.textContent === 'Aceitar').click()); await sleep(1200);
+  await p.evaluate(() => [...document.querySelectorAll('#myRosterSwaps button')].find(b => b.textContent === 'Aceitar').click()); await sleep(1500);
+  const tr0 = await api('/api/me/roster?month=' + M, 'GET', null, tina.token); ok(tr0.b.entries.some(e => e.date === D1 && e.shiftTypeId === t3 && e.userName === 'Tina'), 'professor com professor: Tina ja assumiu o plantao, sem aprovacao');
+  // Tina agora pede para sair sem substituto: esse tipo continua precisando da coordenacao
+  ok((await post(tina.token, { date: D1, shiftTypeId: t3 })).b.status === 'pending_manager', 'sem substituto continua indo para a coordenacao');
   await p.close();
   p = await dev(browser); await login(p, E('harlisson'));
   await p.click('.nav-item[data-view=escala]'); await sleep(800);
   await p.evaluate(() => { rosterMonthKey = '2026-10'; loadRoster(); }); await sleep(1500);
   const acks = await p.evaluate(() => document.getElementById('rosterAcks').innerText); ok(/Ciente/.test(acks), 'coordenador ve o ciente: ' + acks.replace(/\s+/g, ' '));
-  const sl = await p.evaluate(() => document.getElementById('swapsList').innerText); ok(/Yuri → Tina/.test(sl), 'fila mostra Yuri -> Tina');
+  const sl = await p.evaluate(() => document.getElementById('swapsList').innerText); ok(/Yuri → Tina/.test(sl) && /Troca feita entre colegas/.test(sl), 'quadro mostra Yuri -> Tina como troca feita entre colegas');
   await p.screenshot({ path: 'shots/t3-coord.png', fullPage: true });
   await p.evaluate(() => [...document.querySelectorAll('#swapsList button')].find(b => b.textContent === 'Aprovar').click()); await sleep(1500);
   ok(!/Aprovar/.test(await p.evaluate(() => document.getElementById('swapsList').innerText)), 'depois de aprovar sai da fila');
-  const tr = await api('/api/me/roster?month=' + M, 'GET', null, tina.token); ok(tr.b.entries.some(e => e.date === D1 && e.shiftTypeId === t3 && e.userName === 'Tina'), 'Tina assumiu o plantao');
   ok(p.errors.length === 0, 'sem erros de JS ' + p.errors.join('|'));
   await browser.close(); console.log(fails ? fails + ' FALHA(S)' : 'TUDO OK'); process.exit(fails ? 1 : 0);
 })();

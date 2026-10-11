@@ -391,6 +391,8 @@ async function ensureTables() {
       resolved_by integer REFERENCES users(id) ON DELETE SET NULL
     );
   `);
+  // troca feita direto entre colegas do mesmo grupo (sem aprovacao; a coordenacao so e avisada)
+  await pool.query("ALTER TABLE roster_swap_requests ADD COLUMN IF NOT EXISTS auto boolean NOT NULL DEFAULT false");
   // Fechamento do mes: foto (snapshot) das horas de uma pessoa naquele mes.
   // Enquanto existir, o servidor nao deixa as horas/valores desse mes mudarem.
   await pool.query(`
@@ -1753,7 +1755,7 @@ function swapOut(r, names, types) {
   var t = types[r.shift_type_id];
   return { id: r.id, date: r.date, shiftTypeId: r.shift_type_id, shiftName: t ? t.name : "", startTime: t ? t.start_time : "", endTime: t ? t.end_time : "",
     requesterId: r.requester_id, requesterName: names[r.requester_id] || "", targetId: r.target_id, targetName: r.target_id ? (names[r.target_id] || "") : "",
-    note: r.note || "", status: r.status, createdAt: r.created_at, resolvedAt: r.resolved_at };
+    note: r.note || "", status: r.status, auto: !!r.auto, createdAt: r.created_at, resolvedAt: r.resolved_at };
 }
 async function swapMaps(companyId) {
   var [us, ts] = await Promise.all([
@@ -1763,6 +1765,34 @@ async function swapMaps(companyId) {
   var names = {}; us.rows.forEach((u) => { names[u.id] = u.name; });
   var types = {}; ts.rows.forEach((t) => { types[t.id] = t; });
   return { names: names, types: types };
+}
+
+// Passa o plantao de quem pediu para quem vai assumir (ou deixa o turno vago) e
+// atualiza a escala ja publicada. Usado na aprovacao da coordenacao e na troca direta.
+async function applySwapToRoster(sw) {
+  var month = sw.date.slice(0, 7);
+  var cur = await pool.query("SELECT id FROM company_roster_entries WHERE company_id = $1 AND date = $2 AND shift_type_id = $3 AND user_id = $4", [sw.company_id, sw.date, sw.shift_type_id, sw.requester_id]);
+  if (cur.rows.length === 0) return false;
+  if (sw.target_id) await pool.query("UPDATE company_roster_entries SET user_id = $2 WHERE id = $1", [cur.rows[0].id, sw.target_id]);
+  else await pool.query("DELETE FROM company_roster_entries WHERE id = $1", [cur.rows[0].id]);
+  // a escala ja publicada acompanha a troca, e o novo responsavel precisa dar ciente
+  var mrow = await pool.query("SELECT snapshot FROM company_roster_months WHERE company_id = $1 AND month = $2 AND published_at IS NOT NULL", [sw.company_id, month]);
+  if (mrow.rows[0]) {
+    var oldKey = sw.requester_id + "|" + sw.date + "|" + sw.shift_type_id;
+    var snap = (mrow.rows[0].snapshot || []).filter((k) => k !== oldKey);
+    if (sw.target_id) snap.push(sw.target_id + "|" + sw.date + "|" + sw.shift_type_id);
+    await pool.query("UPDATE company_roster_months SET snapshot = $3::jsonb WHERE company_id = $1 AND month = $2", [sw.company_id, month, JSON.stringify(snap.sort())]);
+  }
+  if (sw.target_id) await pool.query("DELETE FROM company_roster_acks WHERE user_id = $1 AND month = $2", [sw.target_id, month]);
+  return true;
+}
+
+// Mesmo grupo = os dois sao profissionais (nao coordenador) e os dois estagiarios ou os dois professores.
+async function sameSwapGroup(companyId, aId, bId) {
+  var r = await pool.query("SELECT id, role, company_role FROM users WHERE company_id = $1 AND id = ANY($2::int[])", [companyId, [aId, bId]]);
+  if (r.rows.length !== 2) return false;
+  if (r.rows.some((u) => u.company_role !== null)) return false;
+  return isTraineeRole(r.rows[0].role) === isTraineeRole(r.rows[1].role);
 }
 
 // Pedir troca: de um plantao publicado seu, com uma pessoa (ela aceita antes) ou sem substituto.
@@ -1835,6 +1865,16 @@ app.post("/api/me/swaps/:id/respond", auth, async (req, res) => {
     if (req.body && req.body.accept) {
       var can = await canTakeShift(me.company_id, me.id, sw.date, type);
       if (!can.ok) return res.status(400).json({ error: "cannot", message: "Você não pode assumir esse plantão: " + can.message });
+      // estagiario com estagiario e professor com professor: a troca e feita na hora,
+      // sem pedir a coordenacao; ela (e a gerencia) so recebe o aviso.
+      if (await sameSwapGroup(me.company_id, sw.requester_id, me.id)) {
+        if (!(await applySwapToRoster(sw))) return res.status(409).json({ error: "changed", message: "A escala mudou: esse plantão já não é mais de " + requester.name + "." });
+        await pool.query("UPDATE roster_swap_requests SET status = 'approved', auto = true, resolved_at = now(), resolved_by = $2 WHERE id = $1", [id, me.id]);
+        await notifyUsers(me.company_id, [sw.requester_id], me.name + " aceitou a troca", label + "\nA troca foi feita: você saiu desse plantão. A coordenação foi avisada.");
+        await notifyUsers(me.company_id, await managerIds(me.company_id, sw.requester_id), "Troca de plantão realizada", requester.name + " → " + me.name + "\n" + label + "\nTroca feita entre colegas; a escala já foi atualizada.");
+        await audit(me.company_id, me.id, "swap_auto", sw.requester_id, requester.name, label + " · " + requester.name + " → " + me.name);
+        return res.json({ ok: true, status: "approved", auto: true });
+      }
       await pool.query("UPDATE roster_swap_requests SET status = 'pending_manager' WHERE id = $1", [id]);
       await notifyUsers(me.company_id, [sw.requester_id], me.name + " aceitou a troca", label + "\nAgora falta a aprovação da coordenação.");
       await notifyUsers(me.company_id, await managerIds(me.company_id, sw.requester_id), "Troca de plantão para aprovar", requester.name + " → " + me.name + "\n" + label + "\nVeja em \"Escala planejada\" > Pedidos de troca.");
@@ -1889,7 +1929,6 @@ app.post("/api/company/swaps/:id/decide", auth, async (req, res) => {
     var type = await swapContext(sw), label = swapLabel(sw, type);
     var maps = await swapMaps(me.company_id);
     var who = (maps.names[sw.requester_id] || "") + (sw.target_id ? " → " + (maps.names[sw.target_id] || "") : " (sem substituto)");
-    var month = sw.date.slice(0, 7);
     if (!(req.body && req.body.approve)) {
       await pool.query("UPDATE roster_swap_requests SET status = 'rejected', resolved_at = now(), resolved_by = $2 WHERE id = $1", [id, me.id]);
       await notifyUsers(me.company_id, [sw.requester_id].concat(sw.target_id ? [sw.target_id] : []), "Troca de plantão recusada", label + "\nA escala continua como estava (" + (maps.names[sw.requester_id] || "") + " no plantão).");
@@ -1901,19 +1940,7 @@ app.post("/api/company/swaps/:id/decide", auth, async (req, res) => {
       var can = await canTakeShift(me.company_id, sw.target_id, sw.date, type);
       if (!can.ok) return res.status(400).json({ error: "cannot", message: "Não dá para aprovar: " + can.message });
     }
-    var cur = await pool.query("SELECT id FROM company_roster_entries WHERE company_id = $1 AND date = $2 AND shift_type_id = $3 AND user_id = $4", [me.company_id, sw.date, sw.shift_type_id, sw.requester_id]);
-    if (cur.rows.length === 0) return res.status(409).json({ error: "changed", message: "A escala mudou: esse plantão já não é mais dessa pessoa." });
-    if (sw.target_id) await pool.query("UPDATE company_roster_entries SET user_id = $2 WHERE id = $1", [cur.rows[0].id, sw.target_id]);
-    else await pool.query("DELETE FROM company_roster_entries WHERE id = $1", [cur.rows[0].id]);
-    // a escala ja publicada acompanha a troca, e o novo responsavel precisa dar ciente
-    var mrow = await pool.query("SELECT snapshot FROM company_roster_months WHERE company_id = $1 AND month = $2 AND published_at IS NOT NULL", [me.company_id, month]);
-    if (mrow.rows[0]) {
-      var oldKey = sw.requester_id + "|" + sw.date + "|" + sw.shift_type_id;
-      var snap = (mrow.rows[0].snapshot || []).filter((k) => k !== oldKey);
-      if (sw.target_id) snap.push(sw.target_id + "|" + sw.date + "|" + sw.shift_type_id);
-      await pool.query("UPDATE company_roster_months SET snapshot = $3::jsonb WHERE company_id = $1 AND month = $2", [me.company_id, month, JSON.stringify(snap.sort())]);
-    }
-    if (sw.target_id) await pool.query("DELETE FROM company_roster_acks WHERE user_id = $1 AND month = $2", [sw.target_id, month]);
+    if (!(await applySwapToRoster(sw))) return res.status(409).json({ error: "changed", message: "A escala mudou: esse plantão já não é mais dessa pessoa." });
     await pool.query("UPDATE roster_swap_requests SET status = 'approved', resolved_at = now(), resolved_by = $2 WHERE id = $1", [id, me.id]);
     await notifyUsers(me.company_id, [sw.requester_id], "Troca de plantão aprovada", label + "\nVocê saiu desse plantão.");
     if (sw.target_id) await notifyUsers(me.company_id, [sw.target_id], "Você assumiu um plantão", label + "\nConfirme em \"Escala da equipe\" com \"Estou ciente\".");

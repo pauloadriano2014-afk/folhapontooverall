@@ -81,6 +81,12 @@ function renderRosterAcks(){
 // ---------- pedir troca ----------
 var swapDraft = null;
 
+function swapSameGroup(targetId, d){
+  var p = (d.team || []).filter(function(x){ return String(x.id) === String(targetId); })[0];
+  if(!p || !currentUser || currentUser.companyRole) return false;
+  return roleIsTrainee(p.role) === roleIsTrainee(currentUser.role);
+}
+
 function openSwapModal(entry, type, d){
   swapDraft = { date: entry.date, shiftTypeId: entry.shiftTypeId };
   document.getElementById("swapInfo").textContent = dateLabelBr(entry.date) + " · " + type.name + " (" + shiftHours(type) + ")";
@@ -95,7 +101,9 @@ function openSwapModal(entry, type, d){
   document.getElementById("swapError").textContent = "";
   var upd = function(){
     document.getElementById("swapHint").textContent = sel.value
-      ? "O colega recebe o pedido e precisa aceitar. Depois a coordenação aprova."
+      ? (swapSameGroup(sel.value, d)
+          ? "O colega recebe o pedido e, ao aceitar, a troca é feita na hora. A coordenação só é avisada."
+          : "O colega recebe o pedido e precisa aceitar. Depois a coordenação aprova.")
       : "A coordenação recebe o pedido e decide quem cobre o plantão.";
   };
   sel.onchange = upd; upd();
@@ -127,9 +135,12 @@ var SWAP_STATUS_PT = {
   pending_target: "Aguardando o colega aceitar",
   pending_manager: "Aguardando a coordenação",
   approved: "Aprovada",
+  approved_auto: "Troca feita entre colegas",
   rejected: "Recusada",
   cancelled: "Cancelada"
 };
+
+function swapStatusText(s){ return SWAP_STATUS_PT[s.status === "approved" && s.auto ? "approved_auto" : s.status]; }
 
 function swapRow(text, meta, buttons){
   var row = document.createElement("div");
@@ -165,17 +176,17 @@ function loadMySwaps(){
     list.forEach(function(s){
       if(s.targetId === me && s.status === "pending_target"){
         el.appendChild(swapRow(s.requesterName + " pediu para trocar com você", swapWhen(s) + (s.note ? " · " + s.note : ""), [
-          swapBtn("Aceitar", "primary", function(){ swapCall("/api/me/swaps/" + s.id + "/respond", "POST", { accept: true }).then(function(x){ showToast(x.ok ? "Aceito. Falta a aprovação da coordenação." : swapMsg(x, "Não consegui aceitar.")); loadMyRoster(); }); }),
+          swapBtn("Aceitar", "primary", function(){ swapCall("/api/me/swaps/" + s.id + "/respond", "POST", { accept: true }).then(function(x){ showToast(x.ok ? (x.body.auto ? "Troca feita! A coordenação foi avisada." : "Aceito. Falta a aprovação da coordenação.") : swapMsg(x, "Não consegui aceitar.")); loadMyRoster(); }); }),
           swapBtn("Recusar", "", function(){ swapCall("/api/me/swaps/" + s.id + "/respond", "POST", { accept: false }).then(function(){ loadMyRoster(); }); })
         ]));
       } else if(s.requesterId === me){
         var pend = s.status === "pending_target" || s.status === "pending_manager";
         var who = s.targetId ? "com " + s.targetName : "sem substituto";
-        el.appendChild(swapRow("Seu pedido " + who, swapWhen(s) + " · " + SWAP_STATUS_PT[s.status], pend ? [
+        el.appendChild(swapRow("Seu pedido " + who, swapWhen(s) + " · " + swapStatusText(s), pend ? [
           swapBtn("Cancelar", "", function(){ swapCall("/api/me/swaps/" + s.id + "/cancel", "POST").then(function(){ loadMyRoster(); }); })
         ] : []));
       } else {
-        el.appendChild(swapRow("Troca com " + s.requesterName, swapWhen(s) + " · " + SWAP_STATUS_PT[s.status]));
+        el.appendChild(swapRow("Troca com " + s.requesterName, swapWhen(s) + " · " + swapStatusText(s)));
       }
     });
   }).catch(function(){});
@@ -191,7 +202,7 @@ function loadSwaps(){
     var list = r.body.swaps, canDecide = r.body.canDecide, me = r.body.me;
     var pend = list.filter(function(s){ return s.status === "pending_manager"; });
     var h2 = document.querySelector("#swapsCard h2");
-    if(h2) h2.textContent = "Pedidos de troca de plantão" + (pend.length ? " (" + pend.length + ")" : "");
+    if(h2) h2.textContent = "Trocas de plantão" + (pend.length ? " (" + pend.length + ")" : "");
     if(!list.length){
       var p = document.createElement("p"); p.className = "account-section-hint"; p.textContent = "Nenhum pedido de troca por enquanto."; el.appendChild(p); return;
     }
@@ -210,7 +221,7 @@ function loadSwaps(){
         } else if(s.requesterId === me){ meta += " · outra pessoa da gestão decide"; }
         el.appendChild(swapRow(who, meta, btns));
       } else {
-        el.appendChild(swapRow(who, meta + " · " + SWAP_STATUS_PT[s.status]));
+        el.appendChild(swapRow(who, meta + " · " + swapStatusText(s)));
       }
     });
   }).catch(function(){});
