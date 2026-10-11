@@ -220,12 +220,65 @@
     });
   }
 
+  // Lista de plantões de sábado e domingo (turno único de 5h por dia): horário e valor
+  // legíveis, em vez de um chip espremido dentro da grade.
+  function renderWeekendList(monthObj, keys, enabled){
+    var card = document.getElementById("weekendCard");
+    var list = document.getElementById("weekendList");
+    if(!card || !list) return;
+    card.classList.toggle("role-off", !enabled);
+    list.innerHTML = "";
+    if(!enabled) return;
+    var total = 0, count = 0;
+    keys.filter(function(k){ return isWeekendDow(dowOfDateKey(k)); }).forEach(function(dateKey){
+      var dayObj = monthObj.days[dateKey];
+      var val = dayObj.slots[0];
+      var dow = dowOfDateKey(dateKey);
+      var row = document.createElement("div");
+      row.className = "wk-row";
+      row.tabIndex = 0;
+      row.setAttribute("role", "button");
+      var day = document.createElement("div");
+      day.className = "wk-day";
+      day.innerHTML = "<strong>" + DOW_NAMES[dow] + "</strong><span>" + pad2(parseInt(dateKey.split("-")[2], 10)) + "/" + dateKey.split("-")[1] + "</span>";
+      var shift = document.createElement("div");
+      shift.className = "wk-shift";
+      var valEl = document.createElement("div");
+      valEl.className = "wk-val";
+      if(val === "FERIADO"){
+        shift.textContent = "Feriado"; valEl.textContent = "FER"; valEl.className += " feriado";
+      } else if(val === "SEM_ESCALA"){
+        shift.textContent = "Sem escala"; valEl.textContent = "s/e"; valEl.className += " sem";
+      } else {
+        shift.textContent = dayObj.shift ? SHIFT_LABELS[dayObj.shift] : "Turno não definido";
+        if(!dayObj.shift) shift.className += " pending";
+        if(typeof val === "number"){ valEl.textContent = fmtMoney(val); valEl.className += " filled"; total += val; count++; }
+        else { valEl.textContent = "Valor?"; valEl.className += " sem"; }
+      }
+      if(dayObj.note && dayObj.note.trim()){
+        var dot = document.createElement("span"); dot.className = "note-dot"; dot.title = "Tem anotação"; dot.textContent = "•"; shift.appendChild(dot);
+      }
+      row.appendChild(day); row.appendChild(shift); row.appendChild(valEl);
+      var open = function(){ openDayModal(dateKey); };
+      row.addEventListener("click", open);
+      row.addEventListener("keydown", function(e){ if(e.key === "Enter" || e.key === " "){ e.preventDefault(); open(); } });
+      list.appendChild(row);
+    });
+    var foot = document.getElementById("weekendTotal");
+    if(foot) foot.textContent = count ? count + (count === 1 ? " plantão" : " plantões") + " · " + fmtMoney(total) : "Nenhum plantão lançado ainda";
+  }
+
   function renderGrid(){
     var monthObj = ensureMonth(currentMonthKey);
     var keys = dayKeysOf(currentMonthKey);
 
-    buildGridInto(keys, monthObj, rowDayNum, rowDayDow, gridBody, true);
-    renderPrintGrid(monthObj, keys);
+    // Com o turno de fim de semana ligado, sabado e domingo saem da grade (que fica so
+    // com a rotina de segunda a sexta) e vao para a lista "Plantões de fim de semana".
+    var weekendList = !!data.settings.weekendShiftEnabled;
+    var gridKeys = weekendList ? keys.filter(function(k){ return !isWeekendDow(dowOfDateKey(k)); }) : keys;
+    buildGridInto(gridKeys, monthObj, rowDayNum, rowDayDow, gridBody, true);
+    renderPrintGrid(monthObj, gridKeys);
+    renderWeekendList(monthObj, keys, weekendList);
 
     inputAuxilio.value = monthObj.auxilio;
     inputConsumo.value = monthObj.consumo;

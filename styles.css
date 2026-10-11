@@ -738,3 +738,18 @@
 .unit-total{ background:transparent; border-style:dashed; }
 
 .unit-total strong{ display:block; margin-bottom:8px; }
+
+  /* plantões de fim de semana (lista no lugar das colunas da grade) */
+  .wk-row{ display:grid; grid-template-columns:64px 1fr auto; align-items:center; gap:10px; padding:10px 12px; margin-bottom:6px; border:1px solid var(--border); border-radius:12px; background:var(--weekend); cursor:pointer; }
+  .wk-row:hover, .wk-row:focus-visible{ border-color:var(--accent); outline:none; }
+  .wk-day{ display:flex; flex-direction:column; line-height:1.2; }
+  .wk-day strong{ font-size:13px; }
+  .wk-day span{ font-size:12px; color:var(--text-dim); }
+  .wk-shift{ font-size:14px; font-weight:600; }
+  .wk-shift.pending{ color:var(--warn); }
+  .wk-shift .note-dot{ margin-left:6px; }
+  .wk-val{ font-weight:800; font-size:14px; padding:4px 10px; border-radius:999px; border:1px solid var(--border); background:var(--bg-panel); color:var(--text-dim); white-space:nowrap; }
+  .wk-val.filled{ background:var(--slot-filled-bg); color:var(--text); }
+  .wk-val.feriado{ background:#fde68a; color:#92400e; border-color:#fde68a; }
+  .wk-total{ display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:13px; color:var(--text-dim); }
+  .wk-total strong{ color:var(--text); font-size:14px; }
