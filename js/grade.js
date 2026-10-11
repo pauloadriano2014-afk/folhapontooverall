@@ -245,6 +245,17 @@
     card.classList.toggle("role-off", !enabled);
     list.innerHTML = "";
     if(!enabled) return;
+    // plantoes lancados antes de o valor ser gravado nas 5 horas do turno: completa (so mes aberto)
+    if(!(typeof isMonthClosedForMe === "function" && isMonthClosedForMe(currentMonthKey))){
+      var fixed = false;
+      keys.filter(function(k){ return isSingleShiftDay(k); }).forEach(function(k){
+        var d = monthObj.days[k];
+        if(typeof d.slots[0] === "number" && d.slots.slice(1, SHIFT_HOURS).every(function(v){ return v === null || v === undefined; })){
+          setShiftDayValue(d, d.slots[0]); fixed = true;
+        }
+      });
+      if(fixed) saveData();
+    }
     var total = 0, count = 0;
     keys.filter(function(k){ return isSingleShiftDay(k); }).forEach(function(dateKey){
       var holiday = holidaysForDateKey(dateKey);
@@ -270,7 +281,14 @@
       } else {
         shift.textContent = dayObj.shift ? SHIFT_LABELS[dayObj.shift] : "Turno não definido";
         if(!dayObj.shift) shift.className += " pending";
-        if(typeof val === "number"){ valEl.textContent = fmtMoney(val); valEl.className += " filled"; total += val; count++; }
+        if(typeof val === "number"){
+          var dayMoney = dayTotal(dayObj);
+          valEl.textContent = fmtMoney(dayMoney); valEl.className += " filled"; total += dayMoney; count++;
+          var uniform = dayObj.slots.slice(0, SHIFT_HOURS).every(function(v){ return v === val; });
+          var per = document.createElement("small"); per.className = "wk-per-hour";
+          per.textContent = uniform ? SHIFT_HOURS + "h × " + fmtMoney(val) : "valores diferentes por hora";
+          valEl.appendChild(per);
+        }
         else { valEl.textContent = "Valor?"; valEl.className += " sem"; }
       }
       if(dayObj.note && dayObj.note.trim()){

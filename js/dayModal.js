@@ -19,9 +19,18 @@
     time.textContent = label;
     row.appendChild(time);
 
+    // turno unico (fim de semana/feriado): o valor vale para as 5 horas do turno
+    var single = isSingleShiftDay(dateKey);
+    function assign(v){
+      if(single) setShiftDayValue(dayObj, v);
+      else dayObj.slots[idx] = v;
+    }
+
     var current = document.createElement("div");
     current.className = "current";
-    current.textContent = describeSlot(dayObj.slots[idx]);
+    current.textContent = (single && typeof dayObj.slots[idx] === "number")
+      ? "R$ " + dayObj.slots[idx] + " por hora × " + SHIFT_HOURS + "h = R$ " + (dayObj.slots[idx] * SHIFT_HOURS)
+      : describeSlot(dayObj.slots[idx]);
     row.appendChild(current);
 
     var btns = document.createElement("div");
@@ -33,7 +42,7 @@
       b.className = "small";
       b.textContent = v;
       b.addEventListener("click", function(){
-        dayObj.slots[idx] = v;
+        assign(v);
         saveData(); openDayModal(dateKey); renderGrid();
       });
       btns.appendChild(b);
@@ -47,7 +56,7 @@
       if(v === null) return;
       var num = parseFloat(v.replace(",", "."));
       if(isNaN(num)){ showToast("Valor inválido"); return; }
-      dayObj.slots[idx] = num;
+      assign(num);
       saveData(); openDayModal(dateKey); renderGrid();
     });
     btns.appendChild(bCustom);
@@ -56,7 +65,7 @@
     bFer.className = "small";
     bFer.textContent = "Feriado";
     bFer.addEventListener("click", function(){
-      dayObj.slots[idx] = "FERIADO";
+      assign("FERIADO");
       saveData(); openDayModal(dateKey); renderGrid();
     });
     btns.appendChild(bFer);
@@ -65,7 +74,7 @@
     bSem.className = "small";
     bSem.textContent = "Sem escala";
     bSem.addEventListener("click", function(){
-      dayObj.slots[idx] = "SEM_ESCALA";
+      assign("SEM_ESCALA");
       saveData(); openDayModal(dateKey); renderGrid();
     });
     btns.appendChild(bSem);
@@ -74,7 +83,7 @@
     bClear.className = "small ghost";
     bClear.textContent = "Limpar";
     bClear.addEventListener("click", function(){
-      dayObj.slots[idx] = null;
+      assign(null);
       saveData(); openDayModal(dateKey); renderGrid();
     });
     btns.appendChild(bClear);
@@ -97,7 +106,7 @@
 
     var shiftSelector = document.getElementById("shiftSelector");
     if(single){
-      daySub.textContent = "Fim de semana — escolha o turno de sala (5h) e o valor. Sem alunos VIP no fim de semana.";
+      daySub.textContent = "Plantão (fim de semana ou feriado) — escolha o turno de sala (5h) e o valor por hora; o dia soma 5h × o valor. Sem alunos VIP.";
       shiftSelector.style.display = "flex";
       shiftSelector.querySelectorAll("[data-shift]").forEach(function(btn){
         btn.classList.toggle("active", dayObj.shift === btn.getAttribute("data-shift"));

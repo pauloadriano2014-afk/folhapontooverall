@@ -18,6 +18,13 @@
   // fim de semana — por isso e escolhido manualmente dia a dia, nao fixo.
   var SHIFT_LABELS = { manha: "08:00–13:00", tarde: "13:00–18:00" };
   var SHIFT_SHORT = { manha: "08–13", tarde: "13–18" };
+  // O valor lancado e POR HORA. O turno de fim de semana/feriado tem 5 horas e por isso o
+  // valor fica gravado nas 5 primeiras linhas do dia: assim o total do dia (e o do mes, do
+  // fechamento e da exportacao) ja e valor x 5 sem nenhuma conta especial.
+  var SHIFT_HOURS = 5;
+  function setShiftDayValue(dayObj, v){
+    for(var i = 0; i < SHIFT_HOURS && i < dayObj.slots.length; i++) dayObj.slots[i] = v;
+  }
   function isWeekendDow(dow){ return dow === 0 || dow === 6; }
   // Dia de plantao (turno unico de 5h): sabado/domingo e, em dia de semana, os feriados
   // (a academia abre das 8 as 18 e divide no mesmo turno de manha/tarde). Um feriado
@@ -27,7 +34,12 @@
     var monthObj = data.months && data.months[dateKey.slice(0, 7)];
     var dayObj = monthObj && monthObj.days && monthObj.days[dateKey];
     var slots = (dayObj && dayObj.slots) || [];
-    for(var i = 1; i < slots.length; i++){ if(typeof slots[i] === "number") return false; }
+    // plantao ja lancado: turno escolhido, ou o mesmo valor nas 5 primeiras horas (e a 6a vazia)
+    var shiftFill = !!(dayObj && dayObj.shift) ||
+      (typeof slots[0] === "number" && slots.slice(1, SHIFT_HOURS).every(function(v){ return v === slots[0]; }) && typeof slots[SHIFT_HOURS] !== "number");
+    if(!shiftFill){
+      for(var i = 1; i < slots.length; i++){ if(typeof slots[i] === "number") return false; }
+    }
     if(holidaysForDateKey(dateKey)) return true;
     return slots.length > 0 && slots.every(function(v){ return v === "FERIADO"; }); // feriado marcado a mao
   }

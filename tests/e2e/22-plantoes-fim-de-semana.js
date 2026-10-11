@@ -54,10 +54,19 @@ const vis = (p, sel) => p.evaluate(s => { const e = document.querySelector(s); r
   await p.evaluate(() => { var b = [...document.querySelectorAll('#slotList button')].find(x => /^15$/.test(x.textContent.trim())); b && b.click(); }); await sleep(300);
   await p.evaluate(() => closeOverlays()); await sleep(300);
   const first = await p.evaluate(() => document.querySelector('#weekendList .wk-row').innerText.replace(/\s+/g, ' '));
-  ok(/13:00–18:00/.test(first) && /15/.test(first), 'linha mostra horario e valor: ' + first);
+  ok(/13:00–18:00/.test(first) && /75,00/.test(first) && /5h × R\$\s?15/.test(first), 'valor e por hora: 15 x 5h = 75: ' + first);
+  ok(await p.evaluate(() => dayTotal(monthSelect && data.months[currentMonthKey].days[document.querySelector('#weekendList .wk-row') ? [...Object.keys(data.months[currentMonthKey].days)].find(k => isSingleShiftDay(k)) : '']) === 75), 'total do dia na grade/resumo tambem e 75');
   const tot = await p.evaluate(() => document.getElementById('weekendTotal').textContent);
-  ok(/1 plantão/.test(tot) && /15/.test(tot), 'total dos plantoes: ' + tot);
+  ok(/1 plantão/.test(tot) && /75,00/.test(tot), 'total dos plantoes: ' + tot);
   await p.screenshot({ path: 'shots/22-plantoes-fds.png', fullPage: true });
+  // feriado de dia de semana: depois de lancar o valor continua na lista (nao volta para a grade)
+  if (hol.length) {
+    const hk = hol[0];
+    await p.evaluate(k => { openDayModal(k); }, hk); await sleep(300);
+    await p.evaluate(() => { var b = [...document.querySelectorAll('#slotList button')].find(x => /^10$/.test(x.textContent.trim())); b && b.click(); }); await sleep(300);
+    await p.evaluate(() => closeOverlays()); await sleep(300);
+    ok(await p.evaluate(k => isSingleShiftDay(k) && dayTotal(data.months[k.slice(0, 7)].days[k]) === 50, hk), 'feriado lancado (10/h x 5h = 50) continua como plantao');
+  }
   // seletor de mes: sem botoes de novo mes/feriados, abre no mes atual e lista todos os meses do ano
   ok(!(await p.evaluate(() => !!document.getElementById('btnNewMonth') || !!document.getElementById('btnApplyHolidays'))), 'sem os botoes Novo mes e Marcar feriados');
   const sel = await p.evaluate(() => ({ cur: monthSelect.value, now: todayKey, n: monthSelect.options.length }));
