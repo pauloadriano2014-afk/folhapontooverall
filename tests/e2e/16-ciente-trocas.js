@@ -82,6 +82,12 @@ const vis = (p, sel) => p.evaluate(s => { const e = document.querySelector(s); r
   ok((await api(`/api/company/swaps/${csw2.b.id}/decide`, 'POST', { approve: true }, coord.token)).s === 403, 'coordenador nao aprova a propria troca');
   ok((await api(`/api/company/swaps/${csw2.b.id}/decide`, 'POST', { approve: true }, owner.token)).b.status === 'approved', 'dono aprova a troca do coordenador');
   ok(JSON.stringify((await api('/api/company/audit', 'GET', null, owner.token)).b).includes('swap_approved'), 'historico registra a troca');
+  // turno "qualquer pessoa": ainda assim estagiario so troca com estagiario e professor com professor
+  const anyT = await api('/api/company/shift-types', 'POST', { name: 'Reforco', startTime: '19:00', endTime: '21:00', kind: 'any' }, coord.token);
+  await add(coord.token, D2, anyT.b.id, adri.user.id); await api('/api/company/roster/publish', 'POST', { month: M }, coord.token);
+  const cross = await api('/api/me/swaps', 'POST', { date: D2, shiftTypeId: anyT.b.id, targetId: yuri.user.id }, adri.token);
+  ok(cross.s === 400 && cross.b.error === 'other_group', 'estagiaria nao troca com professor, mesmo em turno aberto: ' + (cross.b && cross.b.message));
+  ok((await api('/api/me/swaps', 'POST', { date: D2, shiftTypeId: anyT.b.id, targetId: bet.user.id }, adri.token)).s === 200, 'estagiaria troca com estagiaria no turno aberto');
   console.log('== telas ==');
   const browser = await chromium.launch();
   // Yuri (D1 t3) pede troca pela tela; Tina aceita; coordenacao aprova pela tela

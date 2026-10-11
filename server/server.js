@@ -1464,7 +1464,7 @@ app.get("/api/me/roster", auth, async (req, res) => {
     var [mrow, types, users, ack] = await Promise.all([
       pool.query("SELECT published_at, snapshot FROM company_roster_months WHERE company_id = $1 AND month = $2", [me.company_id, month]),
       rosterTypes(me.company_id),
-      pool.query("SELECT id, name, role FROM users WHERE company_id = $1 AND (company_role IS NULL OR company_role = 'coordinator')", [me.company_id]),
+      pool.query("SELECT id, name, role, company_role FROM users WHERE company_id = $1 AND (company_role IS NULL OR company_role = 'coordinator')", [me.company_id]),
       pool.query("SELECT acked_at FROM company_roster_acks WHERE user_id = $1 AND month = $2", [me.id, month]),
     ]);
     var row = mrow.rows[0];
@@ -1478,7 +1478,7 @@ app.get("/api/me/roster", auth, async (req, res) => {
       if (names[uid] && typeIds[sid]) entries.push({ date: p[1], shiftTypeId: sid, userId: uid, userName: names[uid] });
     });
     entries.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.shiftTypeId - b.shiftTypeId));
-    var team = users.rows.filter((u) => u.id !== me.id).map((u) => ({ id: u.id, name: u.name, role: u.role || "" }));
+    var team = users.rows.filter((u) => u.id !== me.id).map((u) => ({ id: u.id, name: u.name, role: u.role || "", companyRole: u.company_role || null }));
     res.json({ published: true, publishedAt: row.published_at, shiftTypes: types, entries: entries, me: me.id,
       acked: ack.rows.length > 0, ackedAt: ack.rows[0] ? ack.rows[0].acked_at : null, team: team });
   } catch (err) {
@@ -1820,6 +1820,10 @@ app.post("/api/me/swaps", auth, async (req, res) => {
       var can = await canTakeShift(me.company_id, targetId, date, type);
       if (!can.ok) return res.status(400).json({ error: "target_not_allowed", message: can.message });
       target = can.user;
+      // profissional so troca com quem e do mesmo grupo: estagiario com estagiario, professor com professor
+      if (me.company_role === null && target.company_role === null && isTraineeRole(me.role) !== isTraineeRole(target.role)) {
+        return res.status(400).json({ error: "other_group", message: "A troca só pode ser com " + (isTraineeRole(me.role) ? "outro estagiário" : "outro professor") + ". Para outro caso, peça sem substituto e a coordenação resolve." });
+      }
     }
     var status = target ? "pending_target" : "pending_manager";
     var ins = await pool.query(

@@ -95,6 +95,8 @@ function openSwapModal(entry, type, d){
   var o0 = document.createElement("option"); o0.value = ""; o0.textContent = "Sem substituto — preciso sair do plantão"; sel.appendChild(o0);
   (d.team || []).forEach(function(p){
     if(!shiftAllows(type.kind, p.role)) return;
+    // profissional troca so com o mesmo grupo (estagiário com estagiário, professor com professor)
+    if(currentUser && !currentUser.companyRole && !p.companyRole && roleIsTrainee(p.role) !== roleIsTrainee(currentUser.role)) return;
     var o = document.createElement("option"); o.value = p.id; o.textContent = p.name; sel.appendChild(o);
   });
   document.getElementById("swapNote").value = "";
