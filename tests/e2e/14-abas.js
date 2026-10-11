@@ -43,8 +43,10 @@ const vis = (p, sel) => p.evaluate(s => { const e = document.querySelector(s); r
   await b.reload(); await sleep(2500);
   ok(await who(b) === 'Adrielle', 'F5 na aba B continua Adrielle (veio: ' + await who(b) + ')');
   // nova aba (sem sessao fixada) abre a ultima conta usada no aparelho
-  const c = await ctx.newPage(); await c.goto(APP); await sleep(2500);
-  ok(await who(c) === 'Adrielle', 'aba nova abre a ultima conta do aparelho');
+  const c = await ctx.newPage(); await c.goto(APP);
+  await c.waitForFunction(() => typeof currentUser !== 'undefined' && currentUser && currentUser.name, null, { timeout: 15000 }).catch(() => {}); await sleep(1500);
+  const lastSaved = await c.evaluate(() => { try { return (JSON.parse(localStorage.getItem('pontoOverallUser_v1') || 'null') || {}).name; } catch (e) { return 'erro'; } });
+  ok(await who(c) === 'Adrielle', 'aba nova abre a ultima conta do aparelho (veio: ' + await who(c) + '; salvo no aparelho: ' + lastSaved + ')');
   // splash some depois de abrir
   ok(await a.evaluate(() => getComputedStyle(document.getElementById('bootSplash')).display === 'none'), 'tela de carregamento some');
   // sair numa aba nao derruba a outra aba ja aberta
