@@ -17,10 +17,9 @@
   // Chamado depois que os dados da conta logada ja foram carregados (ver bootApp),
   // nunca antes disso — pra nao criar/gravar um mes "no vazio" antes do login.
   function initMonthState(){
-    if(Object.keys(data.months).length === 0){
-      ensureMonth(todayKey);
-    }
-    currentMonthKey = sortedMonthKeys().indexOf(todayKey) >= 0 ? todayKey : sortedMonthKeys()[sortedMonthKeys().length - 1];
+    // sempre abre no mes atual; se ainda nao existe, e criado sozinho (com os feriados marcados)
+    ensureMonth(todayKey);
+    currentMonthKey = todayKey;
   }
 
   var activeDayKey = null;
@@ -47,14 +46,31 @@
   }
 
   function renderMonthSelect(){
-    var keys = sortedMonthKeys();
+    // todos os meses dos anos em uso (ano atual, anos que ja tem dados, o mes escolhido e,
+    // em dezembro, o ano seguinte): escolher um mes que ainda nao existe cria ele sozinho.
+    var thisYear = parseInt(todayKey.slice(0, 4), 10);
+    var years = {};
+    years[thisYear] = true;
+    if(parseInt(todayKey.slice(5), 10) === 12) years[thisYear + 1] = true;
+    sortedMonthKeys().concat([currentMonthKey]).forEach(function(k){ years[parseInt(k.slice(0, 4), 10)] = true; });
+    var yearList = Object.keys(years).map(Number).sort();
+    var MONTH_NAMES = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
     monthSelect.innerHTML = "";
-    keys.forEach(function(k){
-      var opt = document.createElement("option");
-      opt.value = k;
-      opt.textContent = monthLabel(k) + (data.months[k] && data.months[k].paid ? " ✓" : "");
-      if(k === currentMonthKey) opt.selected = true;
-      monthSelect.appendChild(opt);
+    yearList.forEach(function(y){
+      var parent = monthSelect;
+      if(yearList.length > 1){
+        parent = document.createElement("optgroup");
+        parent.label = String(y);
+        monthSelect.appendChild(parent);
+      }
+      for(var m = 1; m <= 12; m++){
+        var k = y + "-" + pad2(m);
+        var opt = document.createElement("option");
+        opt.value = k;
+        opt.textContent = MONTH_NAMES[m - 1] + " / " + y + (data.months[k] && data.months[k].paid ? " ✓" : "");
+        if(k === currentMonthKey) opt.selected = true;
+        parent.appendChild(opt);
+      }
     });
   }
 
@@ -330,20 +346,8 @@
   // ---------- month controls ----------
   monthSelect.addEventListener("change", function(){
     currentMonthKey = monthSelect.value;
+    ensureMonth(currentMonthKey); // mes ainda sem dados: criado sozinho, com os feriados marcados
     renderGrid();
-  });
-
-  document.getElementById("btnNewMonth").addEventListener("click", function(){
-    var input = prompt("Novo mês (formato AAAA-MM), ex: 2026-10:");
-    if(!input) return;
-    var match = /^(\d{4})-(\d{2})$/.exec(input.trim());
-    if(!match){ showToast("Formato inválido. Use AAAA-MM"); return; }
-    var key = match[1] + "-" + match[2];
-    ensureMonth(key);
-    currentMonthKey = key;
-    renderMonthSelect();
-    renderGrid();
-    showToast("Mês " + monthLabel(key) + " criado");
   });
 
   document.getElementById("btnToday").addEventListener("click", function(){
@@ -352,16 +356,5 @@
     renderMonthSelect();
     renderGrid();
     openDayModal(todayFullKey);
-  });
-
-  document.getElementById("btnApplyHolidays").addEventListener("click", function(){
-    if(typeof guardClosedMonth === "function" && guardClosedMonth(currentMonthKey)) return;
-    var count = applyHolidaysToMonth(currentMonthKey);
-    if(count > 0){
-      renderGrid();
-      showToast(count + " feriado(s) marcado(s) automaticamente");
-    } else {
-      showToast("Nenhum feriado novo pra marcar neste mês");
-    }
   });
 

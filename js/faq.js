@@ -65,8 +65,8 @@ function faqGroupsFor(kind){
       ["O que são os valores rápidos?", "Atalhos com o valor (em R$) da aula/hora, por exemplo 10 e 15, para você não digitar toda vez. Para trocar, toque em \"Valores rápidos\" acima da grade ou vá em Minha conta."],
       ["Como o salário do mês é calculado?", "Salário do mês = soma de todos os valores lançados na grade + Auxílio − Consumo Overall. O resumo mostra cada parte, tudo em reais."],
       ["O que são Auxílio e Consumo Overall?", "Auxílio é um valor somado ao total do mês (por exemplo, uma ajuda de custo). Consumo Overall é um valor descontado (por exemplo, o que foi consumido na academia). Digite os dois em reais, no Resumo do mês."],
-      ["Para que serve \"Marcar feriados\"?", "Marca sozinho os feriados nacionais e de Curitiba/PR nos dias que ainda estão vazios. Dias que você já preencheu nunca são alterados."],
-      ["Para que servem \"Hoje\", \"+ Novo mês\" e \"Marcar como pago\"?", "\"Hoje\" volta para o mês atual, \"+ Novo mês\" cria a grade de um mês novo e \"Marcar como pago\" registra que você já recebeu aquele mês (aparece um ✓ ao lado dele na lista de meses)."]
+      ["Como mudo de mês? E os feriados?", "O app sempre abre no mês atual. Toque no nome do mês no topo para ver todos os meses do ano e escolher outro (por exemplo, o mês passado). Meses novos são criados sozinhos, já com os feriados nacionais e de Curitiba/PR marcados nos dias vazios. Dias que você já preencheu nunca são alterados."],
+      ["Para que servem \"Hoje\" e \"Marcar como pago\"?", "\"Hoje\" volta para o mês atual e abre o dia de hoje. \"Marcar como pago\" registra que você já recebeu aquele mês (aparece um ✓ ao lado dele na lista de meses)."]
     ]});
     if(kind === "estagiario"){
       groups.push({ title: "Alunos VIP", items: [

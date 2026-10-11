@@ -58,6 +58,15 @@ const vis = (p, sel) => p.evaluate(s => { const e = document.querySelector(s); r
   const tot = await p.evaluate(() => document.getElementById('weekendTotal').textContent);
   ok(/1 plantão/.test(tot) && /15/.test(tot), 'total dos plantoes: ' + tot);
   await p.screenshot({ path: 'shots/22-plantoes-fds.png', fullPage: true });
+  // seletor de mes: sem botoes de novo mes/feriados, abre no mes atual e lista todos os meses do ano
+  ok(!(await p.evaluate(() => !!document.getElementById('btnNewMonth') || !!document.getElementById('btnApplyHolidays'))), 'sem os botoes Novo mes e Marcar feriados');
+  const sel = await p.evaluate(() => ({ cur: monthSelect.value, now: todayKey, n: monthSelect.options.length }));
+  ok(sel.cur === sel.now && sel.n >= 12, 'abre no mes atual e lista os 12 meses: ' + sel.cur + ' / ' + sel.n);
+  const prev = await p.evaluate(() => { const [y, m] = todayKey.split('-').map(Number); const d = new Date(y, m - 2, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); });
+  await p.selectOption('#monthSelect', prev); await sleep(500);
+  ok(await p.evaluate(k => currentMonthKey === k && !!data.months[k] && document.querySelectorAll('#rowDayNum th.dayhead').length > 0, prev), 'mes passado sem dados abre sozinho (' + prev + ')');
+  await p.click('#btnToday'); await sleep(500); await p.evaluate(() => closeOverlays());
+  ok(await p.evaluate(() => currentMonthKey === todayKey), 'Hoje volta para o mes atual');
   ok(p.errors.length === 0, 'sem erros de JS ' + p.errors.join('|'));
   await browser.close(); console.log(fails ? fails + ' FALHA(S)' : 'TUDO OK'); process.exit(fails ? 1 : 0);
 })();

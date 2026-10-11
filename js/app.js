@@ -58,8 +58,6 @@ function applyRoleVisibility(){
   setCardVisible(gradeCard, showGrade);
   setCardVisible(resumoCard, showGrade);
   setCardVisible(obsCard, showGrade);
-  var holidaysBtn = document.getElementById("btnApplyHolidays");
-  if(holidaysBtn) holidaysBtn.style.display = showGrade ? "" : "none"; // feriados marcam a grade de horarios
   var gradeExport = document.getElementById("exportGradeGroup");
   if(gradeExport) gradeExport.style.display = showGrade ? "" : "none";
   var clientsExport = document.getElementById("exportClientsGroup");

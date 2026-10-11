@@ -6,7 +6,7 @@
 "use strict";
 
 var NAV_VIEW_KEY = "pontoOverallNavView_v1_";
-// Telas em que o seletor de mês (e Hoje / Novo mês / Marcar feriados) faz sentido.
+// Telas em que o seletor de mês (e o botão Hoje) faz sentido.
 var MONTH_VIEWS = ["resumo", "grade", "vip", "clientes", "exportacao"];
 var currentView = null;
 
