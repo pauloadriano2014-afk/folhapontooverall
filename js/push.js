@@ -122,7 +122,9 @@ function renderPushBox(){
           btn("Desligar", "", pushDisable)
         ]);
       } else {
-        paint("🔔 Receba os avisos da escala na tela do celular", "Você é avisado quando a escala sai, muda, quando alguém pede troca e quando o mês é fechado.", [
+        paint("🔔 Receba os avisos da escala na tela do celular", ((typeof isCoordinator === "function" && isCoordinator())
+          ? "Você é avisado quando a gerência fecha ou reabre o seu mês e quando há um pedido de troca de plantão para aprovar."
+          : "Você é avisado quando a escala sai ou muda, quando alguém pede troca de plantão com você e quando o mês é fechado."), [
           btn("Ativar neste aparelho", "primary", pushEnable)
         ]);
       }
