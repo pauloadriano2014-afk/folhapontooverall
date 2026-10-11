@@ -67,6 +67,10 @@ const vis = (p, sel) => p.evaluate(s => { const e = document.querySelector(s); r
     await p.evaluate(() => closeOverlays()); await sleep(300);
     ok(await p.evaluate(k => isSingleShiftDay(k) && dayTotal(data.months[k.slice(0, 7)].days[k]) === 50, hk), 'feriado lancado (10/h x 5h = 50) continua como plantao');
   }
+  // o caso real: feriado com 15 nas 5 primeiras horas e FER na ultima, sem turno escolhido
+  const real = await p.evaluate(() => { var k = currentMonthKey + '-12'; var d = data.months[currentMonthKey].days[k]; if (!d || !holidaysForDateKey(k)) return null; d.slots = [15, 15, 15, 15, 15, 'FERIADO']; d.shift = null; saveData(); renderGrid();
+    return { inList: [...document.querySelectorAll('#weekendList .wk-holiday')].some(r => /12\/10/.test(r.innerText) && /75,00/.test(r.innerText)), inGrid: [...document.querySelectorAll('#rowDayNum th .num')].some(e => e.textContent === '12'), total: dayTotal(d) }; });
+  if (real) ok(real.inList && !real.inGrid && real.total === 75, 'feriado 12/10 (15 x 5h + FER) vai para a lista com R$ 75 e sai da grade: ' + JSON.stringify(real));
   // seletor de mes: sem botoes de novo mes/feriados, abre no mes atual e lista todos os meses do ano
   ok(!(await p.evaluate(() => !!document.getElementById('btnNewMonth') || !!document.getElementById('btnApplyHolidays'))), 'sem os botoes Novo mes e Marcar feriados');
   const sel = await p.evaluate(() => ({ cur: monthSelect.value, now: todayKey, n: monthSelect.options.length }));

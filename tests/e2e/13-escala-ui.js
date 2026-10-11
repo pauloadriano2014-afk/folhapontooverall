@@ -64,6 +64,7 @@ const vis = (p, sel) => p.evaluate(s => { const e = document.querySelector(s); r
   ok(await p.evaluate(() => document.getElementById('btnRosterDaySave').textContent.includes('3 alterações')), 'um unico botao: "' + await p.textContent('#btnRosterDaySave') + '"');
   ok(await p.evaluate(() => document.querySelectorAll('#rosterDayShifts button.primary').length === 0), 'sem botao Adicionar por turno');
   const dbefore = await api('/api/company/roster?month=2026-10', 'GET', null, coord.token); ok(dbefore.b.entries.length === 0, 'nada gravado antes de salvar');
+  ok(await p.evaluate(() => { const h = document.getElementById('rosterDayPubHint'); const b = document.getElementById('btnRosterDayPublish'); return h.offsetParent !== null && /não foi publicada|depois de publicadas/.test(h.textContent) && b.offsetParent !== null && /Salvar e publicar/.test(b.textContent); }), 'aviso de que falta publicar e botao Salvar e publicar');
   await p.click('#btnRosterDaySave'); await sleep(1200);
   ok(!(await p.evaluate(() => document.getElementById('rosterDayOverlay').classList.contains('open'))), 'salvar fecha a janela');
   await p.evaluate(() => openRosterDay('2026-10-10')); await sleep(300);
@@ -85,6 +86,13 @@ const vis = (p, sel) => p.evaluate(s => { const e = document.querySelector(s); r
   ok(await p.evaluate(() => document.getElementById('btnRosterPublish').disabled), 'botao Publicar fica desativado (nada novo a publicar)');
   ok((await p.textContent('#toast')).includes('3 pessoa'), 'aviso na tela: ' + (await p.textContent('#toast')));
   await p.screenshot({ path: 'shots/r4-coord-publicada.png' });
+  // "Salvar e publicar" no proprio quadro do dia
+  await p.evaluate(() => openRosterDay('2026-10-11')); await sleep(300);
+  await addTo(1, 'Betina');
+  ok(await p.evaluate(() => /Mudanças desta escala/.test(document.getElementById('rosterDayPubHint').textContent)), 'aviso: mudanca so aparece depois de publicada');
+  await p.click('#btnRosterDayPublish'); await sleep(2000);
+  const ps = await p.evaluate(() => rosterData.publication);
+  ok(ps.published && !ps.changedSincePublish, 'Salvar e publicar deixa tudo publicado (' + JSON.stringify(ps) + ')');
   ok(p.errors.length === 0, 'sem erros de JS ' + p.errors.join('|')); await p.close();
 
   console.log('== a equipe ve a escala e e avisada ==');

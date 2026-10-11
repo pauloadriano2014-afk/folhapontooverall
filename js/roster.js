@@ -294,13 +294,38 @@ function renderRosterDay(){
     btn.disabled = n === 0;
     btn.textContent = n === 0 ? "Nada para salvar" : "Salvar escala do dia (" + n + (n === 1 ? " alteração)" : " alterações)");
     document.getElementById("rosterDayError").textContent = "";
+    // a equipe so enxerga a escala depois de publicada: deixa isso bem claro para quem monta
+    var pub = (rosterData && rosterData.publication) || {};
+    var needsPublish = !pub.published || !!pub.changedSincePublish;
+    var hint = document.getElementById("rosterDayPubHint"), pbtn = document.getElementById("btnRosterDayPublish");
+    var monthName = monthLabel(rosterMonth()).split(" / ")[0];
+    if(hint && pbtn){
+      var show = needsPublish || n > 0;
+      hint.style.display = show ? "" : "none";
+      pbtn.style.display = show ? "" : "none";
+      hint.textContent = !pub.published
+        ? "⚠ A escala de " + monthName + " ainda não foi publicada: a equipe não vê nada até você publicar."
+        : "⚠ Mudanças desta escala só aparecem para a equipe depois de publicadas.";
+      pbtn.textContent = n > 0 ? "Salvar e publicar" : "Publicar escala de " + monthName;
+      pbtn.disabled = false;
+    }
   }
+}
+
+function publishRosterNow(){
+  return authFetch("/api/company/roster/publish", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month: rosterMonth() })
+  }).then(function(res){ return res.json().then(function(b){ return { ok: res.ok, body: b }; }); });
 }
 
 (function(){
   var btn = document.getElementById("btnRosterDaySave");
   if(!btn) return;
+  var pbtn = document.getElementById("btnRosterDayPublish");
+  var alsoPublish = false;
+  if(pbtn) pbtn.addEventListener("click", function(){ alsoPublish = true; btn.click(); });
   btn.addEventListener("click", function(){
+    var publishAfter = alsoPublish; alsoPublish = false;
     var dk = rosterActiveDate, diff = rosterDraftDiff(dk), err = document.getElementById("rosterDayError");
     err.textContent = "";
     btn.disabled = true; btn.textContent = "Salvando…";
@@ -316,8 +341,17 @@ function renderRosterDay(){
       rosterDraft = null;
       return authFetch("/api/company/roster?month=" + encodeURIComponent(rosterMonth())).then(function(res){ return res.json(); }).then(function(b){
         rosterData = b; renderRoster(); renderRosterDay();
-        if(failed){ rosterErr(document.getElementById("rosterDayError"), failed, "Não consegui salvar tudo."); }
-        else { showToast("Escala do dia salva."); document.getElementById("rosterDayOverlay").classList.remove("open"); }
+        if(failed){ rosterErr(document.getElementById("rosterDayError"), failed, "Não consegui salvar tudo."); return; }
+        if(publishAfter){
+          return publishRosterNow().then(function(r){
+            if(!r.ok){ showToast((r.body && r.body.message) || "Salvei, mas não consegui publicar."); return; }
+            showToast(r.body.unchanged ? "Escala do dia salva. Nada novo para publicar." : "Escala salva e publicada. " + r.body.notified + " pessoa(s) avisada(s).");
+            document.getElementById("rosterDayOverlay").classList.remove("open");
+            loadRoster();
+          });
+        }
+        showToast("Escala do dia salva. Falta publicar para a equipe ver.");
+        document.getElementById("rosterDayOverlay").classList.remove("open");
       });
     }).catch(function(){ err.textContent = "Sem conexão com o servidor."; btn.disabled = false; });
   });

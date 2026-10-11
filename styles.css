@@ -756,3 +756,4 @@
   .wk-holiday-name{ display:block; font-size:11px; font-weight:600; color:var(--warn); margin-top:2px; }
   .wk-row.wk-holiday{ border-color:#d9a43a; }
   .wk-val .wk-per-hour{ display:block; font-size:10px; font-weight:600; color:var(--text-dim); text-align:right; }
+  .roster-pub-hint{ font-size:12px; font-weight:600; color:var(--warn); margin:8px 0 6px; line-height:1.4; }
