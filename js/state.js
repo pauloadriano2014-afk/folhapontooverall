@@ -19,8 +19,21 @@
   var SHIFT_LABELS = { manha: "08:00–13:00", tarde: "13:00–18:00" };
   var SHIFT_SHORT = { manha: "08–13", tarde: "13–18" };
   function isWeekendDow(dow){ return dow === 0 || dow === 6; }
+  // Dia de plantao (turno unico de 5h): sabado/domingo e, em dia de semana, os feriados
+  // (a academia abre das 8 as 18 e divide no mesmo turno de manha/tarde). Um feriado
+  // de semana que ja tem valores em varios horarios continua como dia normal na grade.
+  function isHolidayShiftDay(dateKey){
+    if(isWeekendDow(dowOfDateKey(dateKey))) return false;
+    var monthObj = data.months && data.months[dateKey.slice(0, 7)];
+    var dayObj = monthObj && monthObj.days && monthObj.days[dateKey];
+    var slots = (dayObj && dayObj.slots) || [];
+    for(var i = 1; i < slots.length; i++){ if(typeof slots[i] === "number") return false; }
+    if(holidaysForDateKey(dateKey)) return true;
+    return slots.length > 0 && slots.every(function(v){ return v === "FERIADO"; }); // feriado marcado a mao
+  }
   function isSingleShiftDay(dateKey){
-    return !!data.settings.weekendShiftEnabled && isWeekendDow(dowOfDateKey(dateKey));
+    if(!data.settings.weekendShiftEnabled) return false;
+    return isWeekendDow(dowOfDateKey(dateKey)) || isHolidayShiftDay(dateKey);
   }
   var VIP_COLS = [
     {key:"seg", label:"SEG"},

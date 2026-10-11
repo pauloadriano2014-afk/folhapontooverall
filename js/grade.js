@@ -230,7 +230,8 @@
     list.innerHTML = "";
     if(!enabled) return;
     var total = 0, count = 0;
-    keys.filter(function(k){ return isWeekendDow(dowOfDateKey(k)); }).forEach(function(dateKey){
+    keys.filter(function(k){ return isSingleShiftDay(k); }).forEach(function(dateKey){
+      var holiday = holidaysForDateKey(dateKey);
       var dayObj = monthObj.days[dateKey];
       var val = dayObj.slots[0];
       var dow = dowOfDateKey(dateKey);
@@ -241,12 +242,13 @@
       var day = document.createElement("div");
       day.className = "wk-day";
       day.innerHTML = "<strong>" + DOW_NAMES[dow] + "</strong><span>" + pad2(parseInt(dateKey.split("-")[2], 10)) + "/" + dateKey.split("-")[1] + "</span>";
+      if(holiday) row.className += " wk-holiday";
       var shift = document.createElement("div");
       shift.className = "wk-shift";
       var valEl = document.createElement("div");
       valEl.className = "wk-val";
       if(val === "FERIADO"){
-        shift.textContent = "Feriado"; valEl.textContent = "FER"; valEl.className += " feriado";
+        shift.textContent = "Plantão não lançado"; valEl.textContent = "FER"; valEl.className += " feriado";
       } else if(val === "SEM_ESCALA"){
         shift.textContent = "Sem escala"; valEl.textContent = "s/e"; valEl.className += " sem";
       } else {
@@ -257,6 +259,9 @@
       }
       if(dayObj.note && dayObj.note.trim()){
         var dot = document.createElement("span"); dot.className = "note-dot"; dot.title = "Tem anotação"; dot.textContent = "•"; shift.appendChild(dot);
+      }
+      if(holiday){
+        var hn = document.createElement("small"); hn.className = "wk-holiday-name"; hn.textContent = "Feriado · " + holiday; shift.appendChild(hn);
       }
       row.appendChild(day); row.appendChild(shift); row.appendChild(valEl);
       var open = function(){ openDayModal(dateKey); };
@@ -272,10 +277,10 @@
     var monthObj = ensureMonth(currentMonthKey);
     var keys = dayKeysOf(currentMonthKey);
 
-    // Com o turno de fim de semana ligado, sabado e domingo saem da grade (que fica so
-    // com a rotina de segunda a sexta) e vao para a lista "Plantões de fim de semana".
+    // Com o turno de fim de semana ligado, sabado, domingo e feriados saem da grade (que fica
+    // so com a rotina de dias uteis) e vao para a lista "Plantões de fim de semana e feriados".
     var weekendList = !!data.settings.weekendShiftEnabled;
-    var gridKeys = weekendList ? keys.filter(function(k){ return !isWeekendDow(dowOfDateKey(k)); }) : keys;
+    var gridKeys = weekendList ? keys.filter(function(k){ return !isSingleShiftDay(k); }) : keys;
     buildGridInto(gridKeys, monthObj, rowDayNum, rowDayDow, gridBody, true);
     renderPrintGrid(monthObj, gridKeys);
     renderWeekendList(monthObj, keys, weekendList);

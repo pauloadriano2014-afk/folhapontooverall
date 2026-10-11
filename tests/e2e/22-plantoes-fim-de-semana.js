@@ -39,7 +39,15 @@ const vis = (p, sel) => p.evaluate(s => { const e = document.querySelector(s); r
   ok(wkAfter === 0, 'com o recurso ligado, a grade fica so com seg-sex');
   ok(await vis(p, '#weekendCard'), 'lista de plantoes de fim de semana aparece');
   const rows = await p.evaluate(() => document.querySelectorAll('#weekendList .wk-row').length);
-  ok(rows === wkBefore, 'uma linha por sabado/domingo: ' + rows);
+  const hol = await p.evaluate(() => dayKeysOf(currentMonthKey).filter(k => !isWeekendDow(dowOfDateKey(k)) && holidaysForDateKey(k)));
+  ok(rows === wkBefore + hol.length, 'uma linha por sabado, domingo e feriado: ' + rows + ' (' + hol.length + ' feriado(s) em dia de semana)');
+  if (hol.length) {
+    const d = hol[0].slice(8, 10);
+    const inGrid = await p.evaluate(d => [...document.querySelectorAll('#rowDayNum th .num')].some(e => e.textContent === d), d);
+    ok(!inGrid, 'feriado de dia de semana (' + hol[0] + ') sai da grade');
+    const txt = await p.evaluate(() => [...document.querySelectorAll('#weekendList .wk-holiday')].map(r => r.innerText.replace(/\s+/g, ' ')).join(' | '));
+    ok(/Feriado · /.test(txt), 'linha do feriado mostra o nome: ' + txt);
+  }
   // lanca um plantao pela lista
   await p.evaluate(() => document.querySelector('#weekendList .wk-row').click()); await sleep(400);
   await p.click('#shiftSelector [data-shift=tarde]'); await sleep(300);

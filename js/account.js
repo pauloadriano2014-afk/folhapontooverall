@@ -372,7 +372,7 @@ function initAccountModal(){
     data.settings.weekendShiftEnabled = this.checked;
     saveData();
     renderGrid();
-    showToast(this.checked ? "Turno de fim de semana ativado" : "Turno de fim de semana desativado");
+    showToast(this.checked ? "Plantão de fim de semana e feriado ativado" : "Plantão de fim de semana e feriado desativado");
   });
 
   document.getElementById("reminderEnabled").addEventListener("change", function(){

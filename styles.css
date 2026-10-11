@@ -753,3 +753,5 @@
   .wk-val.feriado{ background:#fde68a; color:#92400e; border-color:#fde68a; }
   .wk-total{ display:flex; justify-content:space-between; align-items:center; margin-top:10px; font-size:13px; color:var(--text-dim); }
   .wk-total strong{ color:var(--text); font-size:14px; }
+  .wk-holiday-name{ display:block; font-size:11px; font-weight:600; color:var(--warn); margin-top:2px; }
+  .wk-row.wk-holiday{ border-color:#d9a43a; }
