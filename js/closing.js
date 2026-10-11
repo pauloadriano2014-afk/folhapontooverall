@@ -128,7 +128,7 @@ function renderClosing(){
     doClose(openable.map(function(m){ return m.id; }));
   };
   if(!people.length){ list.innerHTML = "<p class='account-section-hint'>Ainda não há ninguém vinculado.</p>"; return; }
-  people.forEach(function(m){
+  renderGroupedMembers(list, people, { scope: "fechamento", compact: true, rowFn: function(m){
     var row = document.createElement("div");
     row.className = "client-row team-member";
     var info = document.createElement("div");
@@ -160,8 +160,8 @@ function renderClosing(){
         b.addEventListener("click", function(){ doClose([m.id]); }); row.appendChild(b);
       }
     }
-    list.appendChild(row);
-  });
+    return row;
+  }});
 }
 
 (function(){

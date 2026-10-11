@@ -131,29 +131,91 @@ function faqGroupsFor(kind){
   return groups;
 }
 
+var faqState = { cat: 0, q: "" };
+
+function faqNorm(t){ return String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
+
 function renderFaq(){
   var kind = helpKind();
   var groups = faqGroupsFor(kind);
+  if(faqState.cat >= groups.length) faqState.cat = 0;
   document.querySelectorAll(".faq-body").forEach(function(body){
     body.innerHTML = "";
-    groups.forEach(function(g){
-      var h = document.createElement("h3");
-      h.textContent = g.title;
-      body.appendChild(h);
-      g.items.forEach(function(qa){
+
+    var search = document.createElement("input");
+    search.type = "search";
+    search.className = "faq-search";
+    search.placeholder = "Buscar uma dúvida (ex.: fechar mês, trocar plantão)";
+    search.value = faqState.q;
+    body.appendChild(search);
+
+    var chips = document.createElement("div");
+    chips.className = "faq-chips";
+    body.appendChild(chips);
+    var results = document.createElement("div");
+    body.appendChild(results);
+
+    function paint(){
+      var q = faqNorm(faqState.q.trim());
+      chips.style.display = q ? "none" : "";
+      chips.innerHTML = "";
+      groups.forEach(function(g, i){
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "faq-chip" + (i === faqState.cat ? " active" : "");
+        b.appendChild(document.createTextNode(g.title));
+        var n = document.createElement("small");
+        n.textContent = g.items.length;
+        b.appendChild(n);
+        b.addEventListener("click", function(){ faqState.cat = i; paint(); });
+        chips.appendChild(b);
+      });
+      results.innerHTML = "";
+      var shown = 0;
+      function addItem(qa, open){
         var d = document.createElement("details");
+        d.open = !!open;
         var sm = document.createElement("summary");
         sm.textContent = qa[0];
         var p = document.createElement("p");
         p.textContent = qa[1];
-        d.appendChild(sm);
-        d.appendChild(p);
-        body.appendChild(d);
-      });
+        d.appendChild(sm); d.appendChild(p);
+        d.addEventListener("toggle", function(){
+          if(!d.open) return;
+          results.querySelectorAll("details[open]").forEach(function(o){ if(o !== d && !q) o.open = false; });
+        });
+        results.appendChild(d);
+        shown++;
+      }
+      if(q){
+        groups.forEach(function(g){
+          var hits = g.items.filter(function(qa){ return faqNorm(qa[0] + " " + qa[1]).indexOf(q) >= 0; });
+          if(!hits.length) return;
+          var h = document.createElement("h3");
+          h.textContent = g.title;
+          results.appendChild(h);
+          hits.forEach(function(qa){ addItem(qa, hits.length === 1); });
+        });
+        if(!shown){
+          var e = document.createElement("div");
+          e.className = "faq-empty";
+          e.textContent = "Nada encontrado. Tente outra palavra ou limpe a busca.";
+          results.appendChild(e);
+        }
+      } else {
+        groups[faqState.cat].items.forEach(function(qa){ addItem(qa, false); });
+      }
+    }
+    search.addEventListener("input", function(){
+      faqState.q = search.value;
+      document.querySelectorAll(".faq-search").forEach(function(o){ if(o !== search) o.value = search.value; });
+      paint();
     });
+    paint();
+
     var tut = document.createElement("div");
     tut.className = "row-actions";
-    tut.style.marginTop = "16px";
+    tut.style.marginTop = "14px";
     var btn = document.createElement("button");
     btn.type = "button";
     btn.className = "small";

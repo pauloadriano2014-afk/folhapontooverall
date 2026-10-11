@@ -538,11 +538,32 @@
   #exportGradeGroup .export-group-title:first-child{ margin-top:0; }
   .print-sheet{ display:none; }
   @media(min-width:700px){ .export-options{ grid-template-columns:1fr 1fr; } }
-  .faq-body h3{ margin:18px 0 8px; font-size:13px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.5px; }
-  .faq-body h3:first-child{ margin-top:0; }
-  .faq-body details{ border:1px solid var(--border); border-radius:10px; margin-bottom:8px; background:var(--bg-panel-2); }
-  .faq-body summary{ cursor:pointer; padding:10px 12px; font-weight:700; font-size:14px; }
-  .faq-body details p{ margin:0; padding:0 12px 12px; font-size:13px; color:var(--text-dim); line-height:1.5; }
+  .faq-search{ width:100%; margin:0 0 10px; }
+  .faq-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+  .faq-chip{ padding:6px 12px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid var(--border); background:var(--bg-panel-2); color:var(--text-dim); cursor:pointer; }
+  .faq-chip.active{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .faq-chip small{ opacity:.7; font-weight:600; margin-left:4px; }
+  .faq-body h3{ margin:14px 0 6px; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.5px; }
+  .faq-body details{ border-bottom:1px solid var(--border); }
+  .faq-body details:last-of-type{ border-bottom:none; }
+  .faq-body summary{ cursor:pointer; padding:9px 4px; font-weight:600; font-size:14px; }
+  .faq-body details[open] summary{ color:var(--accent-2); }
+  .faq-body details p{ margin:0; padding:0 4px 12px; font-size:13px; color:var(--text-dim); line-height:1.5; }
+  .faq-empty{ font-size:13px; color:var(--text-dim); padding:8px 4px; }
+  /* listas da equipe agrupadas por função */
+  details.grp{ margin:0 0 8px; border:1px solid var(--border); border-radius:12px; background:var(--bg-panel-2); }
+  details.grp > summary{ display:flex; align-items:center; gap:8px; cursor:pointer; padding:9px 12px; list-style:none; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--text-dim); }
+  details.grp > summary::-webkit-details-marker{ display:none; }
+  details.grp > summary::before{ content:"▸"; font-size:11px; transition:transform .15s; }
+  details.grp[open] > summary::before{ transform:rotate(90deg); }
+  .grp-count{ background:var(--bg-panel); border:1px solid var(--border); border-radius:999px; padding:1px 8px; font-size:11px; }
+  .grp-extra{ margin-left:auto; color:var(--text); font-size:13px; text-transform:none; letter-spacing:0; }
+  .grp-body{ padding:0 12px; background:var(--bg-panel); border-top:1px solid var(--border); border-radius:0 0 12px 12px; }
+  .grp-body .client-row{ padding:8px 0; }
+  @media(min-width:980px){
+    .grp-grid{ display:grid; grid-template-columns:1fr 1fr; column-gap:28px; }
+    .grp-grid .client-row:nth-last-child(2):nth-child(odd){ border-bottom:none; }
+  }
 
   /* calendario da escala: os 7 dias cabem na tela do celular */
   .schedule-calendar th.timecol{ min-width:0; position:static; text-align:center; padding:6px 2px; }

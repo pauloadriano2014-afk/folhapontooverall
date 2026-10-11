@@ -574,7 +574,7 @@ function renderCoordTeam(sched, roster){
     list.innerHTML = "<p class='account-section-hint'>Ainda não há ninguém vinculado. Convide a equipe pela gerência.</p>";
     return;
   }
-  staff.forEach(function(u){
+  renderGroupedMembers(list, staff, { scope: "minhaequipe", compact: true, rowFn: function(u){
     var plant = (roster.entries || []).filter(function(e){ return e.userId === u.id; }).sort(function(a, b){ return a.date < b.date ? -1 : 1; });
     var att = { trabalhou: 0, falta: 0, coberto: 0 };
     (sched.entries || []).forEach(function(e){ if(e.userId === u.id && att[e.status === "falta" ? "falta" : e.status] !== undefined) att[e.status === "falta" ? "falta" : e.status]++; });
@@ -594,14 +594,14 @@ function renderCoordTeam(sched, roster){
     line((u.email && !/\.invalid$/.test(u.email)) ? u.email : "Sem login (cadastro de teste)");
     line("Horário seg–sex: " + (u.shiftStart && u.shiftEnd ? u.shiftStart + " às " + u.shiftEnd : "ainda não definido"));
     if(plant.length){
-      line("Plantões planejados (" + plant.length + "): " + plant.map(function(e){
+      line("Plantões (" + plant.length + "): " + plant.slice(0, 3).map(function(e){
         var t = types[e.shiftTypeId];
         return e.date.slice(8, 10) + "/" + e.date.slice(5, 7) + (t ? " " + shiftHours(t) : "");
-      }).join(", "));
+      }).join(", ") + (plant.length > 3 ? " e mais " + (plant.length - 3) : ""));
     } else {
-      line("Nenhum plantão planejado neste mês.");
+      line("Sem plantões neste mês.");
     }
-    line("Presença: " + att.trabalhou + " trabalhou · " + att.falta + " faltou · " + att.coberto + " coberto");
+    if(att.trabalhou || att.falta || att.coberto) line("Presença: " + att.trabalhou + " trabalhou · " + att.falta + " faltou · " + att.coberto + " coberto");
     row.appendChild(info);
     if(sched.canEditStaffSchedule){
       var edit = document.createElement("button");
@@ -609,8 +609,8 @@ function renderCoordTeam(sched, roster){
       edit.addEventListener("click", function(){ openStaffScheduleEditModal(u); });
       row.appendChild(edit);
     }
-    list.appendChild(row);
-  });
+    return row;
+  }});
 }
 
 (function(){

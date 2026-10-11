@@ -90,6 +90,66 @@ function memberNoValueText(member){
   return "—";
 }
 
+
+// ---------- listas da equipe agrupadas por função ----------
+// Usado em Equipe e valores, Horários e plantões, Fechamento e Gestão: em vez de
+// uma lista única e longa, separa Gestão / Coordenação / Professores / Estagiários
+// em blocos que podem ser recolhidos (o estado fica lembrado enquanto o app está aberto).
+var MEMBER_GROUPS = [
+  { key: "gestao", title: "Administração e gestão" },
+  { key: "coord", title: "Coordenação" },
+  { key: "prof", title: "Professores" },
+  { key: "estag", title: "Estagiários" },
+  { key: "semfuncao", title: "Sem função definida" }
+];
+var groupCollapsed = {};
+
+function memberGroupKey(m){
+  if(m.companyRole === "owner" || m.companyRole === "partner" || m.companyRole === "manager") return "gestao";
+  if(m.companyRole === "coordinator") return "coord";
+  if(!m.role) return "semfuncao";
+  return (typeof roleIsTrainee === "function" && roleIsTrainee(m.role)) ? "estag" : "prof";
+}
+
+// opts: scope (id para lembrar recolhido), rowFn(item) -> elemento, extraFn(itens) -> texto
+// opcional ao lado do título (ex.: subtotal), compact (true = grade de 2 colunas em telas largas)
+function renderGroupedMembers(listEl, items, opts){
+  opts = opts || {};
+  var scope = opts.scope || listEl.id || "lista";
+  var byKey = {};
+  items.forEach(function(m){ var k = memberGroupKey(m); (byKey[k] = byKey[k] || []).push(m); });
+  var shown = MEMBER_GROUPS.filter(function(g){ return byKey[g.key] && byKey[g.key].length; });
+  shown.forEach(function(g){
+    var arr = byKey[g.key];
+    var det = document.createElement("details");
+    det.className = "grp";
+    var id = scope + ":" + g.key;
+    det.open = !groupCollapsed[id];
+    det.addEventListener("toggle", function(){ groupCollapsed[id] = !det.open; });
+    var sm = document.createElement("summary");
+    var t = document.createElement("span");
+    t.className = "grp-title";
+    t.textContent = g.title;
+    var c = document.createElement("span");
+    c.className = "grp-count";
+    c.textContent = arr.length;
+    sm.appendChild(t); sm.appendChild(c);
+    var extra = opts.extraFn ? opts.extraFn(arr) : "";
+    if(extra){
+      var ex = document.createElement("span");
+      ex.className = "grp-extra";
+      ex.textContent = extra;
+      sm.appendChild(ex);
+    }
+    det.appendChild(sm);
+    var body = document.createElement("div");
+    body.className = "grp-body" + (opts.compact ? " grp-grid" : "");
+    arr.forEach(function(m){ body.appendChild(opts.rowFn(m)); });
+    det.appendChild(body);
+    listEl.appendChild(det);
+  });
+}
+
 function renderCompanyStaffList(staff, monthKey){
   var listEl = document.getElementById("companyStaffList");
   var totalEl = document.getElementById("companyMonthTotal");
@@ -100,10 +160,22 @@ function renderCompanyStaffList(staff, monthKey){
     return;
   }
   var total = 0;
-  staff.forEach(function(member){
+  var showSubtotal = false;
+  function memberVal(member){
+    var v = companyRoleCountsFinancially(member) ? memberMonthValue(member, monthKey) : null;
+    return typeof v === "number" ? v : null;
+  }
+  staff.forEach(function(member){ var v = memberVal(member); if(v !== null) total += v; });
+  renderGroupedMembers(listEl, staff, {
+    scope: "valores", compact: true,
+    extraFn: function(arr){
+      var sub = 0, any = false;
+      arr.forEach(function(m){ var v = memberVal(m); if(v !== null){ sub += v; any = true; } });
+      return any ? fmtMoney(sub) : "";
+    },
+    rowFn: function(member){
     var countsFinancially = companyRoleCountsFinancially(member);
     var value = countsFinancially ? memberMonthValue(member, monthKey) : null;
-    if(typeof value === "number") total += value;
     var isYou = currentUser && member.id === currentUser.id;
 
     var row = document.createElement("div");
@@ -126,7 +198,8 @@ function renderCompanyStaffList(staff, monthKey){
 
     row.appendChild(info);
     row.appendChild(valueEl);
-    listEl.appendChild(row);
+    return row;
+    }
   });
   totalEl.textContent = fmtMoney(total);
 }

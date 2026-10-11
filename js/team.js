@@ -41,7 +41,7 @@ function renderTeamManage(){
     listEl.innerHTML = "<p style='font-size:12px;color:var(--text-dim);margin:4px 0;'>Ainda ninguém entrou na academia.</p>";
     return;
   }
-  staff.forEach(function(member){
+  renderGroupedMembers(listEl, staff, { scope: "gestao", compact: true, rowFn: function(member){
     var row = document.createElement("div");
     row.className = "client-row";
 
@@ -68,8 +68,8 @@ function renderTeamManage(){
       actions.appendChild(editBtn);
       row.appendChild(actions);
     }
-    listEl.appendChild(row);
-  });
+    return row;
+  }});
 }
 
 function openStaffEdit(member){
