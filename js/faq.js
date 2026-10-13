@@ -12,7 +12,31 @@ function helpKind(){
   return roleCategory() || "professor";
 }
 
+// perguntas sobre ocorrências, para todos os perfis ligados a uma academia
+function faqNotesGroup(kind){
+  var items = [
+    ["Para que servem as Ocorrências?", "Para anotar o que acontece na academia e não depender da memória de ninguém: goteira em dia de chuva, secador queimado, aparelho quebrado, recado para o próximo turno e objetos achados. Todos da equipe veem; cada ocorrência mostra quem anotou, quem já viu, as atualizações e quem resolveu."],
+    ["Como anoto uma ocorrência?", "Em Ocorrências, toque em \"+ Anotar ocorrência\", escolha o tipo (Problema, Recado de turno ou Achado e perdido), escreva o que aconteceu e o local e, se quiser, tire uma foto. Marque Urgente quando precisar de atenção na hora. A recepção, a coordenação, a gerência e o dono são avisados."],
+    ["Achei um objeto de aluno. O que faço?", "Anote como Achado e perdido, diga onde foi encontrado e onde ficou guardado (ex.: gaveta 2 da recepção) e, se puder, ponha uma foto. Quando o aluno procurar, qualquer atendente acha o objeto pela busca. Ao devolver, marque como resolvido e conte para quem foi entregue."],
+    ["Quem pode marcar como resolvido?", "A recepção, a coordenação, a gerência, o dono e quem anotou. Ao resolver, o app guarda quem resolveu, quando e o que foi feito. Se resolveu por engano, use Reabrir."],
+    ["O que significa \"Visto por\"?", "É a lista de quem já abriu aquela ocorrência. Ajuda a saber se o recado chegou a quem precisa."]
+  ];
+  if(kind === "socio") items = [items[0], items[4]];
+  return { title: "Ocorrências", items: items };
+}
+
 function faqGroupsFor(kind){
+  if(kind === "recepcao"){
+    return [
+      faqNotesGroup(kind),
+      { title: "Conta e aparelhos", items: [
+        ["Eu bato ponto ou lanço horas?", "Não. A conta da recepção não tem grade de horas, escala de turnos nem valores. Você usa as Ocorrências e os Avisos."],
+        ["Como recebo os avisos no celular?", "Em Avisos, toque em \"Ativar neste aparelho\" e permita as notificações. No iPhone, primeiro instale o app: no Safari, Compartilhar > \"Adicionar à Tela de Início\"."],
+        ["Esqueci minha senha. E agora?", "Na tela de entrada, toque em \"Esqueci minha senha\". Já logado, você troca a senha em Minha conta."],
+        ["Como instalo no celular?", "No iPhone: toque em Compartilhar e depois em \"Adicionar à Tela de Início\". No Android: use o botão \"Instalar\" que aparece no topo."]
+      ]}
+    ];
+  }
   var admin = kind === "empresa" || kind === "gerente" || kind === "socio";
   var groups = [];
 
@@ -52,7 +76,7 @@ function faqGroupsFor(kind){
       ]});
       groups.push({ title: "Convites e níveis de acesso", items: [
         ["Como convido alguém?", "Em \"Convites\" você pode passar o código da academia (a pessoa digita ao criar a conta) ou enviar um convite por e-mail já com função e horário de trabalho. Quem entra por convite já fica ligado à academia."],
-        ["Quais são os níveis de acesso?", "Profissional: bate ponto e lança as próprias horas. Coordenador(a): bate ponto e também gerencia a escala; precisa ser pessoa formada (Professor ou sem função de professor, só coordena), nunca estagiário. Gerente: gerencia equipe, convites e escala, mas não bate ponto. Sócio(a): só acompanha, sem editar nada."]
+        ["Quais são os níveis de acesso?", "Profissional: bate ponto e lança as próprias horas. Coordenador(a): bate ponto e também gerencia a escala; precisa ser pessoa formada (Professor ou sem função de professor, só coordena), nunca estagiário. Recepção: não bate ponto; usa as ocorrências (problemas, recados e achados e perdidos) e os avisos. Gerente: gerencia equipe, convites e escala, mas não bate ponto. Sócio(a): só acompanha, sem editar nada."]
       ]});
     }
     groups.push({ title: "Exportação", items: [
@@ -119,6 +143,7 @@ function faqGroupsFor(kind){
     ]});
   }
 
+  if(kind === "socio" || (currentUser && currentUser.companyId)) groups.push(faqNotesGroup(kind));
   groups.push({ title: "Conta e aparelhos", items: [
     ["Como troco o tema e as cores?", (admin || kind === "coordenador")
       ? "Toque em \"Tema e cores\" no menu. Você escolhe entre o modo claro e o escuro. As cores da sua conta seguem o padrão da Overall (azul, vermelho e branco) e não mudam; só professores e estagiários trocam a combinação."

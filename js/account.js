@@ -129,7 +129,8 @@ function initColor(){
 function isBrandColorLockedRole(){
   var adminView = typeof isCompanyAdminView === "function" && isCompanyAdminView();
   var coord = typeof isCoordinator === "function" && isCoordinator();
-  return !!(adminView || coord);
+  var recep = typeof isReception === "function" && isReception(); // a recepção também é a cara da academia
+  return !!(adminView || coord || recep);
 }
 
 // Chamado no boot (pra cada tipo de tela) e no logout: liga/desliga a classe

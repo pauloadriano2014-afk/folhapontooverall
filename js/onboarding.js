@@ -11,6 +11,7 @@ var ONBOARDING_INTRO = {
   socio:       { icon: "👀", title: "Bem-vindo(a), sócio(a)", sub: "Seu acesso é de acompanhamento. Veja o que aparece pra você." },
   gerente:     { icon: "🧭", title: "Bem-vindo(a), gerente", sub: "Veja em 1 minuto o que você pode fazer por aqui." },
   coordenador: { icon: "📋", title: "Bem-vindo(a), coordenador(a)", sub: "Você bate ponto e também cuida da escala da equipe." },
+  recepcao:    { icon: "🛎️", title: "Bem-vindo(a) à recepção", sub: "Veja em 1 minuto como anotar e acompanhar o que acontece na academia." },
   professor:   { icon: "💪", title: "Bem-vindo(a) ao Ponto Overall", sub: "Veja em 1 minuto como lançar suas horas." },
   estagiario:  { icon: "💪", title: "Bem-vindo(a) ao Ponto Overall", sub: "Veja em 1 minuto como lançar suas horas." }
 };
@@ -23,6 +24,15 @@ function onboardingSteps(kind){
       { icon: "🛠️", title: "Cuide de quem entra e sai", text: "Em Gestão da equipe você troca a função ou o nível de acesso, remove quem saiu e define o salário fixo de cada gerente." },
       { icon: "✉️", title: "Convites completos", text: "No convite escolha o nível: Profissional, Coordenador(a), Gerente ou Sócio(a), e já informe o horário de trabalho. Se o código vazar, gere um novo em Convites." },
       { icon: "📅", title: "Escala de fim de semana", text: "A coordenação monta quem faz cada turno e publica; a equipe é avisada. Você acompanha e vê se está equilibrada entre todos." }
+    ];
+  }
+  if(kind === "recepcao"){
+    return [
+      { icon: "📝", title: "Anote o que acontece", text: "Em Ocorrências toque em \"+ Anotar ocorrência\": goteira, equipamento quebrado, secador queimado, recado para o próximo turno ou objeto achado. Ponha o local e, se puder, uma foto." },
+      { icon: "🎧", title: "Achados e perdidos", text: "Ao anotar um objeto achado, diga onde foi encontrado e onde ficou guardado. Quando alguém procurar, use a busca: qualquer atendente acha na hora, mesmo sem ter estado no turno." },
+      { icon: "👁", title: "Quem anotou, quem viu", text: "Cada ocorrência mostra quem anotou, quem já abriu (visto por), as atualizações e, no fim, quem resolveu e como." },
+      { icon: "✅", title: "Marque como resolvido", text: "Resolveu ou entregou o objeto? Abra a ocorrência e toque em Marcar como resolvido, contando em uma frase o que foi feito. Quem anotou é avisado." },
+      { icon: "🔔", title: "Avisos", text: "Novas ocorrências, urgentes ou não, chegam em Avisos (e no celular, se você ativar). A conta não bate ponto: você não lança horas." }
     ];
   }
   if(kind === "socio"){

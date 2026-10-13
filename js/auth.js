@@ -85,6 +85,12 @@ function isPartner(){
 // pessoal dele, nao da academia), so o valor de grade/sala (o que foi
 // trabalhado PRA academia). Essa restricao financeira e aplicada no servidor
 // (/api/company/overview ja nem manda o "clients" de cada um pro gerente).
+// Recepção: atende o balcão. Não bate ponto nem entra na escala de turnos: usa as
+// ocorrências (problemas, recados de turno, achados e perdidos) e os avisos.
+function isReception(){
+  return !!(currentUser && currentUser.companyRole === "reception");
+}
+
 function isGerente(){
   return !!(currentUser && currentUser.companyRole === "manager");
 }
@@ -236,6 +242,10 @@ function applyInviteToForm(inviteInfo){
   document.getElementById("regName").value = inviteInfo.name || "";
   setRoleSelectValue(document.getElementById("regRole"), inviteInfo.role || "");
   pendingInviteAccessRole = inviteInfo.accessRole || "staff";
+  // gerente, sócio(a) e recepção não têm função de professor/estagiário
+  var noRole = ["manager", "partner", "reception"].indexOf(pendingInviteAccessRole) >= 0;
+  var regRoleWrap = document.getElementById("regRoleWrap");
+  if(regRoleWrap) regRoleWrap.style.display = noRole ? "none" : "";
   if(typeof syncRoleOptionsForAccess === "function") syncRoleOptionsForAccess(document.getElementById("regRole"), pendingInviteAccessRole);
   document.getElementById("regEmail").value = inviteInfo.email || "";
 }
@@ -323,7 +333,7 @@ function initAuthForms(){
       errEl.textContent = "Informe o nome da academia.";
       return;
     }
-    if(accountType !== "empresa" && !role && pendingInviteAccessRole !== "coordinator"){
+    if(accountType !== "empresa" && !role && pendingInviteAccessRole !== "coordinator" && ["manager", "partner", "reception"].indexOf(pendingInviteAccessRole) < 0){
       errEl.textContent = "Escolha a sua função.";
       return;
     }

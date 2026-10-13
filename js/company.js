@@ -61,6 +61,7 @@ function companyRoleLabel(member){
   if(member.companyRole === "owner") return "Administrador(a)";
   if(member.companyRole === "partner") return "Sócio(a)";
   if(member.companyRole === "manager") return "Gerente";
+  if(member.companyRole === "reception") return "Recepção";
   var base = member.role || "Sem função definida";
   // coordenador(a) sem funcao de professor so coordena
   if(member.companyRole === "coordinator") return member.role ? base + " · Coordenador(a)" : "Coordenador(a)";
@@ -69,7 +70,7 @@ function companyRoleLabel(member){
 
 function companyRoleCountsFinancially(member){
   // gerente conta pelo salario fixo (definido pelo dono); dono e socio(a) nao entram nos valores
-  return member.companyRole !== "owner" && member.companyRole !== "partner";
+  return member.companyRole !== "owner" && member.companyRole !== "partner" && member.companyRole !== "reception";
 }
 
 // Valor do mes de um item da lista: horas de sala (grade + auxilio - consumo) ou,
@@ -98,6 +99,7 @@ function memberNoValueText(member){
 var MEMBER_GROUPS = [
   { key: "gestao", title: "Administração e gestão" },
   { key: "coord", title: "Coordenação" },
+  { key: "recepcao", title: "Recepção" },
   { key: "prof", title: "Professores" },
   { key: "estag", title: "Estagiários" },
   { key: "semfuncao", title: "Sem função definida" }
@@ -107,6 +109,7 @@ var groupCollapsed = {};
 function memberGroupKey(m){
   if(m.companyRole === "owner" || m.companyRole === "partner" || m.companyRole === "manager") return "gestao";
   if(m.companyRole === "coordinator") return "coord";
+  if(m.companyRole === "reception") return "recepcao";
   if(!m.role) return "semfuncao";
   return (typeof roleIsTrainee === "function" && roleIsTrainee(m.role)) ? "estag" : "prof";
 }
@@ -275,7 +278,7 @@ function selectedInviteAccessRole(){
 // tem "função" no sentido operacional. Esconde os dois campos que so fazem
 // sentido pra quem bate ponto.
 function isAdminAccessRole(accessRole){
-  return accessRole === "partner" || accessRole === "manager";
+  return accessRole === "partner" || accessRole === "manager" || accessRole === "reception";
 }
 function updateInviteScheduleVisibility(){
   var wrap = document.getElementById("inviteScheduleWrap");
@@ -409,7 +412,7 @@ function loadPendingInvites(){
       name.textContent = inv.name;
       var meta = document.createElement("span");
       meta.className = "client-meta";
-      var accessLabel = inv.accessRole === "coordinator" ? "Coordenador(a)" : (inv.accessRole === "partner" ? "Sócio(a)" : (inv.accessRole === "manager" ? "Gerente" : (inv.role || "Sem função definida")));
+      var accessLabel = inv.accessRole === "coordinator" ? "Coordenador(a)" : (inv.accessRole === "partner" ? "Sócio(a)" : (inv.accessRole === "manager" ? "Gerente" : (inv.accessRole === "reception" ? "Recepção" : (inv.role || "Sem função definida"))));
       meta.textContent = accessLabel + " · " + inv.email;
       info.appendChild(name);
       info.appendChild(meta);

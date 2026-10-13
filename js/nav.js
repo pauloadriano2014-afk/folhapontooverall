@@ -13,12 +13,16 @@ var currentView = null;
 // Quais categorias cada perfil enxerga, na ordem do menu. O primeiro é a tela inicial.
 function navItemsForCurrentUser(){
   if(typeof isCompanyAdminView === "function" && isCompanyAdminView()){
-    var items = ["equipe", "minhaequipe", "escala", "presenca", "fechamento", "historico"];
+    var items = ["equipe", "minhaequipe", "escala", "presenca", "ocorrencias", "fechamento", "historico"];
     if(!isPartner()) items.push("gestao", "convites");
     if(typeof isCompanyOwner === "function" && isCompanyOwner()) items.push("unidades");
     if(isGerente() && currentUser.personalModule) items.push("clientes");
+    if(!isPartner() && currentUser.companyId) items.push("avisos");
     items.push("exportacao", "duvidas");
     return items;
+  }
+  if(typeof isReception === "function" && isReception()){
+    return currentUser.companyId ? ["ocorrencias", "avisos", "duvidas"] : ["duvidas"];
   }
   var cat = roleCategory();
   var items2 = ["grade", "resumo"];
@@ -28,7 +32,7 @@ function navItemsForCurrentUser(){
   var linked = !!(currentUser && currentUser.companyId);
   if(typeof isCoordinator === "function" && isCoordinator()) items2.push("minhaequipe", "escala", "presenca", "fechamento");
   else if(linked) items2.push("minhaescala");
-  if(linked) items2.push("avisos");
+  if(linked) items2.push("ocorrencias", "avisos");
   items2.push("exportacao", "duvidas");
   return items2;
 }
@@ -80,6 +84,7 @@ function showView(view){
   if(view === "presenca" && typeof loadScheduleMonth === "function") loadFresh(view, function(){ loadScheduleMonth(currentScheduleMonthKey()); });
   if(view === "escala" && typeof loadRoster === "function") loadFresh(view, loadRoster);
   if(view === "minhaescala" && typeof loadMyRoster === "function") loadFresh(view, loadMyRoster);
+  if(view === "ocorrencias" && typeof loadNotes === "function") loadFresh(view, loadNotes);
   if(view === "avisos" && typeof loadNotices === "function") loadNotices();
   if(view === "avisos" && typeof renderPushBox === "function") renderPushBox();
   document.body.classList.toggle("hide-month", MONTH_VIEWS.indexOf(view) < 0);

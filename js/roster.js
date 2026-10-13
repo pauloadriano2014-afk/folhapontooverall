@@ -545,6 +545,8 @@ function loadNotices(){
       if(!b.items.length){
         var e = document.createElement("p"); e.className = "account-section-hint"; e.textContent = (typeof isCoordinator === "function" && isCoordinator())
           ? "Nenhum aviso por enquanto. Aqui chegam os avisos da gerência (como o fechamento ou a reabertura do seu mês) as trocas de plantão feitas entre colegas e os pedidos de troca que precisam da sua aprovação."
+          : (typeof isReception === "function" && isReception())
+          ? "Nenhum aviso por enquanto. Aqui chegam as novas ocorrências (problemas, recados e achados) e as atualizações das que você anotou."
           : "Nenhum aviso por enquanto. Quando a coordenação publicar ou mudar a escala, ou a gerência fechar o seu mês, você é avisado aqui."; box.appendChild(e); return;
       }
       b.items.forEach(function(n){
@@ -568,9 +570,10 @@ function loadNotices(){
 function startNoticePolling(){
   clearInterval(noticeTimer);
   refreshNoticeBadge();
-  noticeTimer = setInterval(function(){ if(!document.hidden) refreshNoticeBadge(); }, 120000);
+  if(typeof refreshNotesBadge === "function") refreshNotesBadge();
+  noticeTimer = setInterval(function(){ if(!document.hidden){ refreshNoticeBadge(); if(typeof refreshNotesBadge === "function") refreshNotesBadge(); } }, 120000);
 }
-document.addEventListener("visibilitychange", function(){ if(!document.hidden) refreshNoticeBadge(); });
+document.addEventListener("visibilitychange", function(){ if(!document.hidden){ refreshNoticeBadge(); if(typeof refreshNotesBadge === "function") refreshNotesBadge(); } });
 
 
 // ---------- Minha equipe (coordenador): quem esta vinculado, sem valores ----------

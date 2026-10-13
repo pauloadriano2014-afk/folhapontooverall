@@ -124,6 +124,7 @@
     <button type="button" class="nav-item" data-view="unidades" hidden><span class="nav-ico" aria-hidden="true">🏢</span><span class="nav-label"><span class="l-long">Unidades</span><span class="l-short">Unidades</span></span></button>
     <button type="button" class="nav-item" data-view="convites" hidden><span class="nav-ico" aria-hidden="true">✉️</span><span class="nav-label"><span class="l-long">Convites</span><span class="l-short">Convites</span></span></button>
     <button type="button" class="nav-item" data-view="minhaescala" hidden><span class="nav-ico" aria-hidden="true">📅</span><span class="nav-label"><span class="l-long">Escala da equipe</span><span class="l-short">Escala</span></span></button>
+    <button type="button" class="nav-item" data-view="ocorrencias" hidden><span class="nav-ico" aria-hidden="true">📝</span><span class="nav-label"><span class="l-long">Ocorrências</span><span class="l-short">Ocorrências</span></span><span class="nav-badge" id="notesBadge" hidden></span></button>
     <button type="button" class="nav-item" data-view="avisos" hidden><span class="nav-ico" aria-hidden="true">🔔</span><span class="nav-label"><span class="l-long">Avisos</span><span class="l-short">Avisos</span></span><span class="nav-badge" id="avisosBadge" hidden></span></button>
     <button type="button" class="nav-item" data-view="exportacao" hidden><span class="nav-ico" aria-hidden="true">📤</span><span class="nav-label"><span class="l-long">Exportação</span><span class="l-short">Exportar</span></span></button>
     <button type="button" class="nav-item" data-view="duvidas" hidden><span class="nav-ico" aria-hidden="true">❓</span><span class="nav-label"><span class="l-long">Dúvidas</span><span class="l-short">Dúvidas</span></span></button>
@@ -282,6 +283,17 @@
     <h2>Avisos</h2>
     <div class="notices-body"></div>
   </div>
+
+  <div class="card no-print" id="notesCard" data-view="ocorrencias">
+    <h2>Ocorrências</h2>
+    <p class="account-section-hint" style="margin:-4px 0 10px;">Anote o que acontece na academia (goteira, equipamento quebrado, recado para o próximo turno, objeto achado) para ninguém precisar lembrar. Todos da equipe veem; quando resolver, marque como resolvido.</p>
+    <div class="row-actions" style="margin:0 0 10px;"><button type="button" class="primary" id="btnNoteNew">+ Anotar ocorrência</button></div>
+    <input type="search" id="notesSearch" class="faq-search" placeholder="Buscar (ex.: fone, goteira, secador)" />
+    <div class="faq-chips" id="notesStatusTabs"></div>
+    <div class="faq-chips" id="notesKindTabs"></div>
+    <div id="notesList"></div>
+  </div>
+
 
   <div class="card no-print" id="exportCard" data-view="exportacao">
     <h2 id="exportTitle">Exportação</h2>
@@ -834,6 +846,7 @@
         <div class="client-days-grid">
           <label class="client-day-chip checked"><input type="radio" name="inviteAccessRole" value="staff" checked /> Profissional</label>
           <label class="client-day-chip"><input type="radio" name="inviteAccessRole" value="coordinator" /> Coordenador(a)</label>
+          <label class="client-day-chip"><input type="radio" name="inviteAccessRole" value="reception" /> Recepção</label>
           <label class="client-day-chip"><input type="radio" name="inviteAccessRole" value="manager" /> Gerente</label>
           <label class="client-day-chip"><input type="radio" name="inviteAccessRole" value="partner" /> Sócio(a)</label>
         </div>
@@ -1032,6 +1045,72 @@
   </div>
 </div>
 
+<!-- Ocorrências: anotar -->
+<div class="overlay" id="noteNewOverlay">
+  <div class="sheet">
+    <button class="close ghost small" data-close>Fechar</button>
+    <h3>Anotar ocorrência</h3>
+    <form id="noteForm" class="auth-form">
+      <div class="client-days-grid" id="noteKindChips">
+        <label class="client-day-chip checked"><input type="radio" name="noteKind" value="problema" checked /> 🛠️ Problema</label>
+        <label class="client-day-chip"><input type="radio" name="noteKind" value="recado" /> 💬 Recado de turno</label>
+        <label class="client-day-chip"><input type="radio" name="noteKind" value="achado" /> 🎧 Achado e perdido</label>
+      </div>
+      <label>O que aconteceu?
+        <input type="text" id="noteTitle" maxlength="120" required />
+      </label>
+      <label>Local
+        <input type="text" id="notePlace" maxlength="80" />
+      </label>
+      <label id="noteStoredWrap" style="display:none;">Onde ficou guardado?
+        <input type="text" id="noteStored" maxlength="80" placeholder="Ex: gaveta 2 da recepção" />
+      </label>
+      <label>Detalhes (opcional)
+        <textarea id="noteBody" maxlength="2000" rows="3"></textarea>
+      </label>
+      <label>Foto (opcional)
+        <input type="file" id="notePhoto" accept="image/*" capture="environment" />
+      </label>
+      <img id="notePhotoPreview" class="note-photo" alt="Foto" style="display:none;" />
+      <label class="reminder-toggle"><input type="checkbox" id="noteUrgent" /> 🚨 Urgente (avisa a equipe com destaque)</label>
+      <div class="auth-error" id="noteError"></div>
+      <button type="submit" class="primary" id="noteSave">Salvar ocorrência</button>
+    </form>
+  </div>
+</div>
+
+<!-- Ocorrências: detalhe -->
+<div class="overlay" id="noteDetailOverlay">
+  <div class="sheet">
+    <button class="close ghost small" data-close>Fechar</button>
+    <h3 id="noteDetailTitle"></h3>
+    <p class="sub" id="noteDetailMeta"></p>
+    <span class="pill" id="noteDetailStatus"></span>
+    <div id="noteDetailFacts" style="margin-top:8px;"></div>
+    <img id="noteDetailPhoto" class="note-photo" alt="Foto" style="display:none;" />
+    <h4 class="note-h4">Histórico</h4>
+    <div id="noteDetailTimeline"></div>
+    <p class="client-meta" id="noteDetailSeen"></p>
+    <div id="noteCommentWrap" class="auth-form" style="margin-top:8px;">
+      <label>Atualização
+        <input type="text" id="noteCommentText" maxlength="500" placeholder="Ex: chamei o técnico, vem amanhã" />
+      </label>
+      <button type="button" class="small" id="btnNoteComment">Enviar atualização</button>
+    </div>
+    <div id="noteResolveWrap" class="auth-form" style="margin-top:12px;">
+      <label>Como foi resolvido? (opcional)
+        <input type="text" id="noteResolution" maxlength="300" placeholder="Ex: entregue à aluna Maria, secador trocado" />
+      </label>
+      <button type="button" class="primary" id="btnNoteResolve">✓ Marcar como resolvido</button>
+    </div>
+    <div class="auth-error" id="noteDetailError"></div>
+    <div class="row-actions">
+      <button type="button" class="small" id="btnNoteReopen" style="display:none;">Reabrir</button>
+      <button type="button" class="small ghost" id="btnNoteDelete" style="display:none;">Apagar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Pedir troca de plantao -->
 <div class="overlay" id="swapOverlay">
   <div class="sheet">
@@ -1109,6 +1188,7 @@
 <script src="js/history.js"></script>
 <script src="js/units.js"></script>
 <script src="js/swaps.js"></script>
+<script src="js/notes.js"></script>
 <script src="js/legal.js"></script>
 <script src="js/push.js"></script>
 <script src="js/nav.js"></script>

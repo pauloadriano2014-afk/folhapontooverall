@@ -14,6 +14,7 @@ var THEME_KEY = "pontoOverallTheme_v1";
 // para si mesmos.
 function roleCategory(){
   if(typeof isGerente === "function" && isGerente()) return "gerente";
+  if(typeof isReception === "function" && isReception()) return "recepcao";
   var raw = (currentUser && currentUser.role) ? currentUser.role : "";
   var norm = raw.toLowerCase()
     .normalize("NFD").replace(/[̀-ͯ]/g, ""); // remove acentos
@@ -28,7 +29,7 @@ function personalModuleOn(){
 // Quem pode ligar o modulo de alunos particulares (o servidor tambem confere).
 function canUsePersonalModule(){
   if(typeof isCompanyOwner === "function" && (isCompanyOwner() || isPartner())) return false;
-  return roleCategory() !== "estagiario";
+  return roleCategory() !== "estagiario" && roleCategory() !== "recepcao";
 }
 
 // Aluno VIP so o estagiario atende. A grade de horas e do estagiario e do
@@ -38,7 +39,7 @@ function applyRoleVisibility(){
   var cat = roleCategory();
   var showVip = cat === "estagiario";
   var showClients = personalModuleOn();
-  var showGrade = cat !== "gerente";
+  var showGrade = cat !== "gerente" && cat !== "recepcao"; // gerente e recepção não batem ponto
   var showSchedule = showClients; // grade semanal dos alunos particulares
   var vipCard = document.getElementById("vipCard");
   var clientsCard = document.getElementById("clientsCard");
@@ -149,6 +150,7 @@ async function bootAppInner(){
     if(typeof applyCompanyReadOnlyUI === "function") applyCompanyReadOnlyUI(isPartner());
     if(typeof mountScheduleCard === "function") mountScheduleCard(companyDashboard.querySelector("main"));
     if(typeof mountRosterCard === "function") mountRosterCard(companyDashboard.querySelector("main"));
+    if(typeof mountNotesCard === "function") mountNotesCard(companyDashboard.querySelector("main"));
     loadCompanyOverview();
     if(typeof loadScheduleMonth === "function") loadScheduleMonth(currentScheduleMonthKey());
     updatePersonalModuleUI();
@@ -156,6 +158,8 @@ async function bootAppInner(){
     renderFaq();
     setupNav();
     if(typeof checkTermsGate === "function") checkTermsGate();
+    if(currentUser.companyId && !isPartner()) startNoticePolling(); // avisos de ocorrências e trocas também chegam ao painel da academia
+    else if(currentUser.companyId && typeof refreshNotesBadge === "function") refreshNotesBadge();
     if(currentUser.companyId && typeof pushSyncOnBoot === "function") pushSyncOnBoot();
     maybeShowOnboarding(isPartner() ? "socio" : (isGerente() ? "gerente" : "empresa"));
     return;
@@ -212,6 +216,7 @@ async function bootAppInner(){
     mountRosterCard(mainDashboard);
     loadScheduleMonth(currentScheduleMonthKey());
   }
+  if(currentUser.companyId && typeof mountNotesCard === "function") mountNotesCard(mainDashboard.querySelector("main") || mainDashboard);
   renderFaq();
   setupNav();
   if(typeof checkTermsGate === "function") checkTermsGate();

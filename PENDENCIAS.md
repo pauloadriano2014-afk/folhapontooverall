@@ -56,6 +56,8 @@ DELETE FROM users WHERE email LIKE '%@equipe-teste.invalid';
 
 ## 5. Limitações conhecidas
 
+- **Recepção e Ocorrências (novo):** criar as contas da recepção em Convites (nível "Recepção"). As ocorrências não têm anexo além de 1 foto, nem responsável designado, nem prazo; se a academia quiser, dá para acrescentar "quem vai resolver" e lembrete de ocorrência parada.
+
 - O fechamento do mês trava horas, valores, auxílio e consumo. Alunos VIP e alunos particulares não entram no fechamento (não fazem parte do pagamento da academia). "Marcar como pago" e observações continuam livres.
 - Uma pessoa só pertence a uma unidade por vez. Para mudar de unidade: remover da atual e convidar na nova.
 - O push só funciona com HTTPS, permissão da pessoa e, no iPhone, o app instalado na tela inicial. O envio real a um celular ainda não foi testado (só com um serviço simulado).

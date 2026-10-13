@@ -757,3 +757,19 @@
   .wk-row.wk-holiday{ border-color:#d9a43a; }
   .wk-val .wk-per-hour{ display:block; font-size:10px; font-weight:600; color:var(--text-dim); text-align:right; }
   .roster-pub-hint{ font-size:12px; font-weight:600; color:var(--warn); margin:8px 0 6px; line-height:1.4; }
+
+  /* ocorrencias */
+  .note-row{ display:flex; gap:10px; align-items:flex-start; padding:10px 12px; margin-bottom:6px; border:1px solid var(--border); border-radius:12px; background:var(--bg-panel-2); cursor:pointer; }
+  .note-row:hover, .note-row:focus-visible{ border-color:var(--accent); outline:none; }
+  .note-row.urgent{ border-color:var(--warn); }
+  .note-row.done{ opacity:.8; }
+  .note-ico{ font-size:20px; line-height:1.2; }
+  .note-main{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .note-main strong{ font-size:14px; }
+  .note-urgent{ margin-left:8px; font-size:10px; font-weight:800; color:#fff; background:var(--warn); border-radius:999px; padding:2px 7px; vertical-align:middle; }
+  .note-resolved{ color:var(--good); }
+  .note-photo{ display:block; max-width:100%; max-height:260px; border-radius:10px; margin:8px 0; border:1px solid var(--border); }
+  .note-fact{ margin:4px 0; font-size:14px; }
+  .note-h4{ margin:14px 0 6px; font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:var(--text-dim); }
+  .note-upd{ font-size:13px; padding:5px 0; border-bottom:1px solid var(--border); }
+  .note-upd.resolved strong{ color:var(--good); }

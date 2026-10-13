@@ -393,6 +393,49 @@ async function ensureTables() {
   `);
   // troca feita direto entre colegas do mesmo grupo (sem aprovacao; a coordenacao so e avisada)
   await pool.query("ALTER TABLE roster_swap_requests ADD COLUMN IF NOT EXISTS auto boolean NOT NULL DEFAULT false");
+  // Ocorrencias da academia (problemas, recados de turno, achados e perdidos): registros
+  // da academia, nao pessoais. Qualquer um da equipe anota e ve; a resolucao fica registrada.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS company_notes (
+      id serial PRIMARY KEY,
+      company_id integer NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+      kind text NOT NULL,
+      title text NOT NULL,
+      body text,
+      place text,
+      stored_at text,
+      priority text NOT NULL DEFAULT 'normal',
+      photo text,
+      status text NOT NULL DEFAULT 'open',
+      created_by integer REFERENCES users(id) ON DELETE SET NULL,
+      created_by_name text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      resolved_by integer REFERENCES users(id) ON DELETE SET NULL,
+      resolved_by_name text,
+      resolved_at timestamptz,
+      resolution text
+    );
+  `);
+  await pool.query("CREATE INDEX IF NOT EXISTS company_notes_idx ON company_notes (company_id, status, created_at DESC)");
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS company_note_updates (
+      id serial PRIMARY KEY,
+      note_id integer NOT NULL REFERENCES company_notes(id) ON DELETE CASCADE,
+      user_id integer REFERENCES users(id) ON DELETE SET NULL,
+      user_name text NOT NULL,
+      kind text NOT NULL DEFAULT 'comment',
+      text text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS company_note_seen (
+      note_id integer NOT NULL REFERENCES company_notes(id) ON DELETE CASCADE,
+      user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      seen_at timestamptz NOT NULL DEFAULT now(),
+      PRIMARY KEY (note_id, user_id)
+    );
+  `);
   // Fechamento do mes: foto (snapshot) das horas de uma pessoa naquele mes.
   // Enquanto existir, o servidor nao deixa as horas/valores desse mes mudarem.
   await pool.query(`
@@ -558,17 +601,17 @@ async function createCompanyForOwner(ownerUserId, companyName) {
 function managerCanManage(actorRole, targetRole) {
   if (targetRole === "owner") return false;
   if (actorRole === "owner") return true;
-  if (actorRole === "manager") return !targetRole || targetRole === "coordinator";
+  if (actorRole === "manager") return !targetRole || targetRole === "coordinator" || targetRole === "reception";
   return false;
 }
 // Niveis que cada um pode atribuir ("staff" = profissional comum, company_role nulo).
 function assignableAccessRoles(actorRole) {
-  if (actorRole === "owner") return ["staff", "coordinator", "manager", "partner"];
-  if (actorRole === "manager") return ["staff", "coordinator"];
+  if (actorRole === "owner") return ["staff", "coordinator", "manager", "partner", "reception"];
+  if (actorRole === "manager") return ["staff", "coordinator", "reception"];
   return [];
 }
 // Nomes em portugues dos niveis de acesso (usados no historico, que a pessoa le).
-var ACCESS_LABELS_PT = { owner: "Dono", manager: "Gerente", coordinator: "Coordenador(a)", partner: "Sócio(a)", staff: "Profissional" };
+var ACCESS_LABELS_PT = { owner: "Dono", manager: "Gerente", coordinator: "Coordenador(a)", partner: "Sócio(a)", reception: "Recepção", staff: "Profissional" };
 function accessLabelPt(role) {
   return ACCESS_LABELS_PT[role || "staff"] || String(role);
 }
@@ -812,7 +855,7 @@ app.post("/api/register", limitRegister, async (req, res) => {
       await pool.query("UPDATE company_invites SET used_at = now(), redeemed_user_id = $1 WHERE id = $2", [user.id, inviteRow.id]);
       // Convite de coordenador(a), socio(a) ou gerente: a conta ja nasce com
       // esse nivel de acesso, sem precisar de nenhum passo manual depois.
-      if (inviteRow.access_role === "coordinator" || inviteRow.access_role === "partner" || inviteRow.access_role === "manager") {
+      if (inviteRow.access_role === "coordinator" || inviteRow.access_role === "partner" || inviteRow.access_role === "manager" || inviteRow.access_role === "reception") {
         await pool.query("UPDATE users SET company_role = $1 WHERE id = $2", [inviteRow.access_role, user.id]);
         user.company_role = inviteRow.access_role;
         // salario mensal fixo combinado no convite de gerente
@@ -825,7 +868,7 @@ app.post("/api/register", limitRegister, async (req, res) => {
     var publicUserObj = publicUser(user);
     // Socio(a) e gerente sao 100% administrativos (nao batem ponto), entao
     // nenhum horario sugerido faz sentido pra eles.
-    if (inviteRow && inviteRow.access_role !== "partner" && inviteRow.access_role !== "manager") {
+    if (inviteRow && inviteRow.access_role !== "partner" && inviteRow.access_role !== "manager" && inviteRow.access_role !== "reception") {
       var suggested = buildSuggestedSchedule(inviteRow.shift_start, inviteRow.shift_end, inviteRow.weekend_shift);
       if (suggested) publicUserObj.suggestedSchedule = suggested;
     }
@@ -971,10 +1014,10 @@ app.post("/api/company/invite", auth, limitInvite, async (req, res) => {
   var inviteRoleInput = canonicalRole(body.role);
   var role = inviteRoleInput.invalid ? "" : inviteRoleInput.role;
   var accessRole = String(body.accessRole || "staff").trim();
-  if (["staff", "coordinator", "partner", "manager"].indexOf(accessRole) === -1) accessRole = "staff";
-  // Socio(a) e gerente sao 100% administrativos — nao faz sentido pedir
-  // horario de trabalho pra eles.
-  var isAdminInvite = accessRole === "partner" || accessRole === "manager";
+  if (["staff", "coordinator", "partner", "manager", "reception"].indexOf(accessRole) === -1) accessRole = "staff";
+  // Socio(a), gerente e recepcao nao batem ponto — nao faz sentido pedir
+  // horario de trabalho nem funcao (professor/estagiario) pra eles.
+  var isAdminInvite = accessRole === "partner" || accessRole === "manager" || accessRole === "reception";
   var shiftStart = isAdminInvite ? "" : String(body.shiftStart || "").trim();
   var shiftEnd = isAdminInvite ? "" : String(body.shiftEnd || "").trim();
   var weekendShift = isAdminInvite ? false : !!body.weekendShift;
@@ -1956,6 +1999,194 @@ app.post("/api/company/swaps/:id/decide", auth, async (req, res) => {
   }
 });
 
+// ---------- Ocorrencias da academia ----------
+// Problemas (goteira, secador queimado...), recados de turno e achados e perdidos.
+// Todos da academia veem; quase todos anotam; quem trata marca como resolvido.
+var NOTE_KINDS = ["problema", "recado", "achado"];
+var NOTE_KIND_PT = { problema: "problema", recado: "recado de turno", achado: "item achado" };
+function canWriteNotes(role) { return role !== "partner"; } // socio(a) so acompanha
+function canResolveNotes(role) { return role === "owner" || role === "manager" || role === "coordinator" || role === "reception"; }
+async function noteActor(userId) {
+  var r = await pool.query("SELECT id, name, company_id, company_role FROM users WHERE id = $1", [userId]);
+  var u = r.rows[0];
+  return u && u.company_id ? u : null;
+}
+function noteOut(n, extra) {
+  return Object.assign({
+    id: n.id, kind: n.kind, title: n.title, body: n.body || "", place: n.place || "", storedAt: n.stored_at || "",
+    priority: n.priority, status: n.status, hasPhoto: !!n.has_photo,
+    createdById: n.created_by, createdByName: n.created_by_name, createdAt: n.created_at,
+    resolvedByName: n.resolved_by_name || "", resolvedAt: n.resolved_at, resolution: n.resolution || "",
+    updates: n.updates === undefined ? 0 : n.updates,
+  }, extra || {});
+}
+// avisa quem trata ocorrencias (dono, gerente, coordenacao e recepcao), menos quem anotou
+async function notifyNoteHandlers(companyId, exceptId, title, body) {
+  var r = await pool.query("SELECT id FROM users WHERE company_id = $1 AND company_role IN ('owner','manager','coordinator','reception') AND id <> $2", [companyId, exceptId || 0]);
+  for (var i = 0; i < r.rows.length; i++) await notify(r.rows[i].id, companyId, "note", title, body);
+}
+
+app.get("/api/company/notes", auth, async (req, res) => {
+  try {
+    var me = await noteActor(req.userId);
+    if (!me) return res.status(403).json({ error: "not_allowed" });
+    var status = String(req.query.status || "open");
+    var kind = String(req.query.kind || "");
+    var q = String(req.query.q || "").trim().slice(0, 60);
+    var args = [me.company_id], where = "n.company_id = $1";
+    if (status === "open" || status === "resolved") { args.push(status); where += " AND n.status = $" + args.length; }
+    if (NOTE_KINDS.indexOf(kind) >= 0) { args.push(kind); where += " AND n.kind = $" + args.length; }
+    if (q) { args.push("%" + q.replace(/[%_\\]/g, "\\$&") + "%"); where += " AND (n.title ILIKE $" + args.length + " OR n.body ILIKE $" + args.length + " OR n.place ILIKE $" + args.length + " OR n.stored_at ILIKE $" + args.length + ")"; }
+    var [rows, counts] = await Promise.all([
+      pool.query(
+        `SELECT n.id, n.kind, n.title, n.body, n.place, n.stored_at, n.priority, n.status, (n.photo IS NOT NULL) AS has_photo,
+                n.created_by, n.created_by_name, n.created_at, n.resolved_by_name, n.resolved_at, n.resolution,
+                (SELECT COUNT(*)::int FROM company_note_updates u WHERE u.note_id = n.id AND u.kind = 'comment') AS updates
+         FROM company_notes n WHERE ${where}
+         ORDER BY (n.status = 'open') DESC, (n.priority = 'urgente' AND n.status = 'open') DESC,
+                  COALESCE(n.resolved_at, n.created_at) DESC LIMIT 100`, args),
+      pool.query("SELECT COUNT(*) FILTER (WHERE status = 'open')::int AS open, COUNT(*) FILTER (WHERE status = 'resolved')::int AS resolved FROM company_notes WHERE company_id = $1", [me.company_id]),
+    ]);
+    res.json({
+      canWrite: canWriteNotes(me.company_role), canResolve: canResolveNotes(me.company_role),
+      canDelete: isCompanyManager(me.company_role), me: me.id,
+      counts: counts.rows[0], notes: rows.rows.map((n) => noteOut(n)),
+    });
+  } catch (err) {
+    console.error("Erro no GET /api/company/notes:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+app.post("/api/company/notes", auth, async (req, res) => {
+  try {
+    var me = await noteActor(req.userId);
+    if (!me || !canWriteNotes(me.company_role)) return res.status(403).json({ error: "not_allowed", message: "Você não pode registrar ocorrências." });
+    var b = req.body || {};
+    var kind = String(b.kind || "problema");
+    var title = String(b.title || "").trim().slice(0, 120);
+    if (NOTE_KINDS.indexOf(kind) < 0 || !title) return res.status(400).json({ error: "invalid_input", message: "Escreva o que aconteceu." });
+    var body = String(b.body || "").trim().slice(0, 2000) || null;
+    var place = String(b.place || "").trim().slice(0, 80) || null;
+    var storedAt = kind === "achado" ? (String(b.storedAt || "").trim().slice(0, 80) || null) : null;
+    var priority = b.priority === "urgente" ? "urgente" : "normal";
+    var photo = null;
+    if (b.photo) {
+      photo = String(b.photo);
+      if (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(photo) || photo.length > 400000) {
+        return res.status(400).json({ error: "invalid_photo", message: "Foto inválida ou grande demais." });
+      }
+    }
+    var ins = await pool.query(
+      `INSERT INTO company_notes (company_id, kind, title, body, place, stored_at, priority, photo, created_by, created_by_name)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+      [me.company_id, kind, title, body, place, storedAt, priority, photo, me.id, me.name]);
+    var head = (priority === "urgente" ? "🚨 URGENTE · " : "") + "Novo " + NOTE_KIND_PT[kind] + ": " + title;
+    await notifyNoteHandlers(me.company_id, me.id, head, [place ? "Local: " + place : "", storedAt ? "Guardado em: " + storedAt : "", "Anotado por " + me.name].filter(Boolean).join("\n"));
+    res.json({ ok: true, id: ins.rows[0].id });
+  } catch (err) {
+    console.error("Erro no POST /api/company/notes:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+// Detalhe: historico, quem ja viu e a foto. Abrir marca como visto por quem abriu.
+app.get("/api/company/notes/:id", auth, async (req, res) => {
+  try {
+    var me = await noteActor(req.userId);
+    if (!me) return res.status(403).json({ error: "not_allowed" });
+    var id = parseInt(req.params.id, 10);
+    var n = (await pool.query("SELECT *, (photo IS NOT NULL) AS has_photo FROM company_notes WHERE id = $1 AND company_id = $2", [id, me.company_id])).rows[0];
+    if (!n) return res.status(404).json({ error: "not_found" });
+    await pool.query("INSERT INTO company_note_seen (note_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", [id, me.id]);
+    var [ups, seen] = await Promise.all([
+      pool.query("SELECT id, user_name, kind, text, created_at FROM company_note_updates WHERE note_id = $1 ORDER BY created_at ASC, id ASC", [id]),
+      pool.query("SELECT u.name, s.seen_at FROM company_note_seen s JOIN users u ON u.id = s.user_id WHERE s.note_id = $1 ORDER BY s.seen_at ASC", [id]),
+    ]);
+    res.json({
+      note: noteOut(n, { photo: n.photo || null }),
+      updates: ups.rows.map((u) => ({ id: u.id, userName: u.user_name, kind: u.kind, text: u.text, createdAt: u.created_at })),
+      seenBy: seen.rows.map((s) => ({ name: s.name, seenAt: s.seen_at })),
+      canWrite: canWriteNotes(me.company_role),
+      canResolve: canResolveNotes(me.company_role) || n.created_by === me.id,
+      canDelete: isCompanyManager(me.company_role),
+    });
+  } catch (err) {
+    console.error("Erro no GET /api/company/notes/:id:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+app.post("/api/company/notes/:id/updates", auth, async (req, res) => {
+  try {
+    var me = await noteActor(req.userId);
+    if (!me || !canWriteNotes(me.company_role)) return res.status(403).json({ error: "not_allowed" });
+    var id = parseInt(req.params.id, 10);
+    var text = String((req.body && req.body.text) || "").trim().slice(0, 500);
+    if (!text) return res.status(400).json({ error: "invalid_input", message: "Escreva a atualização." });
+    var n = (await pool.query("SELECT id, title, created_by FROM company_notes WHERE id = $1 AND company_id = $2", [id, me.company_id])).rows[0];
+    if (!n) return res.status(404).json({ error: "not_found" });
+    await pool.query("INSERT INTO company_note_updates (note_id, user_id, user_name, kind, text) VALUES ($1, $2, $3, 'comment', $4)", [id, me.id, me.name, text]);
+    if (n.created_by && n.created_by !== me.id) await notify(n.created_by, me.company_id, "note", "Atualização em: " + n.title, me.name + ": " + text);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro no POST /api/company/notes/:id/updates:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+app.post("/api/company/notes/:id/resolve", auth, async (req, res) => {
+  try {
+    var me = await noteActor(req.userId);
+    if (!me) return res.status(403).json({ error: "not_allowed" });
+    var id = parseInt(req.params.id, 10);
+    var n = (await pool.query("SELECT id, title, status, created_by, kind FROM company_notes WHERE id = $1 AND company_id = $2", [id, me.company_id])).rows[0];
+    if (!n) return res.status(404).json({ error: "not_found" });
+    if (!(canResolveNotes(me.company_role) || n.created_by === me.id)) return res.status(403).json({ error: "not_allowed", message: "Só a recepção, a coordenação, a gerência, o dono ou quem anotou marcam como resolvido." });
+    if (n.status === "resolved") return res.status(409).json({ error: "already", message: "Já está resolvido." });
+    var resolution = String((req.body && req.body.resolution) || "").trim().slice(0, 300) || null;
+    await pool.query("UPDATE company_notes SET status = 'resolved', resolved_by = $2, resolved_by_name = $3, resolved_at = now(), resolution = $4 WHERE id = $1", [id, me.id, me.name, resolution]);
+    await pool.query("INSERT INTO company_note_updates (note_id, user_id, user_name, kind, text) VALUES ($1, $2, $3, 'resolved', $4)", [id, me.id, me.name, resolution || "Marcado como resolvido"]);
+    if (n.created_by && n.created_by !== me.id) await notify(n.created_by, me.company_id, "note", "Resolvido: " + n.title, "Resolvido por " + me.name + (resolution ? "\n" + resolution : ""));
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro no POST /api/company/notes/:id/resolve:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+app.post("/api/company/notes/:id/reopen", auth, async (req, res) => {
+  try {
+    var me = await noteActor(req.userId);
+    if (!me || !canWriteNotes(me.company_role)) return res.status(403).json({ error: "not_allowed" });
+    var id = parseInt(req.params.id, 10);
+    var n = (await pool.query("SELECT id, title, status FROM company_notes WHERE id = $1 AND company_id = $2", [id, me.company_id])).rows[0];
+    if (!n) return res.status(404).json({ error: "not_found" });
+    if (n.status !== "resolved") return res.status(409).json({ error: "already", message: "Já está aberto." });
+    await pool.query("UPDATE company_notes SET status = 'open', resolved_by = NULL, resolved_by_name = NULL, resolved_at = NULL, resolution = NULL WHERE id = $1", [id]);
+    await pool.query("INSERT INTO company_note_updates (note_id, user_id, user_name, kind, text) VALUES ($1, $2, $3, 'reopened', 'Reaberto')", [id, me.id, me.name]);
+    await notifyNoteHandlers(me.company_id, me.id, "Reaberto: " + n.title, "Reaberto por " + me.name);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro no POST /api/company/notes/:id/reopen:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
+app.delete("/api/company/notes/:id", auth, async (req, res) => {
+  try {
+    var me = await noteActor(req.userId);
+    if (!me || !isCompanyManager(me.company_role)) return res.status(403).json({ error: "not_allowed", message: "Só o dono ou o gerente apagam ocorrências." });
+    var r = await pool.query("DELETE FROM company_notes WHERE id = $1 AND company_id = $2 RETURNING title", [parseInt(req.params.id, 10), me.company_id]);
+    if (!r.rows.length) return res.status(404).json({ error: "not_found" });
+    await audit(me.company_id, me.id, "note_deleted", null, r.rows[0].title, "ocorrência apagada");
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Erro no DELETE /api/company/notes/:id:", err);
+    res.status(500).json({ error: "internal_error" });
+  }
+});
+
 // Avisos da pessoa logada.
 app.get("/api/me/notifications", auth, async (req, res) => {
   try {
@@ -2714,6 +2945,10 @@ app.delete("/api/me", auth, limitChangePassword, async (req, res) => {
     await pool.query("UPDATE company_schedule SET covered_by_user_id = NULL WHERE covered_by_user_id = $1", [uid]);
     await pool.query("UPDATE company_schedule SET created_by = NULL WHERE created_by = $1", [uid]);
     await pool.query("UPDATE company_invites SET redeemed_user_id = NULL WHERE redeemed_user_id = $1", [uid]);
+    // ocorrencias sao da academia: ficam, mas sem o nome de quem apagou a conta
+    await pool.query("UPDATE company_notes SET created_by_name = 'Pessoa que saiu' WHERE created_by = $1", [uid]);
+    await pool.query("UPDATE company_notes SET resolved_by_name = 'Pessoa que saiu' WHERE resolved_by = $1", [uid]);
+    await pool.query("UPDATE company_note_updates SET user_name = 'Pessoa que saiu' WHERE user_id = $1", [uid]);
     if (u.company_id) await audit(u.company_id, null, "account_deleted", null, "Pessoa que apagou a conta", "A própria pessoa apagou a conta e os dados dela");
     await pool.query("DELETE FROM users WHERE id = $1", [uid]);
     forgetTokenVersion(uid);

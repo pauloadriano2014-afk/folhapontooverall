@@ -5,7 +5,7 @@
 // verdade; aqui só escondemos o que a pessoa não pode fazer.
 "use strict";
 
-var ACCESS_LABELS = { staff: "Profissional", coordinator: "Coordenador(a)", manager: "Gerente", partner: "Sócio(a)" };
+var ACCESS_LABELS = { staff: "Profissional", coordinator: "Coordenador(a)", reception: "Recepção", manager: "Gerente", partner: "Sócio(a)" };
 var editingMember = null;
 
 function viewerCompanyRole(){
@@ -17,14 +17,14 @@ function canManageMember(member){
   if(!member || member.isOwner) return false;
   if(currentUser && member.id === currentUser.id) return false;
   if(viewer === "owner") return true;
-  if(viewer === "manager") return !member.companyRole || member.companyRole === "coordinator";
+  if(viewer === "manager") return !member.companyRole || member.companyRole === "coordinator" || member.companyRole === "reception";
   return false;
 }
 
 function assignableAccess(){
   var viewer = viewerCompanyRole();
-  if(viewer === "owner") return ["staff", "coordinator", "manager", "partner"];
-  if(viewer === "manager") return ["staff", "coordinator"];
+  if(viewer === "owner") return ["staff", "coordinator", "reception", "manager", "partner"];
+  if(viewer === "manager") return ["staff", "coordinator", "reception"];
   return [];
 }
 
@@ -110,7 +110,7 @@ function updateStaffEditRoleVisibility(){
   var checked = document.querySelector('input[name="staffEditAccess"]:checked');
   var key = checked ? checked.value : (editingMember ? memberAccessKey(editingMember) : "staff");
   syncRoleOptionsForAccess(document.getElementById("staffEditRole"), key); // coordenador nunca e estagiario
-  document.getElementById("staffEditRoleWrap").style.display = (key === "manager" || key === "partner") ? "none" : "";
+  document.getElementById("staffEditRoleWrap").style.display = (key === "manager" || key === "partner" || key === "reception") ? "none" : "";
   // so o dono define o salario fixo do gerente
   document.getElementById("staffEditSalaryWrap").style.display = (key === "manager" && viewerCompanyRole() === "owner") ? "" : "none";
 }
@@ -122,7 +122,7 @@ document.getElementById("staffEditForm").addEventListener("submit", function(e){
   errEl.textContent = "";
   var checked = document.querySelector('input[name="staffEditAccess"]:checked');
   var accessKey = checked ? checked.value : memberAccessKey(editingMember);
-  var roleHidden = accessKey === "manager" || accessKey === "partner";
+  var roleHidden = accessKey === "manager" || accessKey === "partner" || accessKey === "reception";
   var body = { accessRole: accessKey };
   if(!roleHidden) body.role = document.getElementById("staffEditRole").value;
   if(accessKey === "manager" && viewerCompanyRole() === "owner"){
@@ -188,6 +188,7 @@ function auditText(entry){
   if(entry.action === "swap_auto") return "Troca de plantão feita entre colegas (" + entry.detail + ")";
   if(entry.action === "swap_approved") return who + " aprovou uma troca de plantão (" + entry.detail + ")";
   if(entry.action === "swap_rejected") return who + " recusou uma troca de plantão (" + entry.detail + ")";
+  if(entry.action === "note_deleted") return who + " apagou a ocorrência \"" + target + "\"";
   if(entry.action === "invite_code_rotated") return who + " gerou um novo código de convite";
   return who + " · " + entry.action;
 }

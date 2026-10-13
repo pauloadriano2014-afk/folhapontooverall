@@ -13,10 +13,15 @@ Aplicativo (PWA) de ponto e escala para a equipe de uma academia: cada profissio
 | Dono | Tudo: equipe, convites, valores, escala, fechamento e reabertura, histórico e, se tiver mais de uma academia, as unidades |
 | Gerente | Equipe, convites, escala, fechamento e reabertura, histórico |
 | Sócio(a) | Só acompanha (valores, escala, histórico), sem editar |
+| Recepção | Não bate ponto nem entra na escala de turnos. Usa as Ocorrências (anota, comenta e resolve) e os Avisos |
 | Coordenador(a) | Escala, presença, horários da equipe, fecha o mês (nunca o próprio). Vê horas, não valores em R$ |
 | Professor / Estagiário | Lança as próprias horas, vê a escala, dá o "ciente" e pede troca de plantão |
 
 Alunos particulares (módulo opcional do professor) são sempre privados: nenhum nível da academia vê nomes, valores nem totais.
+
+## Ocorrências
+
+Registro da academia (não pessoal) para problemas (goteira, secador queimado), recados de turno e achados e perdidos. Todos da equipe veem; todos anotam, menos o(a) sócio(a), que só acompanha. Cada ocorrência guarda quem anotou, quem já abriu ("visto por"), as atualizações e quem resolveu, quando e como (recepção, coordenação, gerência, dono e quem anotou podem resolver; só dono e gerente apagam). Dono, gerente, coordenação e recepção recebem um aviso a cada nova ocorrência (com destaque se for urgente). Fotos são reduzidas no navegador e guardadas no banco. Tabelas: `company_notes`, `company_note_updates`, `company_note_seen`.
 
 ## Várias unidades
 
