@@ -45,7 +45,7 @@ const items = p => p.evaluate(() => [...document.querySelectorAll('#appNav .nav-
   // editar Beto -> coordenador
   await p.evaluate(() => [...document.querySelectorAll('#teamManageList .client-row')].find(r => r.textContent.includes('Beto')).querySelector('button').click()); await sleep(300);
   await p.screenshot({ path: 'shots/g02-editar.png' });
-  ok((await p.evaluate(() => [...document.querySelectorAll('#staffEditAccessGrid label')].map(l => l.textContent.trim()))).join() === 'Profissional,Coordenador(a),Gerente,Sócio(a)', 'dono ve os 4 niveis para atribuir');
+  ok((await p.evaluate(() => [...document.querySelectorAll('#staffEditAccessGrid label')].map(l => l.textContent.trim()))).join() === 'Profissional,Coordenador(a),Recepção,Gerente,Sócio(a)', 'dono ve os 5 niveis para atribuir');
   await p.click('#staffEditAccessGrid input[value=coordinator]'); await p.selectOption('#staffEditRole', 'Professor'); await p.click('#staffEditSave'); await sleep(900);
   ok((await api('/api/me', 'GET', null, beto.token)).b.user.companyRole === 'coordinator', 'Beto virou coordenador pelo painel');
   ok(await p.evaluate(() => document.getElementById('teamManageList').textContent.includes('Coordenador(a)')), 'lista atualizou sem recarregar');
@@ -82,7 +82,7 @@ const items = p => p.evaluate(() => [...document.querySelectorAll('#appNav .nav-
   const rows = await p.evaluate(() => [...document.querySelectorAll('#teamManageList .client-row')].map(r => r.querySelector('strong').textContent + ':' + r.querySelectorAll('button').length));
   ok(rows.some(r => r.startsWith('Dona UI') && r.endsWith(':0')) && rows.some(r => r.startsWith('Caio') && r.endsWith(':1')), 'gerente nao tem Editar no dono, tem no Caio: ' + rows.join(', '));
   await p.evaluate(() => [...document.querySelectorAll('#teamManageList .client-row')].find(r => r.textContent.includes('Caio')).querySelector('button').click()); await sleep(300);
-  ok((await p.evaluate(() => [...document.querySelectorAll('#staffEditAccessGrid label')].map(l => l.textContent.trim()))).join() === 'Profissional,Coordenador(a)', 'gerente so pode atribuir Profissional/Coordenador(a)'); await p.close();
+  ok((await p.evaluate(() => [...document.querySelectorAll('#staffEditAccessGrid label')].map(l => l.textContent.trim()))).join() === 'Profissional,Coordenador(a),Recepção', 'gerente so pode atribuir Profissional/Coordenador(a)/Recepção'); await p.close();
 
   console.log('== socio nao ve a gestao ==');
   await api(`/api/company/staff/${cam.user.id}/access`, 'PUT', { accessRole: 'partner' }, owner.token);
