@@ -27,7 +27,7 @@
     }
 
     var current = document.createElement("div");
-    current.className = "current";
+    current.className = "current" + (single && typeof dayObj.slots[idx] === "number" ? " shift-total" : "");
     current.textContent = (single && typeof dayObj.slots[idx] === "number")
       ? "R$ " + dayObj.slots[idx] + " por hora × " + SHIFT_HOURS + "h = R$ " + (dayObj.slots[idx] * SHIFT_HOURS)
       : describeSlot(dayObj.slots[idx]);
@@ -126,7 +126,57 @@
       });
     }
 
+    renderRepeatBox(dateKey);
     dayOverlay.classList.add("open");
+  }
+
+  // "Repetir nos proximos": marca outros dias (o dia seguinte e o mesmo dia da semana nas
+  // proximas 2 semanas) e copia o que foi lancado neste dia, de uma vez so.
+  var repeatPicks = {};
+  function renderRepeatBox(dateKey){
+    var box = document.getElementById("repeatBox");
+    if(!box) return;
+    box.innerHTML = "";
+    var monthObj = ensureMonth(currentMonthKey);
+    var base = new Date(dateKey + "T12:00:00");
+    var cands = [];
+    [1, 7, 14].forEach(function(n){
+      var d = new Date(base.getTime()); d.setDate(d.getDate() + n);
+      var k = dateKeyOf(d);
+      if(monthObj.days[k]) cands.push(k);
+    });
+    if(!cands.length) return;
+    repeatPicks = {};
+    var lab = document.createElement("div"); lab.className = "lb"; lab.textContent = "REPETIR NOS PRÓXIMOS"; box.appendChild(lab);
+    var row = document.createElement("div"); row.className = "repeat-chips"; box.appendChild(row);
+    var go = document.createElement("button"); go.type = "button"; go.className = "primary repeat-go"; go.style.display = "none"; box.appendChild(go);
+    function refresh(){
+      var n = Object.keys(repeatPicks).filter(function(k){ return repeatPicks[k]; }).length;
+      go.style.display = n ? "" : "none";
+      go.textContent = n === 1 ? "Repetir em 1 dia" : "Repetir em " + n + " dias";
+    }
+    cands.forEach(function(k){
+      var d = new Date(k + "T12:00:00");
+      var chip = document.createElement("button"); chip.type = "button"; chip.className = "repeat-chip";
+      chip.setAttribute("data-date", k);
+      chip.textContent = DOW_NAMES[d.getDay()].toUpperCase().slice(0, 3) + " " + pad2(d.getDate());
+      chip.addEventListener("click", function(){
+        repeatPicks[k] = !repeatPicks[k];
+        chip.classList.toggle("on", !!repeatPicks[k]);
+        refresh();
+      });
+      row.appendChild(chip);
+    });
+    go.addEventListener("click", function(){
+      var src = monthObj.days[dateKey], n = 0;
+      Object.keys(repeatPicks).forEach(function(k){
+        if(!repeatPicks[k] || !monthObj.days[k]) return;
+        monthObj.days[k].slots = src.slots.slice();
+        monthObj.days[k].shift = src.shift || null;
+        n++;
+      });
+      if(n){ saveData(); renderGrid(); showToast("Repetido em " + n + (n === 1 ? " dia" : " dias")); openDayModal(dateKey); }
+    });
   }
 
   function describeSlot(v){

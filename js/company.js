@@ -153,6 +153,40 @@ function renderGroupedMembers(listEl, items, opts){
   });
 }
 
+function initialsOf(name){
+  var parts = String(name || "?").trim().split(/\s+/);
+  return ((parts[0] || "?").charAt(0) + (parts.length > 1 ? parts[parts.length - 1].charAt(0) : (parts[0] || "").charAt(1) || "")).toUpperCase();
+}
+
+// Anel da divisao da equipe (estagiarios, professores, coordenacao) e legenda com os subtotais.
+function renderTeamHero(groupSum, total){
+  var parts = [ { id: "teamRingEstag", key: "estag", label: "Estagiários", color: "#2563eb" }, { id: "teamRingProf", key: "prof", label: "Professores", color: "#7c3aed" }, { id: "teamRingCoord", key: "coord", label: "Coordenação", color: "#dc2626" } ];
+  var sum = parts.reduce(function(a, p){ return a + Math.max(groupSum[p.key] || 0, 0); }, 0);
+  var used = parts.filter(function(p){ return (groupSum[p.key] || 0) > 0; }).length;
+  var avail = 339.3 - used * 2, offset = 0;
+  parts.forEach(function(p){
+    var el = document.getElementById(p.id);
+    if(!el) return;
+    var v = Math.max(groupSum[p.key] || 0, 0);
+    var len = sum > 0 && v > 0 ? avail * v / sum : 0;
+    el.setAttribute("stroke-dasharray", len.toFixed(1) + " 339.3");
+    el.setAttribute("stroke-dashoffset", String(-offset));
+    if(len > 0) offset += len + 2;
+  });
+  var val = document.getElementById("teamRingVal");
+  if(val) val.textContent = Math.round(total).toLocaleString("pt-BR");
+  var leg = document.getElementById("teamLegend");
+  if(leg){
+    leg.innerHTML = "";
+    parts.forEach(function(p){
+      var d = document.createElement("div");
+      d.innerHTML = '<i class="dot" style="background:' + p.color + '"></i><span>' + p.label + '</span><b class="mono"></b>';
+      d.querySelector("b").textContent = Math.round(groupSum[p.key] || 0).toLocaleString("pt-BR");
+      leg.appendChild(d);
+    });
+  }
+}
+
 function renderCompanyStaffList(staff, monthKey){
   var listEl = document.getElementById("companyStaffList");
   var totalEl = document.getElementById("companyMonthTotal");
@@ -168,7 +202,13 @@ function renderCompanyStaffList(staff, monthKey){
     var v = companyRoleCountsFinancially(member) ? memberMonthValue(member, monthKey) : null;
     return typeof v === "number" ? v : null;
   }
-  staff.forEach(function(member){ var v = memberVal(member); if(v !== null) total += v; });
+  var groupSum = { estag: 0, prof: 0, coord: 0 };
+  var maxVal = 0;
+  staff.forEach(function(member){
+    var v = memberVal(member);
+    if(v !== null){ total += v; if(v > maxVal) maxVal = v; var gk = memberGroupKey(member); if(groupSum[gk] !== undefined) groupSum[gk] += v; }
+  });
+  renderTeamHero(groupSum, total);
   renderGroupedMembers(listEl, staff, {
     scope: "valores", compact: true,
     extraFn: function(arr){
@@ -199,8 +239,21 @@ function renderCompanyStaffList(staff, monthKey){
     valueEl.textContent = typeof value === "number" ? fmtMoney(value) : memberNoValueText(member);
     if(typeof value !== "number" && member.companyRole === "manager" && memberNoValueText(member) !== "—") valueEl.style.fontSize = "12px";
 
+    row.className = "client-row member-row mr-" + memberGroupKey(member);
+    var av = document.createElement("span");
+    av.className = "member-av";
+    av.textContent = initialsOf(member.name);
+    row.appendChild(av);
     row.appendChild(info);
     row.appendChild(valueEl);
+    if(typeof value === "number" && maxVal > 0){
+      var bar = document.createElement("span");
+      bar.className = "member-bar";
+      var fill = document.createElement("i");
+      fill.style.width = Math.max(2, Math.round(value / maxVal * 100)) + "%";
+      bar.appendChild(fill);
+      row.appendChild(bar);
+    }
     return row;
     }
   });

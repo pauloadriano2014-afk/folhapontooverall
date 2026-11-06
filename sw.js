@@ -1,6 +1,6 @@
 // Service worker - Ponto Overall
 // Bump this on every deploy that changes cached files so clients pick up the update.
-const CACHE_VERSION = "v70";
+const CACHE_VERSION = "v74";
 const CACHE_NAME = "ponto-overall-" + CACHE_VERSION;
 
 const APP_SHELL = [
@@ -34,7 +34,11 @@ const APP_SHELL = [
   "./icons/icon-192.png",
   "./icons/icon-512.png",
   "./icons/icon-512-maskable.png",
-  "./icons/overall-logo.png"
+  "./icons/overall-logo.png",
+  "./fonts/albert-sans.woff2",
+  "./fonts/albert-sans-ext.woff2",
+  "./fonts/plex-mono-500.woff2",
+  "./fonts/plex-mono-600.woff2"
 ];
 
 self.addEventListener("install", (event) => {

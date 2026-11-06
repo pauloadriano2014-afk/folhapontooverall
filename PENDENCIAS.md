@@ -56,6 +56,8 @@ DELETE FROM users WHERE email LIKE '%@equipe-teste.invalid';
 
 ## 5. Limitações conhecidas
 
+- **Visual novo (Modelo A):** fundo em degradê, cartões brancos com faixa, fontes Albert Sans e IBM Plex Mono (arquivos em `fonts/`, sem Google). O menu do celular continua sendo uma faixa que rola de lado com todas as telas do perfil; a ideia de "4 abas + Mais" ficou de fora para não mexer na navegação de todos os testes. Dono, sócio, gerente, coordenação e recepção ficam sempre no marinho com azul e vermelho; estagiário e professor escolhem a cor em Tema e cores (o padrão continua Overall; o roxo vale para quem já escolheu).
+
 - **Recepção e Ocorrências (novo):** criar as contas da recepção em Convites (nível "Recepção"). As ocorrências não têm anexo além de 1 foto, nem responsável designado, nem prazo; se a academia quiser, dá para acrescentar "quem vai resolver" e lembrete de ocorrência parada.
 
 - O fechamento do mês trava horas, valores, auxílio e consumo. Alunos VIP e alunos particulares não entram no fechamento (não fazem parte do pagamento da academia). "Marcar como pago" e observações continuam livres.
