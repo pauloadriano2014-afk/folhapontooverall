@@ -79,7 +79,7 @@ const dump = f => execSync(`python3 ${TOOLS}/xlsxdump.py "${f}"`).toString();
   ok(await p.evaluate(() => document.getElementById('exportGradeGroup').offsetParent !== null && document.getElementById('exportClientsGroup').offsetParent === null), 'exportacao: so horas e salario (sem particulares)');
   await p.click('#btnAccount'); await sleep(300);
   ok(await p.evaluate(() => document.getElementById('personalModuleSection').offsetParent !== null), 'Minha conta oferece o modulo de alunos particulares');
-  await p.click('#personalModuleToggle'); await sleep(2500);
+  await p.evaluate(() => document.querySelectorAll('#accountOverlay .account-section').forEach(s => s.classList.add('open'))); await p.click('#personalModuleToggle'); await sleep(2500);
   await p.waitForFunction(() => document.getElementById('appNav').style.display === 'block', null, { timeout: 10000 }); await sleep(900); await p.evaluate(() => closeOverlays());
   nav = await items(p); ok(nav.includes('clientes'), 'ligou o modulo: menu ganhou Alunos particulares');
   await p.click('.nav-item[data-view=clientes]'); await sleep(400);

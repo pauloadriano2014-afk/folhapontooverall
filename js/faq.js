@@ -156,14 +156,15 @@ function faqGroupsFor(kind){
   return groups;
 }
 
-var faqState = { cat: 0, q: "" };
+var faqState = { cat: -1, q: "" }; // -1 = tela dos assuntos (blocos)
+var FAQ_ICONS = { "Grade de horários e salário":"cal", "Alunos VIP":"star", "Escala e avisos":"bell", "Privacidade e avisos no celular":"shield", "O que a academia enxerga":"users", "Exportação":"save", "Ocorrências":"note", "Conta e aparelhos":"user" };
 
 function faqNorm(t){ return String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
 
 function renderFaq(){
   var kind = helpKind();
   var groups = faqGroupsFor(kind);
-  if(faqState.cat >= groups.length) faqState.cat = 0;
+  if(faqState.cat >= groups.length) faqState.cat = -1;
   document.querySelectorAll(".faq-body").forEach(function(body){
     body.innerHTML = "";
 
@@ -175,24 +176,26 @@ function renderFaq(){
     body.appendChild(search);
 
     var chips = document.createElement("div");
-    chips.className = "faq-chips";
+    chips.className = "faq-tiles";
     body.appendChild(chips);
     var results = document.createElement("div");
     body.appendChild(results);
 
     function paint(){
       var q = faqNorm(faqState.q.trim());
-      chips.style.display = q ? "none" : "";
+      var inCat = faqState.cat >= 0 && !q;
+      chips.style.display = (q || inCat) ? "none" : "";
       chips.innerHTML = "";
       groups.forEach(function(g, i){
         var b = document.createElement("button");
         b.type = "button";
-        b.className = "faq-chip" + (i === faqState.cat ? " active" : "");
-        b.appendChild(document.createTextNode(g.title));
+        b.className = "faq-tile";
+        b.innerHTML = '<span class="faq-tile-ico">' + (typeof navIcon === "function" ? navIcon(FAQ_ICONS[g.title] || "help") : "") + '</span>';
+        var t = document.createElement("strong"); t.textContent = g.title; b.appendChild(t);
         var n = document.createElement("small");
-        n.textContent = g.items.length;
+        n.textContent = g.items.length + (g.items.length === 1 ? " pergunta" : " perguntas");
         b.appendChild(n);
-        b.addEventListener("click", function(){ faqState.cat = i; paint(); });
+        b.addEventListener("click", function(){ faqState.cat = i; paint(); window.scrollTo(0, 0); });
         chips.appendChild(b);
       });
       results.innerHTML = "";
@@ -227,7 +230,14 @@ function renderFaq(){
           e.textContent = "Nada encontrado. Tente outra palavra ou limpe a busca.";
           results.appendChild(e);
         }
-      } else {
+      } else if(inCat){
+        var back = document.createElement("button");
+        back.type = "button"; back.className = "faq-back";
+        back.textContent = "‹ Todos os assuntos";
+        back.addEventListener("click", function(){ faqState.cat = -1; paint(); });
+        results.appendChild(back);
+        var h2 = document.createElement("h3"); h2.className = "faq-cat-title"; h2.textContent = groups[faqState.cat].title;
+        results.appendChild(h2);
         groups[faqState.cat].items.forEach(function(qa){ addItem(qa, false); });
       }
     }

@@ -534,12 +534,9 @@ function refreshNoticeBadge(){
     .then(function(b){ if(b) setNoticeBadge(b.unread); }).catch(function(){});
 }
 
-function loadNotices(){
-  if(!authToken) return;
-  authFetch("/api/me/notifications").then(function(res){
-    if(res.status === 401){ handleAuthExpired(); throw new Error("auth_expired"); }
-    return res.json();
-  }).then(function(b){
+var noticesCache = null;
+function loadNoticesRender(){ if(noticesCache) renderNoticesFrom(noticesCache, true); else loadNotices(true); }
+function renderNoticesFrom(b, noRead){
     document.querySelectorAll(".notices-body").forEach(function(box){
       box.innerHTML = "";
       if(!b.items.length){
@@ -549,21 +546,58 @@ function loadNotices(){
           ? "Nenhum aviso por enquanto. Aqui chegam as novas ocorrências (problemas, recados e achados) e as atualizações das que você anotou."
           : "Nenhum aviso por enquanto. Quando a coordenação publicar ou mudar a escala, ou a gerência fechar o seu mês, você é avisado aqui."; box.appendChild(e); return;
       }
-      b.items.forEach(function(n){
+      // filtros por tipo (so os que existem) + lista com icone, resumo, hora, ponto vermelho nos novos e acao
+      var KIND = { roster: ["cal", "Escala"], swap: ["swap", "Trocas"], closing: ["lock", "Mês"], note: ["note", "Ocorrências"] };
+      var present = {};
+      b.items.forEach(function(n){ present[n.kind] = true; });
+      var filter = box.getAttribute("data-filter") || "";
+      if(Object.keys(present).length > 1){
+        var fl = document.createElement("div"); fl.className = "notice-filters";
+        [["", "Todos"]].concat(Object.keys(KIND).filter(function(k){ return present[k]; }).map(function(k){ return [k, KIND[k][1]]; })).forEach(function(f){
+          var c = document.createElement("button"); c.type = "button"; c.className = "notice-filter" + (filter === f[0] ? " on" : ""); c.textContent = f[1];
+          c.addEventListener("click", function(){ box.setAttribute("data-filter", f[0]); loadNoticesRender(b, box); });
+          fl.appendChild(c);
+        });
+        box.appendChild(fl);
+      }
+      var list = document.createElement("div"); list.className = "notice-list"; box.appendChild(list);
+      var ACTION = { roster: ["Ver escala", function(){ showView(typeof isCoordinator === "function" && isCoordinator() ? "escala" : "minhaescala"); }], swap: ["Ver trocas", function(){ showView(typeof isCoordinator === "function" && isCoordinator() ? "escala" : "minhaescala"); }], note: ["Ver ocorrências", function(){ showView("ocorrencias"); }] };
+      b.items.filter(function(n){ return !filter || n.kind === filter; }).forEach(function(n){
+        var info = KIND[n.kind] || ["bell", "Aviso"];
         var item = document.createElement("div");
         item.className = "notice" + (n.read ? "" : " notice-new");
+        var ico = document.createElement("span"); ico.className = "notice-ico"; ico.innerHTML = typeof navIcon === "function" ? navIcon(info[0], 20) : "";
+        var main = document.createElement("div"); main.className = "notice-main";
         var t = document.createElement("strong"); t.textContent = n.title;
+        var lines = String(n.body || "").split("\n").filter(function(x){ return x.trim(); });
         var body = document.createElement("div"); body.className = "notice-body"; body.textContent = n.body;
+        var sum = document.createElement("div"); sum.className = "notice-sum"; sum.textContent = lines[0] ? lines[0] + (lines.length > 1 ? " …" : "") : "";
+        main.appendChild(t); if(lines.length){ main.appendChild(sum); main.appendChild(body); }
+        var act = ACTION[n.kind];
+        if(act){ var ab = document.createElement("button"); ab.type = "button"; ab.className = "small notice-act"; ab.textContent = act[0]; ab.addEventListener("click", function(e){ e.stopPropagation(); act[1](); }); main.appendChild(ab); }
+        var side = document.createElement("div"); side.className = "notice-side";
         var when = document.createElement("span"); when.className = "client-meta";
-        when.textContent = new Date(n.createdAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
-        item.appendChild(t); item.appendChild(body); item.appendChild(when);
-        box.appendChild(item);
+        when.textContent = new Date(n.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit" });
+        side.appendChild(when);
+        if(!n.read){ var dot = document.createElement("i"); dot.className = "notice-dot"; side.appendChild(dot); }
+        item.appendChild(ico); item.appendChild(main); item.appendChild(side);
+        if(lines.length > 1) item.addEventListener("click", function(){ item.classList.toggle("open"); });
+        list.appendChild(item);
       });
     });
-    if(b.unread > 0){
+    if(b.unread > 0 && !noRead){
       // abrir a tela de avisos conta como ler: zera o selo, mantendo o destaque desta visita
       authFetch("/api/me/notifications/read", { method: "POST" }).then(function(){ setNoticeBadge(0); });
     }
+}
+
+function loadNotices(noRead){
+  if(!authToken) return;
+  authFetch("/api/me/notifications").then(function(res){
+    if(res.status === 401){ handleAuthExpired(); throw new Error("auth_expired"); }
+    return res.json();
+  }).then(function(b){
+    noticesCache = b; renderNoticesFrom(b, noRead);
   }).catch(function(err){ if(!(err && err.message === "auth_expired")) console.warn("Falha ao carregar avisos:", err); });
 }
 

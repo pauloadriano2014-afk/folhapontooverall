@@ -102,6 +102,7 @@ async function dev(browser, vp = { width: 1280, height: 800 }) {
   await p.evaluate(() => { document.getElementById('btnAccount').click(); }); await sleep(400);
   ok(await p.evaluate(() => getComputedStyle(document.getElementById('privacySection')).display !== 'none'), 'Minha conta tem Privacidade e dados');
   await p.screenshot({ path: 'shots/l3-conta.png' });
+  await p.evaluate(() => document.querySelectorAll('#accountOverlay .account-section').forEach(s => s.classList.add('open')));
   const [dl] = await Promise.all([p.waitForEvent('download'), p.click('#btnExportMyData')]);
   const txt = fs.readFileSync(await dl.path(), 'utf8'); ok(JSON.parse(txt).account.email === E('bia'), 'baixa o arquivo com os dados: ' + dl.suggestedFilename());
   await p.click('#btnDeleteAccount'); await p.fill('#deleteAccountPassword', 'errada'); await p.click('#btnDeleteAccountConfirm'); await sleep(700);

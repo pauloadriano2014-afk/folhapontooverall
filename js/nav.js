@@ -143,3 +143,17 @@ if(btnNavLogout){
     if(confirm("Sair da conta neste aparelho?")) logout();
   });
 }
+
+// Textos explicativos no topo de cada cartao viram um icone de informacao (i): menos texto solto na tela.
+function setupCardTips(){
+  document.querySelectorAll(".card > h2").forEach(function(h){
+    var p = h.nextElementSibling;
+    if(!p || !p.classList.contains("account-section-hint") || h.querySelector(".tip-btn")) return;
+    p.classList.add("tip-body");
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "tip-btn no-print"; b.setAttribute("aria-label", "Ajuda desta tela"); b.innerHTML = navIcon("info", 17);
+    b.addEventListener("click", function(){ p.classList.toggle("show"); b.classList.toggle("on", p.classList.contains("show")); });
+    h.appendChild(b);
+  });
+}
+setupCardTips();
