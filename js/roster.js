@@ -652,9 +652,12 @@ function renderCoordTeam(sched, roster){
     var att = { trabalhou: 0, falta: 0, coberto: 0 };
     (sched.entries || []).forEach(function(e){ if(e.userId === u.id && att[e.status === "falta" ? "falta" : e.status] !== undefined) att[e.status === "falta" ? "falta" : e.status]++; });
     var row = document.createElement("div");
-    row.className = "client-row team-member";
+    row.className = "client-row team-member tm-row has-av";
+    var av = document.createElement("span"); av.className = "member-av has-av"; av.textContent = initialsOf(u.name);
+    av.style.background = roleIsTrainee(u.role) ? "linear-gradient(135deg,#3b82f6,#1e3a8a)" : "linear-gradient(135deg,#8b5cf6,#4c1d95)";
+    row.appendChild(av);
     var info = document.createElement("div");
-    info.className = "client-info";
+    info.className = "client-info tm-main";
     var name = document.createElement("strong");
     name.textContent = u.name;
     var pill = document.createElement("span");
@@ -663,18 +666,9 @@ function renderCoordTeam(sched, roster){
     pill.textContent = roleIsTrainee(u.role) ? "Estagiário" : "Professor";
     name.appendChild(pill);
     info.appendChild(name);
-    function line(text){ var sp = document.createElement("span"); sp.className = "client-meta"; sp.style.display = "block"; sp.textContent = text; info.appendChild(sp); }
-    line((u.email && !/\.invalid$/.test(u.email)) ? u.email : "Sem login (cadastro de teste)");
-    line("Horário seg–sex: " + (u.shiftStart && u.shiftEnd ? u.shiftStart + " às " + u.shiftEnd : "ainda não definido"));
-    if(plant.length){
-      line("Plantões (" + plant.length + "): " + plant.slice(0, 3).map(function(e){
-        var t = types[e.shiftTypeId];
-        return e.date.slice(8, 10) + "/" + e.date.slice(5, 7) + (t ? " " + shiftHours(t) : "");
-      }).join(", ") + (plant.length > 3 ? " e mais " + (plant.length - 3) : ""));
-    } else {
-      line("Sem plantões neste mês.");
-    }
-    if(att.trabalhou || att.falta || att.coberto) line("Presença: " + att.trabalhou + " trabalhou · " + att.falta + " faltou · " + att.coberto + " coberto");
+    var mail = document.createElement("span"); mail.className = "client-meta"; mail.style.display = "block";
+    mail.textContent = (u.email && !/\.invalid$/.test(u.email)) ? u.email : "Sem login (cadastro de teste)";
+    info.appendChild(mail);
     row.appendChild(info);
     if(sched.canEditStaffSchedule){
       var edit = document.createElement("button");
@@ -682,6 +676,20 @@ function renderCoordTeam(sched, roster){
       edit.addEventListener("click", function(){ openStaffScheduleEditModal(u); });
       row.appendChild(edit);
     }
+    var chips = document.createElement("div"); chips.className = "tm-chips";
+    function chip(text, cls){ var c = document.createElement("span"); c.className = "tm-chip" + (cls ? " " + cls : ""); c.textContent = text; chips.appendChild(c); }
+    chip("Horário seg–sex · " + (u.shiftStart && u.shiftEnd ? u.shiftStart + " às " + u.shiftEnd : "ainda não definido"), u.shiftStart && u.shiftEnd ? "" : "warn");
+    if(plant.length){
+      plant.slice(0, 4).forEach(function(e){
+        var t = types[e.shiftTypeId];
+        chip(e.date.slice(8, 10) + "/" + e.date.slice(5, 7) + (t ? " " + String(shiftHours(t)).replace(/:00/g, "h") : ""), "pl");
+      });
+      if(plant.length > 4) chip("+" + (plant.length - 4) + " plantões", "pl");
+    } else {
+      chip("Sem plantões neste mês", "dim");
+    }
+    if(att.trabalhou || att.falta || att.coberto) chip("Presença: " + att.trabalhou + " trabalhou · " + att.falta + " faltou · " + att.coberto + " coberto", "dim");
+    row.appendChild(chips);
     return row;
   }});
 }
