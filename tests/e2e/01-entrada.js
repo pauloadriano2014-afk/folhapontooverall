@@ -14,11 +14,11 @@ async function dev(browser, vp, init) {
   await page.goto(APP); await sleep(400); return page;
 }
 const v = (p, name) => p.evaluate(n => getComputedStyle(document.querySelector('.auth-screen')).getPropertyValue(n).trim(), name);
-const bg = p => p.evaluate(() => getComputedStyle(document.querySelector('.auth-screen')).backgroundColor);
+const bg = p => v(p, '--bg'); // o fundo agora e um degrade; confere a cor-base (--bg)
 const btn = p => p.evaluate(() => getComputedStyle(document.getElementById('loginSubmit')).backgroundColor);
 (async () => {
   const browser = await chromium.launch(); const M = { width: 390, height: 844 };
-  for (const [theme, color, bgExp, accExp] of [['light', 'roxo', 'rgb(255, 255, 255)', '#1d4ed8'], ['dark', 'roxo', 'rgb(11, 13, 16)', '#3b82f6'], ['light', 'verde', 'rgb(255, 255, 255)', '#1d4ed8'], ['dark', 'rosa', 'rgb(11, 13, 16)', '#3b82f6'], ['dark', 'overall', 'rgb(11, 13, 16)', '#3b82f6']]) {
+  for (const [theme, color, bgExp, accExp] of [['light', 'roxo', '#ffffff', '#1d4ed8'], ['dark', 'roxo', '#0a1a3f', '#60a5fa'], ['light', 'verde', '#ffffff', '#1d4ed8'], ['dark', 'rosa', '#0a1a3f', '#60a5fa'], ['dark', 'overall', '#0a1a3f', '#60a5fa']]) {
     const p = await dev(browser, M, `try{localStorage.setItem('pontoOverallTheme_v1','${theme}');localStorage.setItem('pontoOverallColor_v1','${color}');}catch(e){}`);
     ok(await v(p, '--accent') === accExp && await bg(p) === bgExp, `entrada com tema ${theme} e cor guardada "${color}": fundo ${await bg(p)}, destaque ${await v(p, '--accent')} (sempre Overall)`);
     if (theme === 'light' && color === 'roxo') await p.screenshot({ path: 'shots/l1-claro-roxo-guardado.png' });

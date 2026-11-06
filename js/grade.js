@@ -307,6 +307,77 @@
     if(foot) foot.textContent = count ? count + (count === 1 ? " plantão" : " plantões") + " · " + fmtMoney(total) : "Nenhum plantão lançado ainda";
   }
 
+
+  // ---------- resumo (anel) e calendario do mes ----------
+  var MONTH_ABBR = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
+  var RING_LEN = 339.3;
+
+  // Anel com a composicao do mes: grade (+), auxilio (+) e consumo (−).
+  function renderSummaryHero(monthObj, total, salario){
+    var aux = Number(monthObj.auxilio) || 0, cons = Number(monthObj.consumo) || 0;
+    var parts = [ { id: "ringGrade", v: Math.abs(total) }, { id: "ringAux", v: Math.abs(aux) }, { id: "ringCons", v: Math.abs(cons) } ];
+    var sum = parts.reduce(function(a, p){ return a + p.v; }, 0);
+    var used = parts.filter(function(p){ return p.v > 0; }).length;
+    var avail = RING_LEN - used * 2;
+    var offset = 0;
+    parts.forEach(function(p){
+      var el = document.getElementById(p.id);
+      if(!el) return;
+      var len = (sum > 0 && p.v > 0) ? avail * p.v / sum : 0;
+      el.setAttribute("stroke-dasharray", len.toFixed(1) + " " + RING_LEN);
+      el.setAttribute("stroke-dashoffset", String(-offset));
+      if(len > 0) offset += len + 2;
+    });
+    var mi = parseInt(currentMonthKey.slice(5), 10) - 1;
+    var set = function(id, txt){ var e = document.getElementById(id); if(e) e.textContent = txt; };
+    set("ringMes", MONTH_ABBR[mi] || "");
+    set("ringVal", Math.round(salario).toLocaleString("pt-BR"));
+    set("heroMonth", (monthLabel(currentMonthKey).split(" / ")[0] || "").toUpperCase());
+    set("legAux", (aux > 0 ? "+" : "") + aux.toLocaleString("pt-BR"));
+    set("legCons", (cons > 0 ? "−" : "") + cons.toLocaleString("pt-BR"));
+  }
+
+  // Estado de cada dia no calendario: "ok" lancado, "pl" plantao lancado, "fe" feriado, "se" sem escala.
+  function calDayState(dateKey, dayObj){
+    var single = isSingleShiftDay(dateKey);
+    var slots = single ? [dayObj.slots[0]] : dayObj.slots.slice(0, getTimeSlots().length);
+    if(slots.some(function(v){ return typeof v === "number"; })) return single ? "pl" : "ok";
+    if(slots.length && slots.every(function(v){ return v === "SEM_ESCALA"; })) return "se";
+    if(slots.length && slots.every(function(v){ return v === "FERIADO"; })) return "fe";
+    return "";
+  }
+
+  var CAL_STATE_LABEL = { ok: "lançado", pl: "plantão lançado", fe: "feriado", se: "sem escala", "": "ainda não lançado" };
+
+  function renderCalendar(monthObj, keys){
+    var grid = document.getElementById("calGrid");
+    if(!grid) return;
+    grid.innerHTML = "";
+    ["D","S","T","Q","Q","S","S"].forEach(function(l){ var h = document.createElement("span"); h.className = "cal-dow"; h.textContent = l; grid.appendChild(h); });
+    var lead = keys.length ? dowOfDateKey(keys[0]) : 0;
+    for(var i = 0; i < lead; i++){ var b = document.createElement("span"); b.className = "cal-blank"; grid.appendChild(b); }
+    var launched = 0, hasPlantao = false;
+    keys.forEach(function(dateKey){
+      var dayObj = monthObj.days[dateKey];
+      var st = calDayState(dateKey, dayObj);
+      if(st === "ok" || st === "pl") launched++;
+      if(st === "pl") hasPlantao = true;
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "cal-day" + (st ? " st-" + st : "") + (dateKey === todayFullKey ? " st-hoje" : "") + (dayObj.note && dayObj.note.trim() ? " has-note" : "");
+      var n = parseInt(dateKey.split("-")[2], 10);
+      btn.textContent = n;
+      btn.setAttribute("data-date", dateKey);
+      btn.setAttribute("aria-label", "Dia " + n + ", " + CAL_STATE_LABEL[st] + (dateKey === todayFullKey ? ", hoje" : ""));
+      btn.addEventListener("click", function(){ openDayModal(dateKey); });
+      grid.appendChild(btn);
+    });
+    var cnt = document.getElementById("calCount");
+    if(cnt) cnt.textContent = launched + " de " + keys.length + " dias";
+    var legPl = document.querySelector(".cal-legend-pl");
+    if(legPl) legPl.style.display = data.settings.weekendShiftEnabled ? "" : "none";
+  }
+
   function renderGrid(){
     var monthObj = ensureMonth(currentMonthKey);
     var keys = dayKeysOf(currentMonthKey);
@@ -328,6 +399,8 @@
     var total = monthTotal(monthObj);
     var salario = total + (Number(monthObj.auxilio) || 0) - (Number(monthObj.consumo) || 0);
     statTotal.textContent = fmtMoney(total);
+    renderSummaryHero(monthObj, total, salario);
+    renderCalendar(monthObj, keys);
     var exportMonthEl = document.getElementById("exportMonthLabel");
     if(exportMonthEl) exportMonthEl.textContent = monthLabel(currentMonthKey);
     statSalario.textContent = fmtMoney(salario);
