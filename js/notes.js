@@ -62,7 +62,8 @@ function loadNotes(){
 }
 
 function renderNotes(d){
-  document.getElementById("btnNoteNew").style.display = d.canWrite ? "" : "none";
+  document.getElementById("noteTiles").style.display = d.canWrite ? "" : "none";
+  document.querySelectorAll("#noteTiles [data-icon]").forEach(function(e){ if(!e.innerHTML) e.innerHTML = navIcon(e.getAttribute("data-icon"), 24); });
   var tabs = document.getElementById("notesStatusTabs");
   tabs.innerHTML = "";
   [["open", "Abertas", d.counts.open], ["resolved", "Resolvidas", d.counts.resolved]].forEach(function(t){
@@ -73,6 +74,9 @@ function renderNotes(d){
     b.addEventListener("click", function(){ notesState.status = t[0]; loadNotes(); });
     tabs.appendChild(b);
   });
+  var sb = document.createElement("button"); sb.type = "button"; sb.id = "btnNotesSearch"; sb.className = "notes-search-btn"; sb.setAttribute("aria-label", "Buscar"); sb.innerHTML = navIcon("search", 16);
+  sb.addEventListener("click", function(){ var i = document.getElementById("notesSearch"); i.classList.toggle("show"); if(i.classList.contains("show")) i.focus(); });
+  tabs.appendChild(sb);
   var kinds = document.getElementById("notesKindTabs");
   kinds.innerHTML = "";
   [["", "Todas"], ["problema", "Problemas"], ["recado", "Recados"], ["achado", "Achados e perdidos"]].forEach(function(k){
@@ -85,10 +89,12 @@ function renderNotes(d){
   var list = document.getElementById("notesList");
   list.innerHTML = "";
   if(!d.notes.length){
-    var p = document.createElement("p");
-    p.className = "account-section-hint";
-    p.textContent = notesState.q ? "Nada encontrado com essa busca."
-      : (notesState.status === "open" ? "Nenhuma ocorrência aberta. Tudo em ordem! 🎉" : "Nenhuma ocorrência resolvida ainda.");
+    var p = document.createElement("div");
+    p.className = "empty-state";
+    var open = notesState.status === "open" && !notesState.q;
+    p.innerHTML = '<span class="empty-ico">' + navIcon(open ? "check" : "search", 30) + '</span><strong></strong><span></span>';
+    p.querySelector("strong").textContent = notesState.q ? "Nada encontrado" : (open ? "Tudo em ordem" : "Nada resolvido ainda");
+    p.querySelector("span:last-child").textContent = notesState.q ? "Tente outra palavra." : (open ? "Nenhuma ocorrência aberta. Toque num botão acima para anotar." : "As ocorrências resolvidas aparecem aqui.");
     list.appendChild(p);
     return;
   }
@@ -136,8 +142,9 @@ function updateNoteFormKind(){
   document.getElementById("notePlace").placeholder = k === "achado" ? "Onde foi encontrado (ex: vestiário feminino)" : "Onde (ex: vestiário, sala 2)";
   document.querySelectorAll("#noteKindChips .client-day-chip").forEach(function(c){ c.classList.toggle("checked", c.querySelector("input").checked); });
 }
-function openNoteNew(){
+function openNoteNew(kind){
   document.getElementById("noteForm").reset();
+  if(typeof kind === "string"){ var r = document.querySelector('input[name="noteKind"][value="' + kind + '"]'); if(r) r.checked = true; }
   notesState.photo = null;
   document.getElementById("notePhotoPreview").style.display = "none";
   document.getElementById("noteError").textContent = "";
@@ -166,7 +173,9 @@ function noteCompressPhoto(file){
 (function(){
   var newBtn = document.getElementById("btnNoteNew");
   if(!newBtn) return;
-  newBtn.addEventListener("click", openNoteNew);
+  document.querySelectorAll("#noteTiles .note-tile").forEach(function(b){ b.addEventListener("click", function(){ openNoteNew(b.getAttribute("data-kind")); }); });
+  var sBtn = document.getElementById("btnNotesSearch");
+  if(sBtn) sBtn.addEventListener("click", function(){ var i = document.getElementById("notesSearch"); i.classList.toggle("show"); if(i.classList.contains("show")) i.focus(); });
   document.querySelectorAll('input[name="noteKind"]').forEach(function(r){ r.addEventListener("change", updateNoteFormKind); });
   document.getElementById("notePhoto").addEventListener("change", function(){
     var f = this.files && this.files[0];

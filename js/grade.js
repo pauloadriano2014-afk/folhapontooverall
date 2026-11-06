@@ -304,7 +304,10 @@
       list.appendChild(row);
     });
     var foot = document.getElementById("weekendTotal");
-    if(foot) foot.textContent = count ? count + (count === 1 ? " plantão" : " plantões") + " · " + fmtMoney(total) : "Nenhum plantão lançado ainda";
+    if(foot) foot.textContent = count ? count + (count === 1 ? " plantão" : " plantões") + " · " + fmtMoney(total) : "R$ 0,00";
+    var totalDays = keys.filter(function(k){ return isSingleShiftDay(k); }).length;
+    var pend = document.getElementById("weekendPending");
+    if(pend) pend.textContent = count + (count === 1 ? " lançado" : " lançados") + " · " + (totalDays - count) + (totalDays - count === 1 ? " pendente" : " pendentes");
   }
 
 
@@ -369,13 +372,93 @@
       btn.textContent = n;
       btn.setAttribute("data-date", dateKey);
       btn.setAttribute("aria-label", "Dia " + n + ", " + CAL_STATE_LABEL[st] + (dateKey === todayFullKey ? ", hoje" : ""));
-      btn.addEventListener("click", function(){ openDayModal(dateKey); });
+      btn.addEventListener("click", function(){ if(!(data.settings.weekendShiftEnabled && isSingleShiftDay(dateKey))) weekSel = dateKey; openDayModal(dateKey); });
       grid.appendChild(btn);
     });
     var cnt = document.getElementById("calCount");
     if(cnt) cnt.textContent = launched + " de " + keys.length + " dias";
     var legPl = document.querySelector(".cal-legend-pl");
     if(legPl) legPl.style.display = data.settings.weekendShiftEnabled ? "" : "none";
+  }
+
+
+  // ---------- semana: abas dos dias + horas do dia escolhido ----------
+  var weekSel = null;
+  var DOW_LONG = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
+  function weekDaysOf(dateKey, monthKeys, hideSingle){
+    var d = new Date(dateKey + "T12:00:00");
+    var mondayShift = (d.getDay() + 6) % 7;
+    var out = [];
+    for(var i = 0; i < 7; i++){
+      var x = new Date(d.getTime()); x.setDate(x.getDate() - mondayShift + i);
+      var k = dateKeyOf(x);
+      if(monthKeys.indexOf(k) < 0) continue;
+      if(hideSingle && isSingleShiftDay(k)) continue;
+      out.push(k);
+    }
+    return out;
+  }
+  function renderWeek(monthObj, keys, weekendList){
+    var tabs = document.getElementById("weekTabs"), panel = document.getElementById("weekDay");
+    if(!tabs || !panel) return;
+    var gridKeys = weekendList ? keys.filter(function(k){ return !isSingleShiftDay(k); }) : keys;
+    if(!gridKeys.length){ tabs.innerHTML = ""; panel.innerHTML = ""; return; }
+    if(!weekSel || weekSel.slice(0, 7) !== currentMonthKey || gridKeys.indexOf(weekSel) < 0){
+      var t = todayFullKey.slice(0, 7) === currentMonthKey ? todayFullKey : gridKeys[0];
+      weekSel = gridKeys.indexOf(t) >= 0 ? t : (gridKeys.filter(function(k){ return k >= t; })[0] || gridKeys[0]);
+    }
+    var days = weekDaysOf(weekSel, keys, weekendList);
+    var first = days[0], last = days[days.length - 1];
+    var lab = document.getElementById("weekLabel");
+    if(lab) lab.textContent = "Semana de " + pad2(parseInt(first.slice(8), 10)) + " a " + pad2(parseInt(last.slice(8), 10));
+    function shiftWeek(dir){
+      var d = new Date(weekSel + "T12:00:00"); d.setDate(d.getDate() + 7 * dir);
+      var k = dateKeyOf(d);
+      var cand = weekDaysOf(k, keys, weekendList);
+      if(cand.length){ weekSel = cand.indexOf(todayFullKey) >= 0 ? todayFullKey : cand[0]; renderWeek(monthObj, keys, weekendList); }
+    }
+    var prev = document.getElementById("weekPrev"), next = document.getElementById("weekNext");
+    prev.onclick = function(){ shiftWeek(-1); }; next.onclick = function(){ shiftWeek(1); };
+    prev.disabled = !weekDaysOf(dateKeyOf(new Date(new Date(first + "T12:00:00").getTime() - 86400000)), keys, weekendList).length;
+    next.disabled = !weekDaysOf(dateKeyOf(new Date(new Date(last + "T12:00:00").getTime() + 86400000)), keys, weekendList).length;
+    tabs.innerHTML = "";
+    days.forEach(function(k){
+      var b = document.createElement("button"); b.type = "button";
+      var st = calDayState(k, monthObj.days[k]);
+      b.className = "week-tab" + (k === weekSel ? " on" : "") + (st ? " st-" + st : "") + (k === todayFullKey ? " hoje" : "");
+      b.innerHTML = "<span></span><b class='mono'></b>";
+      b.firstChild.textContent = DOW_NAMES[dowOfDateKey(k)].toUpperCase().slice(0, 3);
+      b.lastChild.textContent = pad2(parseInt(k.slice(8), 10));
+      b.addEventListener("click", function(){ weekSel = k; renderWeek(monthObj, keys, weekendList); });
+      tabs.appendChild(b);
+    });
+    var dayObj = monthObj.days[weekSel];
+    var dow = dowOfDateKey(weekSel);
+    panel.innerHTML = "";
+    var head = document.createElement("div"); head.className = "week-day-head";
+    var ht = document.createElement("strong"); ht.textContent = DOW_LONG[dow] + ", " + pad2(parseInt(weekSel.slice(8), 10));
+    var hv = document.createElement("span"); hv.className = "mono week-day-total"; hv.textContent = fmtMoney(dayTotal(dayObj));
+    head.appendChild(ht); head.appendChild(hv); panel.appendChild(head);
+    var holiday = holidaysForDateKey(weekSel);
+    if(holiday){ var hn = document.createElement("div"); hn.className = "week-holiday"; hn.textContent = "Feriado · " + holiday; panel.appendChild(hn); }
+    getTimeSlots().forEach(function(label, idx){
+      var v = dayObj.slots[idx];
+      var row = document.createElement("button"); row.type = "button"; row.className = "week-row";
+      var tm = document.createElement("span"); tm.className = "mono week-time"; tm.textContent = label.split("–")[0];
+      var bar = document.createElement("span"); bar.className = "week-bar"; var fill = document.createElement("i"); fill.style.width = typeof v === "number" ? "100%" : "0"; bar.appendChild(fill);
+      var pill = document.createElement("span"); pill.className = "week-pill" + (typeof v === "number" ? " filled" : v === "FERIADO" ? " fe" : v === "SEM_ESCALA" ? " se" : "");
+      pill.textContent = typeof v === "number" ? v : v === "FERIADO" ? "FER" : v === "SEM_ESCALA" ? "s/e" : "–";
+      row.title = label;
+      row.appendChild(tm); row.appendChild(bar); row.appendChild(pill);
+      row.addEventListener("click", function(){ openDayModal(weekSel); });
+      panel.appendChild(row);
+    });
+    var acts = document.createElement("div"); acts.className = "week-actions";
+    function mk(txt, cls, fn){ var b = document.createElement("button"); b.type = "button"; b.className = cls; b.textContent = txt; b.addEventListener("click", fn); acts.appendChild(b); }
+    mk("Lançar o dia", "primary", function(){ openDayModal(weekSel); });
+    function setAll(val){ return function(){ if(typeof guardClosedMonth === "function" && guardClosedMonth(currentMonthKey)) return; dayObj.slots = dayObj.slots.map(function(){ return val; }); saveData(); renderGrid(); }; }
+    mk("Feriado", "", setAll("FERIADO")); mk("Sem escala", "", setAll("SEM_ESCALA"));
+    panel.appendChild(acts);
   }
 
   function renderGrid(){
@@ -401,6 +484,7 @@
     statTotal.textContent = fmtMoney(total);
     renderSummaryHero(monthObj, total, salario);
     renderCalendar(monthObj, keys);
+    renderWeek(monthObj, keys, weekendList);
     var exportMonthEl = document.getElementById("exportMonthLabel");
     if(exportMonthEl) exportMonthEl.textContent = monthLabel(currentMonthKey);
     statSalario.textContent = fmtMoney(salario);

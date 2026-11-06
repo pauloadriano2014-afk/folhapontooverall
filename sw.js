@@ -1,12 +1,13 @@
 // Service worker - Ponto Overall
 // Bump this on every deploy that changes cached files so clients pick up the update.
-const CACHE_VERSION = "v74";
+const CACHE_VERSION = "v79";
 const CACHE_NAME = "ponto-overall-" + CACHE_VERSION;
 
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css",
+  "./js/icons.js",
   "./js/state.js",
   "./js/auth.js",
   "./js/account.js",

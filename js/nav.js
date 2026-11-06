@@ -143,3 +143,37 @@ if(btnNavLogout){
     if(confirm("Sair da conta neste aparelho?")) logout();
   });
 }
+
+// Textos explicativos no topo de cada cartao viram um icone de informacao (i): menos texto solto na tela.
+function setupCardTips(){
+  document.querySelectorAll(".card > h2").forEach(function(h){
+    var p = h.nextElementSibling;
+    if(!p || !p.classList.contains("account-section-hint") || h.querySelector(".tip-btn")) return;
+    p.classList.add("tip-body");
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "tip-btn no-print"; b.setAttribute("aria-label", "Ajuda desta tela"); b.innerHTML = navIcon("info", 17);
+    b.addEventListener("click", function(){ p.classList.toggle("show"); b.classList.toggle("on", p.classList.contains("show")); });
+    h.appendChild(b);
+  });
+}
+setupCardTips();
+
+// Avatar com iniciais nas linhas de pessoa das listas por funcao (Gestao, Fechamento...), sem mexer em cada tela.
+(function(){
+  var COLORS = { "Coordenação": "linear-gradient(135deg,#ef4444,#991b1b)", "Professores": "linear-gradient(135deg,#8b5cf6,#4c1d95)", "Estagiários": "linear-gradient(135deg,#3b82f6,#1e3a8a)", "Recepção": "linear-gradient(135deg,#14b8a6,#115e59)" };
+  function decorate(root){
+    root.querySelectorAll("details.grp .grp-body > .client-row:not(.has-av):not(.member-row)").forEach(function(row){
+      var nm = row.querySelector(".client-info strong");
+      if(!nm) return;
+      row.classList.add("has-av");
+      var title = row.closest("details.grp").querySelector(".grp-title");
+      var av = document.createElement("span"); av.className = "member-av has-av";
+      var txt = (nm.firstChild && nm.firstChild.nodeType === 3 ? nm.firstChild.nodeValue : nm.textContent).replace(/\(você\)/, "").trim();
+      av.textContent = typeof initialsOf === "function" ? initialsOf(txt) : txt.charAt(0).toUpperCase();
+      av.style.background = (title && COLORS[title.textContent]) || "linear-gradient(135deg,#64748b,#334155)";
+      row.insertBefore(av, row.firstChild);
+    });
+  }
+  var timer = null;
+  new MutationObserver(function(){ clearTimeout(timer); timer = setTimeout(function(){ decorate(document); }, 30); }).observe(document.body, { childList: true, subtree: true });
+})();

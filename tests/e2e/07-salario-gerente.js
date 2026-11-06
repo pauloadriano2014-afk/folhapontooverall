@@ -96,7 +96,7 @@ const rowText = (p, name) => p.evaluate(n => { const r = [...document.querySelec
   ok(p.errors.length === 0, 'sem erros de JS ' + p.errors.join('|'));
   // desligar pela conta
   await p.click('#btnAccount'); await sleep(300); ok(await p.evaluate(() => document.getElementById('personalModuleSection').style.display !== 'none' && document.getElementById('personalModuleToggle').checked), 'Minha conta mostra o modulo ligado');
-  await p.click('#personalModuleToggle'); await p.waitForLoadState('load'); await sleep(2500);
+  await p.evaluate(() => document.querySelectorAll('#accountOverlay .account-section').forEach(s => s.classList.add('open'))); await p.click('#personalModuleToggle'); await p.waitForLoadState('load'); await sleep(2500);
   await p.waitForFunction(() => document.getElementById('appNav').style.display === 'block', null, { timeout: 10000 }); await sleep(800);
   ok(!(await items(p)).includes('clientes'), 'ao desligar, a tela de particulares sai do menu'); await p.close();
 
