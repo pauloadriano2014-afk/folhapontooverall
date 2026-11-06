@@ -204,11 +204,11 @@
 
   <div class="card" id="gradeCard" data-view="grade">
     <h2>Grade de horários</h2>
+    <p class="account-section-hint" style="margin:-4px 0 10px;">Toque num dia da semana (ou no calendário acima) para lançar o valor de cada horário. A tabela completa do mês é usada na impressão e no PDF.</p>
     <div class="month-lock" id="monthLockBanner" style="display:none;"></div>
-    <p class="account-section-hint" style="margin:-4px 0 10px;">Toque no número de um dia para lançar o valor de cada horário. Em telas pequenas, arraste a tabela para o lado para ver os outros dias.</p>
     <div class="legend">
       <button type="button" class="legend-item legend-item-btn no-print" id="btnQuickValuesChip" title="Toque para adicionar, alterar ou remover">
-        <span class="swatch swatch-filled" id="quickValuesChipSwatch">15</span> Valores rápidos: atalhos de valor da aula (toque para editar) ✏️
+        <span class="swatch swatch-filled" id="quickValuesChipSwatch">15</span> Valores rápidos ✏️
       </button>
       <span class="legend-item print-only"><span class="swatch swatch-filled" id="quickValuesChipSwatchPrint">15</span> Valor da aula (R$)</span>
       <span class="legend-item"><span class="swatch swatch-feriado">FER</span> Feriado</span>
@@ -216,6 +216,9 @@
       <span class="legend-item"><span class="swatch swatch-none">–</span> Ainda não lançado</span>
       <span class="legend-item"><span class="swatch swatch-weekend"></span> Fim de semana</span>
     </div>
+    <div class="week-head no-print"><button type="button" class="week-nav" id="weekPrev" aria-label="Semana anterior">‹</button><strong id="weekLabel"></strong><button type="button" class="week-nav" id="weekNext" aria-label="Próxima semana">›</button></div>
+    <div class="week-tabs no-print" id="weekTabs"></div>
+    <div class="week-day no-print" id="weekDay"></div>
     <div class="table-wrap" id="gridWrapMain">
       <table id="gridTable">
         <thead>
@@ -231,8 +234,8 @@
   <div class="card role-off" id="weekendCard" data-view="grade">
     <h2>Plantões de fim de semana e feriados</h2>
     <p class="account-section-hint" style="margin:-4px 0 10px;">Cada sábado, domingo e feriado é um turno de sala de 5h (manhã ou tarde). O valor é por hora: o dia soma 5 × o valor. Toque no dia para escolher o turno e o valor.</p>
+    <div class="wk-total"><span>Plantões do mês</span><strong id="weekendTotal"></strong><small id="weekendPending"></small></div>
     <div id="weekendList"></div>
-    <div class="wk-total"><span>Total dos plantões</span><strong id="weekendTotal"></strong></div>
   </div>
 
   <div class="card" id="obsCard" data-view="grade">
@@ -243,6 +246,8 @@
   <div class="card vip-wrap" id="vipCard" data-view="vip">
     <h2>Alunos VIP — agenda semanal fixa</h2>
     <p class="account-section-hint" style="margin:-4px 0 10px;">Os alunos VIP atendidos por você, por dia da semana e horário. Toque numa célula para escolher o aluno e marcar presença ou falta.</p>
+    <div class="week-tabs no-print" id="vipTabs"></div>
+    <div class="vip-day no-print" id="vipDay"></div>
     <div class="table-wrap">
       <table id="vipTable">
         <thead><tr id="vipHead"></tr></thead>
@@ -311,7 +316,11 @@
   <div class="card no-print" id="notesCard" data-view="ocorrencias">
     <h2>Ocorrências</h2>
     <p class="account-section-hint" style="margin:-4px 0 10px;">Anote o que acontece na academia (goteira, equipamento quebrado, recado para o próximo turno, objeto achado) para ninguém precisar lembrar. Todos da equipe veem; quando resolver, marque como resolvido.</p>
-    <div class="row-actions" style="margin:0 0 10px;"><button type="button" class="primary" id="btnNoteNew">+ Anotar ocorrência</button></div>
+    <div class="note-tiles" id="noteTiles">
+      <button type="button" class="note-tile nt-problema" id="btnNoteNew" data-kind="problema"><span class="nt-ico" data-icon="warn"></span>Problema</button>
+      <button type="button" class="note-tile nt-recado" id="btnNoteNewRecado" data-kind="recado"><span class="nt-ico" data-icon="note"></span>Recado</button>
+      <button type="button" class="note-tile nt-achado" id="btnNoteNewAchado" data-kind="achado"><span class="nt-ico" data-icon="gift"></span>Achado</button>
+    </div>
     <input type="search" id="notesSearch" class="faq-search" placeholder="Buscar (ex.: fone, goteira, secador)" />
     <div class="faq-chips" id="notesStatusTabs"></div>
     <div class="faq-chips" id="notesKindTabs"></div>
@@ -352,15 +361,13 @@
         </div>
       </div>
     </div>
-    <h3 style="margin:20px 0 6px;font-size:13px;color:var(--text-dim);">Backup dos dados</h3>
-    <p style="font-size:12px;color:var(--text-dim);margin:0 0 10px;">
-      Os dados já sincronizam automaticamente entre seus aparelhos. Mesmo assim, exportar um backup de vez em quando é uma segurança extra.
-    </p>
-    <div class="row-actions">
-      <button id="btnExportJson">Exportar backup (.json)</button>
-      <button id="btnImportJson">Importar backup</button>
+    <h3 class="export-group-title">Backup dos dados</h3>
+    <div class="export-rows">
+      <div class="export-row"><span class="er-ico" data-icon="save"></span><div class="er-txt"><strong>Exportar backup</strong><span>Arquivo .json de segurança</span></div><button id="btnExportJson" class="small">Exportar</button></div>
+      <div class="export-row"><span class="er-ico" data-icon="up"></span><div class="er-txt"><strong>Importar backup</strong><span>Restaurar de um arquivo</span></div><button id="btnImportJson" class="small">Escolher</button></div>
       <input type="file" id="fileImport" accept="application/json" style="display:none" />
     </div>
+
   </div>
 
   <div class="card no-print faq-card" data-view="duvidas">
@@ -1208,6 +1215,7 @@
 <div id="clientsPrintSheet" class="print-sheet"></div>
 <div id="teamPrintSheet" class="print-sheet"></div>
 
+<script src="js/icons.js"></script>
 <script src="js/state.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/account.js"></script>

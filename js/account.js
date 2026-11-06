@@ -366,6 +366,7 @@ function initAccountModal(){
     document.getElementById("reminderEnabled").checked = !!data.settings.reminderEnabled;
     document.getElementById("reminderTime").value = data.settings.reminderTime || "21:00";
     document.getElementById("weekendShiftEnabled").checked = !!data.settings.weekendShiftEnabled;
+    refreshAccountSheet();
     document.getElementById("accountOverlay").classList.add("open");
   });
 
@@ -498,3 +499,57 @@ function initAccountModal(){
     showToast("Dados apagados. Começando do zero.");
   });
 }
+
+
+// ---------- "Minha conta" em seções que abrem (cartão do perfil + lista de ajustes) ----------
+var ACC_ICONS = { "Alunos particulares": "users", "Privacidade e dados": "shield", "Valores rápidos": "drop", "Horários da grade (segunda a sexta)": "clock", "Lembrete diário": "bell", "Plantão de fim de semana e feriado": "cal", "Horário de trabalho": "clock", "Zona de risco": "warn", "Senha": "key" };
+function setupAccountSheet(){
+  var sheet = document.querySelector("#accountOverlay .sheet");
+  if(!sheet || sheet.getAttribute("data-acc")) return;
+  sheet.setAttribute("data-acc", "1");
+  var h3 = sheet.querySelector("h3"), sub = document.getElementById("accountSub");
+  // cartao do perfil
+  var prof = document.createElement("div"); prof.className = "acc-profile";
+  prof.innerHTML = '<span class="acc-avatar" id="accAvatar"></span><div class="acc-who"><strong id="accName"></strong></div>';
+  prof.querySelector(".acc-who").appendChild(sub);
+  h3.textContent = "Minha conta";
+  h3.parentNode.insertBefore(prof, h3.nextSibling);
+  // senha vira uma secao
+  var pw = document.getElementById("pwForm");
+  if(pw){
+    var ps = document.createElement("div"); ps.className = "account-section"; ps.id = "passwordSection";
+    var ph = document.createElement("h3"); ph.textContent = "Senha"; ps.appendChild(ph);
+    pw.parentNode.insertBefore(ps, pw); ps.appendChild(pw); pw.style.marginTop = "0";
+  }
+  sheet.querySelectorAll(".account-section").forEach(function(sec){
+    var head = sec.querySelector(":scope > h3");
+    if(!head) return;
+    var title = head.textContent.trim();
+    head.className = "acc-head"; head.setAttribute("role", "button"); head.tabIndex = 0;
+    head.innerHTML = '<span class="acc-ico">' + navIcon(ACC_ICONS[title] || "info", 18) + '</span><span class="acc-title"></span><span class="acc-val"></span><span class="acc-chev">' + navIcon("down", 18) + '</span>';
+    head.querySelector(".acc-title").textContent = title;
+    sec.setAttribute("data-acc-title", title);
+    var body = document.createElement("div"); body.className = "acc-body";
+    while(head.nextSibling) body.appendChild(head.nextSibling);
+    sec.appendChild(body);
+    var toggle = function(){ sec.classList.toggle("open"); };
+    head.addEventListener("click", toggle);
+    head.addEventListener("keydown", function(e){ if(e.key === "Enter" || e.key === " "){ e.preventDefault(); toggle(); } });
+    sec.classList.add("acc-sec");
+  });
+  // "Sair da conta" fica como botao no fim
+  var lo = document.getElementById("btnLogout");
+  if(lo){ lo.className = "acc-logout"; lo.innerHTML = navIcon("out", 18) + " Sair da conta"; }
+}
+function refreshAccountSheet(){
+  if(!currentUser) return;
+  var name = currentUser.name || "";
+  var parts = name.trim().split(/\s+/);
+  var av = document.getElementById("accAvatar"); if(av) av.textContent = ((parts[0] || "?").charAt(0) + (parts.length > 1 ? parts[parts.length - 1].charAt(0) : "")).toUpperCase();
+  var nm = document.getElementById("accName"); if(nm) nm.textContent = name;
+  function val(title, txt){ var s = document.querySelector('#accountOverlay [data-acc-title="' + title + '"] .acc-val'); if(s) s.textContent = txt; }
+  val("Valores rápidos", (data.settings.quickValues || [10, 15]).join(", "));
+  val("Lembrete diário", data.settings.reminderEnabled ? (data.settings.reminderTime || "21:00") : "Desligado");
+  val("Plantão de fim de semana e feriado", data.settings.weekendShiftEnabled ? "Ligado" : "Desligado");
+}
+setupAccountSheet();

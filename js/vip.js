@@ -149,6 +149,53 @@
 
       vipBody.appendChild(tr);
     });
+    renderVipDay();
+  }
+
+  // Visao do dia: abas SEG..SEX e a lista de horarios do dia escolhido (aluno, "Livre" ou sem aula).
+  var vipSelCol = null;
+  var VIP_COLORS = ["#7c3aed,#4c1d95", "#db2777,#9d174d", "#0891b2,#155e75", "#16a34a,#166534", "#ea580c,#9a3412", "#2563eb,#1e3a8a"];
+  function vipInitials(name){
+    var p = String(name).trim().split(/\s+/);
+    return ((p[0] || "?").charAt(0) + (p.length > 1 ? p[p.length - 1].charAt(0) : (p[0] || "").charAt(1) || "")).toUpperCase();
+  }
+  function renderVipDay(){
+    var tabs = document.getElementById("vipTabs"), list = document.getElementById("vipDay");
+    if(!tabs || !list) return;
+    if(!vipSelCol){
+      var dow = new Date().getDay();
+      var keys = Object.keys(VIP_COL_TO_DOW).filter(function(k){ return VIP_COL_TO_DOW[k] === dow; });
+      vipSelCol = keys[0] || VIP_COLS[0].key;
+    }
+    tabs.innerHTML = "";
+    VIP_COLS.forEach(function(c){
+      var b = document.createElement("button"); b.type = "button";
+      b.className = "week-tab vip-tab" + (c.key === vipSelCol ? " on" : "");
+      b.textContent = c.label;
+      b.addEventListener("click", function(){ vipSelCol = c.key; renderVipDay(); });
+      tabs.appendChild(b);
+    });
+    list.innerHTML = "";
+    var colLabel = VIP_COLS.filter(function(c){ return c.key === vipSelCol; })[0].label;
+    getTimeSlots().forEach(function(label, idx){
+      var val = (data.vip.slots[idx] || {})[vipSelCol] || "";
+      var row = document.createElement("button"); row.type = "button"; row.className = "vip-row";
+      var tm = document.createElement("span"); tm.className = "mono vip-time"; tm.textContent = label.split("–")[0];
+      row.appendChild(tm);
+      if(val && val !== "X"){
+        var av = document.createElement("span"); av.className = "vip-av"; av.textContent = vipInitials(val);
+        av.style.background = "linear-gradient(135deg," + VIP_COLORS[(val.charCodeAt(0) + val.length) % VIP_COLORS.length] + ")";
+        var nm = document.createElement("strong"); nm.className = "vip-name"; nm.textContent = val;
+        var f = countVipFaltasThisMonth(idx, vipSelCol);
+        var chip = document.createElement("span"); chip.className = "vip-chip" + (f ? " falta" : ""); chip.textContent = f ? f + (f === 1 ? " falta" : " faltas") : "Em dia";
+        row.appendChild(av); row.appendChild(nm); row.appendChild(chip);
+      } else {
+        var free = document.createElement("span"); free.className = "vip-free"; free.textContent = val === "X" ? "Sem aula" : "+ Livre";
+        row.appendChild(free);
+      }
+      row.addEventListener("click", function(){ openVipModal(idx, vipSelCol, label, colLabel); });
+      list.appendChild(row);
+    });
   }
 
   var vipOverlay = document.getElementById("vipOverlay");
